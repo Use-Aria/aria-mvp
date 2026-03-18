@@ -126,26 +126,66 @@
 
 ## Traceability
 
-*Populated during roadmap creation.*
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 – AUTH-07 | Phase 1 | Pending |
-| CANV-01 – CANV-05 | Phase 2 | Pending |
-| SMS-01 – SMS-09 | Phase 3 | Pending |
-| AI-04 – AI-07 | Phase 3 | Pending |
-| ALRT-01 – ALRT-03 | Phase 3 | Pending |
-| SYNC-01 – SYNC-06 | Phase 3 | Pending |
-| GMAI-01 – GMAI-05 | Phase 4 | Pending |
-| GCAL-01 – GCAL-05 | Phase 4 | Pending |
-| AI-01 – AI-03 | Phase 5 | Pending |
-| UI-01 – UI-05 | Phase 6 | Pending |
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-04 | Phase 1 | Pending |
+| SYNC-01 | Phase 1 | Pending |
+| CANV-01 | Phase 2 | Pending |
+| CANV-02 | Phase 2 | Pending |
+| CANV-03 | Phase 2 | Pending |
+| CANV-04 | Phase 2 | Pending |
+| CANV-05 | Phase 2 | Pending |
+| SMS-01 | Phase 3 | Pending |
+| SMS-02 | Phase 3 | Pending |
+| SMS-03 | Phase 3 | Pending |
+| SMS-04 | Phase 3 | Pending |
+| SMS-05 | Phase 3 | Pending |
+| SMS-06 | Phase 3 | Pending |
+| SMS-07 | Phase 3 | Pending |
+| SMS-08 | Phase 3 | Pending |
+| SMS-09 | Phase 3 | Pending |
+| SYNC-02 | Phase 3 | Pending |
+| AI-04 | Phase 4 | Pending |
+| AI-05 | Phase 4 | Pending |
+| AI-06 | Phase 4 | Pending |
+| AI-07 | Phase 4 | Pending |
+| AUTH-07 | Phase 4 | Pending |
+| SYNC-05 | Phase 4 | Pending |
+| SYNC-06 | Phase 4 | Pending |
+| GCAL-01 | Phase 5 | Pending |
+| GCAL-02 | Phase 5 | Pending |
+| GCAL-03 | Phase 5 | Pending |
+| GCAL-04 | Phase 5 | Pending |
+| GCAL-05 | Phase 5 | Pending |
+| GMAI-01 | Phase 5 | Pending |
+| GMAI-02 | Phase 5 | Pending |
+| GMAI-03 | Phase 5 | Pending |
+| GMAI-04 | Phase 5 | Pending |
+| GMAI-05 | Phase 5 | Pending |
+| ALRT-01 | Phase 5 | Pending |
+| ALRT-02 | Phase 5 | Pending |
+| ALRT-03 | Phase 5 | Pending |
+| SYNC-03 | Phase 5 | Pending |
+| SYNC-04 | Phase 5 | Pending |
+| AI-01 | Phase 6 | Pending |
+| AI-02 | Phase 6 | Pending |
+| AI-03 | Phase 6 | Pending |
+| AUTH-02 | Phase 7 | Pending |
+| AUTH-03 | Phase 7 | Pending |
+| AUTH-05 | Phase 7 | Pending |
+| AUTH-06 | Phase 7 | Pending |
+| UI-01 | Phase 7 | Pending |
+| UI-02 | Phase 7 | Pending |
+| UI-03 | Phase 7 | Pending |
+| UI-04 | Phase 7 | Pending |
+| UI-05 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 47 total
-- Mapped to phases: 47
+- v1 requirements: 52 total
+- Mapped to phases: 52
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-18 after initial definition*
+*Last updated: 2026-03-18 — traceability populated after roadmap creation*
