@@ -10,11 +10,11 @@
 | ID | Feature | Owner | Status | Notes |
 |---|---|---|---|---|
 | F-00 | Repo created, CLAUDE.md, FEATURES.md, slash commands | Josh + Seb | ✅ Done | |
-| F-01 | Next.js 14 scaffold (App Router, TypeScript, Tailwind) | Josh | ⬜ | |
-| F-02 | Supabase project setup + schema migrations | Josh | ⬜ | |
-| F-03 | Shared types defined (Task, CalendarEvent, Message) | Josh | ⬜ | `src/types/index.ts` |
-| F-04 | `.env.local` template + environment variable setup | Josh | ⬜ | |
-| F-05 | ESLint + Prettier config | Josh | ⬜ | |
+| F-01 | Next.js 14 scaffold (App Router, TypeScript, Tailwind) | Josh | ✅ Done | Next.js 15.2 with Turbopack |
+| F-02 | Supabase project setup + schema migrations | Josh | ✅ Done | Migrations pushed to remote (jjnedeyfpgogaizsucxp) |
+| F-03 | Shared types defined (Task, CalendarEvent, Message) | Josh | ✅ Done | `src/types/index.ts` |
+| F-04 | `.env.local` template + environment variable setup | Josh | ✅ Done | `.env.local.template` committed |
+| F-05 | ESLint + Prettier config | Josh | ✅ Done | ESLint passing |
 | F-06 | Google Cloud project created, Gmail + Calendar APIs enabled | Josh | ⬜ | |
 | F-07 | Vercel project connected to repo | Josh | ⬜ | |
 
@@ -79,7 +79,7 @@
 |---|---|---|---|---|
 | F-50 | Twilio account + phone number setup | Josh | ⬜ | |
 | F-51 | Outbound SMS sending function | Josh | ⬜ | `src/lib/sms/twilio.ts` |
-| F-52 | Inbound SMS webhook handler | Josh | ⬜ | `src/app/api/sms/webhook/route.ts` |
+| F-52 | Inbound SMS webhook handler | Josh | 🔄 In Progress | Stub in `src/app/api/sms/webhook/route.ts` — Twilio logic pending |
 | F-53 | Route inbound SMS to Claude for conversational reply | Josh | ⬜ | |
 | F-54 | Anti-spam rules (max 3 unsolicited/day, quiet hours) | Josh | ⬜ | |
 | F-55 | STOP / PAUSE command handling (TCPA compliance) | Josh | ⬜ | |
@@ -103,7 +103,7 @@
 
 | ID | Feature | Owner | Status | Notes |
 |---|---|---|---|---|
-| F-70 | Celery + Redis setup for background jobs | Josh | ⬜ | |
+| F-70 | Celery + Redis setup for background jobs | Josh | ✅ Done | Docker Compose + Celery worker + ping task |
 | F-71 | Canvas iCal sync job (every 60 min) | Josh | ⬜ | |
 | F-72 | Google Calendar sync job (real-time via push) | Josh | ⬜ | |
 | F-73 | Todoist sync job (every 2 hours) | Josh | ⬜ | Phase 2 |
@@ -152,6 +152,27 @@
 ## Push Log
 
 *Most recent push at the top. Updated by Claude after every `git push`.*
+
+---
+
+### ✅ Push #2 — March 18, 2026
+
+**Branch:** `main`
+**Features:** F-01, F-02, F-03, F-04, F-05, F-52 (stub), F-70
+**What was done:**
+- Next.js 15.2 scaffold with App Router, TypeScript strict, Tailwind CSS
+- Supabase project linked + `001_initial_schema.sql` migration pushed to remote
+- Shared types `Task`, `CalendarEvent`, `Message` defined in `src/types/index.ts`
+- `.env.local.template` with all required env vars documented
+- Auth middleware (`src/middleware.ts`) protecting all non-public routes
+- `/api/health` endpoint
+- `/api/sms/webhook` stub (Twilio inbound — logic pending)
+- Celery worker app + `ping` task + `requirements.txt` + `Dockerfile`
+- Docker Compose for local dev stack (Redis + Celery worker)
+- Supabase MCP added to `.mcp.json` for direct DB access in Claude sessions
+- GSD planning docs: roadmap, requirements, phase plans for 01-01 and 01-02
+
+**Next up:** F-10 — Supabase Auth setup → F-11 Google OAuth 2.0
 
 ---
 

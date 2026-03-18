@@ -6,5 +6,9 @@
       "Bash(git push --force)",
       "Bash(rm -rf *)"
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "gsd@claude-plugins-official": true
   }
 }

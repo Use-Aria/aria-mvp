@@ -98,6 +98,12 @@ Work through these in order. Claim one at a time. Do not start a task already cl
 
 | Feature ID | Description | Completed By | Date | Branch / PR |
 |------------|-------------|--------------|------|-------------|
+| F-70 | Celery + Redis Docker Compose + worker + ping task | Josh | 2026-03-18 | main |
+| F-05 | ESLint config (passing) | Josh | 2026-03-18 | main |
+| F-04 | `.env.local.template` + all env vars documented | Josh | 2026-03-18 | main |
+| F-03 | Shared types: Task, CalendarEvent, Message | Josh | 2026-03-18 | main |
+| F-02 | Supabase schema migration (001_initial_schema.sql) pushed to remote | Josh | 2026-03-18 | main |
+| F-01 | Next.js 15.2 scaffold, App Router, TypeScript strict, Tailwind | Josh | 2026-03-18 | main |
 | F-00 | Repo setup, CLAUDE.md, FEATURES.md, slash commands | Josh | 2026-03-18 | main |
 
 ---
@@ -105,6 +111,12 @@ Work through these in order. Claim one at a time. Do not start a task already cl
 ## 📋 Handoff Notes
 
 *Posted here when a developer finishes a task. Read the latest before starting.*
+
+### 2026-03-18 — Josh
+**Done:** F-01 through F-05, F-70 — Infrastructure foundation
+**Files changed:** `src/`, `supabase/migrations/001_initial_schema.sql`, `src/middleware.ts`, `src/app/api/health/`, `src/app/api/sms/webhook/`, `worker/`, `docker-compose.yml`, `.mcp.json`
+**Gotchas:** Supabase project ref is `jjnedeyfpgogaizsucxp`. Migrations are live on remote. Supabase MCP added — restart Claude Code to activate. F-52 SMS webhook is a stub only — Twilio signing secret validation still needed.
+**Next up:** F-10 — Supabase Auth setup → F-11 Google OAuth 2.0 — ready to start
 
 ### 2026-03-18 — Josh
 **Done:** F-00 — Project foundation
