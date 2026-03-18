@@ -69,7 +69,7 @@
 
 ### Sync Engine
 
-- [ ] **SYNC-01**: Celery + Redis deployed on Railway for all background jobs
+- [x] **SYNC-01**: Celery + Redis deployed on Railway for all background jobs
 - [ ] **SYNC-02**: Canvas iCal sync job runs every 60 minutes per user
 - [ ] **SYNC-03**: GCal push notification handler processes calendar changes in real time
 - [ ] **SYNC-04**: GCal and Gmail watch channels renewed via Celery Beat cron (48 hours before expiry)
@@ -130,7 +130,7 @@
 |-------------|-------|--------|
 | AUTH-01 | Phase 1 | Pending |
 | AUTH-04 | Phase 1 | Pending |
-| SYNC-01 | Phase 1 | Pending |
+| SYNC-01 | Phase 1 | Complete |
 | CANV-01 | Phase 2 | Pending |
 | CANV-02 | Phase 2 | Pending |
 | CANV-03 | Phase 2 | Pending |

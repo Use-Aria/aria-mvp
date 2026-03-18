@@ -26,7 +26,7 @@ Aria is built in seven phases that follow strict dependency order. The data pipe
   3. A Twilio phone number is provisioned and can receive an inbound SMS in the Railway environment
   4. Environment variables for all services are documented and confirmed non-empty in Vercel + Railway
   5. A user can create an account and their session persists across browser refresh (Supabase Auth)
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 01-01-PLAN.md — Next.js scaffold, Supabase schema + Auth + RLS, health endpoint, SMS webhook stub
 - [ ] 01-02-PLAN.md — Celery worker + Redis, Docker Compose, ping smoke-test task
@@ -108,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 (Phase 7 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure Foundation | 0/2 | Planning | - |
+| 1. Infrastructure Foundation | 1/2 | In Progress|  |
 | 2. Canvas iCal Sync | 0/TBD | Not started | - |
 | 3. Twilio SMS + TCPA Compliance | 0/TBD | Not started | - |
 | 4. Claude AI + Daily Briefing | 0/TBD | Not started | - |
