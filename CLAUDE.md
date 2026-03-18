@@ -47,10 +47,10 @@ Build the data pipeline before the UI. In this order:
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS |
+| Frontend | Next.js 15.2 (App Router), TypeScript, Tailwind CSS |
 | Backend | Next.js API routes + FastAPI (Python) for AI jobs |
 | Database | Supabase (PostgreSQL) |
-| Vector DB | Chroma (syllabus embeddings) |
+| Vector DB | pgvector via Supabase (syllabus embeddings — Chroma dropped, unnecessary complexity for MVP) |
 | Auth | Supabase Auth + Google OAuth 2.0 |
 | SMS | Twilio Messaging API |
 | AI | Claude API (Anthropic) — see model breakdown below |
