@@ -6,7 +6,7 @@ Aria is a proactive AI personal assistant for college students that unifies acad
 
 **Builders:** Josh Shin (backend) & Sebastian Alvaro Cuervo (frontend)
 **Target users:** Yale students — closed beta targeting 50 users in 30 days post-launch
-**MVP target:** March 19, 2026
+**Project started:** March 18, 2026
 
 ## Core Value
 
@@ -21,11 +21,12 @@ Students never miss a deadline or lose track of their week — Aria surfaces wha
 ### Active
 
 - [ ] Canvas iCal sync — fetch assignments/exams, diff for changes, store in Supabase
+- [ ] Gmail integration — OAuth, monitor professor emails for deadline/schedule changes
 - [ ] Google Calendar integration — OAuth, read/write events, push notifications
 - [ ] Twilio SMS layer — outbound briefings, inbound reply handling with Claude
 - [ ] Syllabus PDF parsing — Claude Opus parses uploads, stores structured JSON
-- [ ] Weekly briefing generation — Claude Sonnet synthesizes data into Monday 8am SMS
-- [ ] Deadline change alerts — detect Canvas diffs, fire SMS alert within 15 min
+- [ ] Daily briefing generation — Claude Sonnet synthesizes data into a daily morning SMS
+- [ ] Deadline change alerts — detect Canvas diffs + Gmail signals, fire SMS alert within 15 min
 - [ ] User onboarding — phone capture, Canvas iCal URL, Google OAuth, SMS verification
 - [ ] Background sync engine — Celery + Redis, Canvas every 60 min, GCal real-time
 - [ ] Frontend UI — onboarding flow, syllabus upload, preferences, connection status (Seb)
@@ -34,7 +35,7 @@ Students never miss a deadline or lose track of their week — Aria surfaces wha
 
 - Todoist integration — v2, not core to MVP value
 - Spotify focus session automation — v2
-- Gmail monitoring for professor emails — v2 (API scopes added but feature deferred)
+- iMessage via Sendblue — v2; Twilio SMS for MVP
 - Study gap detection — v2
 - Exam countdown scheduling — v2
 - Web dashboard — Phase 3
@@ -52,7 +53,7 @@ Students never miss a deadline or lose track of their week — Aria surfaces wha
 - **Claude model tiering** — Opus for syllabus parsing + study gap analysis; Sonnet for briefings + conversational replies; Haiku for deadline classification + Spotify pattern analysis.
 - **Google OAuth** — one OAuth 2.0 client (Web application) covers both Calendar and Gmail scopes. Tokens expire in 1 hour; always refresh before API calls. Refresh tokens encrypted at rest.
 - **Backend-first build order** — pipeline must work end-to-end before Seb starts UI work.
-- **Build order:** Canvas iCal → Google Calendar → Twilio SMS → Syllabus parsing → Weekly briefing → Deadline alerts.
+- **Build order:** Canvas iCal → Gmail → Google Calendar → Twilio SMS → Syllabus parsing → Daily briefing → Deadline alerts.
 
 ## Constraints
 

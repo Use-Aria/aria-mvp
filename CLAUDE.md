@@ -9,7 +9,7 @@
 Aria is a proactive AI personal assistant built for college students. It unifies a student's academic life — Canvas deadlines, syllabus topics, personal tasks, and schedule — into one intelligent layer that communicates via SMS. No new app to open. Just a smart assistant that lives in their messages.
 
 **Builders:** Josh Shin (backend) & Sebastian Alvaro Cuervo (frontend)
-**MVP Date:** March 19, 2026
+**Project Started:** March 18, 2026
 **Target users:** Yale students (closed beta → 50 users in 30 days)
 
 ---
@@ -19,18 +19,19 @@ Aria is a proactive AI personal assistant built for college students. It unifies
 Build the data pipeline before the UI. In this order:
 
 1. **Canvas iCal sync** — fetch assignments/exams, diff for changes, store in DB
-2. **Google Calendar** — OAuth, read/write events, push notifications
-3. **Twilio SMS** — outbound briefings, inbound reply handling
-4. **Syllabus PDF parsing** — Claude parses uploaded PDFs, stores structured data
-5. **Weekly briefing generation** — Claude synthesizes all data into Monday 8am SMS
-6. **Deadline change alerts** — detect Canvas diffs, fire alert within 15 min
+2. **Gmail integration** — OAuth, monitor professor emails for deadline changes
+3. **Google Calendar** — OAuth, read/write events, push notifications
+4. **Twilio SMS** — outbound briefings, inbound reply handling
+5. **Syllabus PDF parsing** — Claude parses uploaded PDFs, stores structured data
+6. **Daily briefing generation** — Claude synthesizes all data into a daily morning SMS
+7. **Deadline change alerts** — detect Canvas diffs + Gmail signals, fire alert within 15 min
 
 **Frontend UI (Seb joins):** comes after the data pipeline is working end-to-end.
 
 ### Save for Phase 2
 - Todoist integration
 - Spotify focus session automation
-- Gmail monitoring for professor emails
+- iMessage via Sendblue (SMS via Twilio for MVP)
 - Study gap detection
 - Exam countdown scheduling
 
@@ -60,7 +61,7 @@ Build the data pipeline before the UI. In this order:
 | Task | Model |
 |---|---|
 | Syllabus parsing | claude-opus-4-6 |
-| Weekly briefing generation | claude-sonnet-4-6 |
+| Daily briefing generation | claude-sonnet-4-6 |
 | Conversational SMS replies | claude-sonnet-4-6 |
 | Deadline change classification | claude-haiku-4-5-20251001 |
 | Study gap analysis | claude-opus-4-6 |

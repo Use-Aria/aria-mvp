@@ -48,7 +48,7 @@
 
 ---
 
-## Phase 3 — Gmail Integration (Phase 2 Product)
+## Phase 3 — Gmail Integration (MVP)
 
 | ID | Feature | Owner | Status | Notes |
 |---|---|---|---|---|
@@ -93,8 +93,8 @@
 | F-60 | Syllabus PDF upload endpoint | Josh | ⬜ | `src/app/api/upload/syllabus/route.ts` |
 | F-61 | Claude Opus syllabus parser — extract exams, assignments, topics | Josh | ⬜ | `src/lib/ai/syllabus.ts` |
 | F-62 | Store parsed syllabus JSON in Supabase | Josh | ⬜ | |
-| F-63 | Weekly briefing generator (Claude Sonnet) | Josh | ⬜ | `src/lib/ai/briefing.ts` |
-| F-64 | Briefing scheduled job (Monday 6am generation, 8am send) | Josh | ⬜ | |
+| F-63 | Daily briefing generator (Claude Sonnet) | Josh | ⬜ | `src/lib/ai/briefing.ts` |
+| F-64 | Briefing scheduled job (daily 7am generation, 8am send) | Josh | ⬜ | |
 | F-65 | Conversational reply handler (Claude Sonnet) | Josh | ⬜ | `src/lib/ai/replies.ts` |
 
 ---
@@ -133,7 +133,7 @@
 | F-92 | Study gap detection (syllabus vs. coverage) | Josh | ⏳ | v2 |
 | F-93 | Exam countdown + preparation scheduling | Josh | ⏳ | v2 |
 | F-94 | Conflict detection (Canvas vs. GCal) | Josh | ⏳ | v2 |
-| F-95 | Sendblue iMessage integration | Josh | ⏳ | v2 |
+| F-95 | Sendblue iMessage integration (upgrade from Twilio SMS) | Josh | ⏳ | v2 |
 | F-96 | Slack integration | Josh | ⏳ | v2 |
 
 ---
