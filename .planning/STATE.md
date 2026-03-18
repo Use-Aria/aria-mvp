@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-infrastructure-foundation 01-02-PLAN.md
-last_updated: "2026-03-18T21:14:54.142Z"
+stopped_at: Completed 01-infrastructure-foundation/01-01-PLAN.md
+last_updated: "2026-03-18T21:19:33.544Z"
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -47,6 +47,7 @@ Plan: 2 of 2
 
 *Updated after each plan completion*
 | Phase 01-infrastructure-foundation P02 | 1 | 2 tasks | 6 files |
+| Phase 01-infrastructure-foundation P01 | 5 | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,8 @@ Recent decisions affecting current work:
 - Roadmap: TCPA compliance (SYNC-02, SMS-04 through SMS-09) ships in Phase 3 with first SMS capability — legal requirement
 - [Phase 01-infrastructure-foundation]: No Supabase DB write in tasks.ping — deferred to Phase 2 when real users exist, avoids PING_TEST_USER_ID placeholder
 - [Phase 01-infrastructure-foundation]: Dockerfile over Nixpacks for Railway — explicit Python 3.12 version control, no Railway-specific build magic
+- [Phase 01-infrastructure-foundation]: Used @supabase/ssr with getClaims() (not deprecated @supabase/auth-helpers or getSession()) for session persistence in Next.js 15 App Router
+- [Phase 01-infrastructure-foundation]: server.ts createClient() is async (await cookies()) — required for Next.js 15 async Request API; handle_new_user trigger uses SECURITY DEFINER SET search_path = '' to prevent injection
 
 ### Pending Todos
 
@@ -75,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T21:14:54.138Z
-Stopped at: Completed 01-infrastructure-foundation 01-02-PLAN.md
+Last session: 2026-03-18T21:19:33.541Z
+Stopped at: Completed 01-infrastructure-foundation/01-01-PLAN.md
 Resume file: None
