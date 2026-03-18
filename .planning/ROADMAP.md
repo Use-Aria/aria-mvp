@@ -26,7 +26,10 @@ Aria is built in seven phases that follow strict dependency order. The data pipe
   3. A Twilio phone number is provisioned and can receive an inbound SMS in the Railway environment
   4. Environment variables for all services are documented and confirmed non-empty in Vercel + Railway
   5. A user can create an account and their session persists across browser refresh (Supabase Auth)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 01-01-PLAN.md — Next.js scaffold, Supabase schema + Auth + RLS, health endpoint, SMS webhook stub
+- [ ] 01-02-PLAN.md — Celery worker + Redis, Docker Compose, ping smoke-test task
 
 ### Phase 2: Canvas iCal Sync
 **Goal**: Users' Canvas deadlines are continuously fetched, normalized, and stored — the product has something to brief about
@@ -56,7 +59,7 @@ Aria is built in seven phases that follow strict dependency order. The data pipe
 **Depends on**: Phase 3
 **Requirements**: AI-04, AI-05, AI-06, AI-07, AUTH-07, SYNC-05, SYNC-06
 **Success Criteria** (what must be TRUE):
-  1. At 8am in the user's local timezone, an SMS arrives summarizing their upcoming deadlines (scanned in under 10 seconds, 3–5 items maximum)
+  1. At 8am in the user's local timezone, an SMS arrives summarizing their upcoming deadlines (scanned in under 10 seconds, 3-5 items maximum)
   2. Within 60 seconds of completing onboarding, the user receives a welcome briefing SMS (cold-start)
   3. Replying "what's due this week?" to Aria produces a relevant, accurate SMS reply within 10 seconds
   4. Briefing generation uses only the last 14 days of deadlines and 7 days of calendar; no prompt exceeds 80% of the model's context limit
@@ -105,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 (Phase 7 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure Foundation | 0/TBD | Not started | - |
+| 1. Infrastructure Foundation | 0/2 | Planning | - |
 | 2. Canvas iCal Sync | 0/TBD | Not started | - |
 | 3. Twilio SMS + TCPA Compliance | 0/TBD | Not started | - |
 | 4. Claude AI + Daily Briefing | 0/TBD | Not started | - |
