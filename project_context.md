@@ -25,10 +25,36 @@ Syncs Canvas deadlines, Gmail, and Google Calendar. Sends a daily 8am briefing +
 | Requirements (52 reqs) | ✅ Done | `.planning/REQUIREMENTS.md` |
 | Roadmap (7 phases) | ✅ Done | `.planning/ROADMAP.md` |
 | Work coordination | ✅ Done | `WORK.md` |
+| Phase 1 context | ✅ Done | `.planning/phases/01-infrastructure-foundation/01-CONTEXT.md` |
+| Phase 1 research | ✅ Done | `.planning/phases/01-infrastructure-foundation/01-RESEARCH.md` |
+| Phase 1 plans (2) | ✅ Done | `.planning/phases/01-infrastructure-foundation/01-01-PLAN.md`, `01-02-PLAN.md` |
+| Phase 1 validation | ✅ Done | `.planning/phases/01-infrastructure-foundation/01-VALIDATION.md` |
 | App code | ❌ Not started | — |
 
-**Active phase:** Phase 1 — Infrastructure Foundation (not started)
-**Next action:** `/gsd:discuss-phase 1` or `/gsd:plan-phase 1`
+**Active phase:** Phase 1 — Infrastructure Foundation (planned, ready to execute)
+**Next action:** `/gsd:execute-phase 1`
+
+---
+
+## Phase 1 — What's Planned
+
+Two plans run in parallel (Wave 1):
+
+| Plan | What it builds |
+|------|---------------|
+| `01-01` | Next.js 15.2 scaffold, Supabase schema (`001_initial_schema.sql`), Supabase Auth middleware, `/api/health` endpoint, `/api/sms/webhook` stub |
+| `01-02` | Celery worker app, `tasks.ping()` smoke test, `Dockerfile`, Docker Compose (Redis + worker), Railway deployment config |
+
+Files that will be created (none exist yet — greenfield):
+- `src/app/api/health/route.ts`
+- `src/app/api/sms/webhook/route.ts`
+- `src/lib/supabase/server.ts`, `client.ts`, `middleware.ts`
+- `src/middleware.ts`
+- `src/types/index.ts`
+- `.env.example`
+- `supabase/migrations/001_initial_schema.sql`
+- `celery_worker/tasks.py`, `celery_app.py`, `requirements.txt`, `Dockerfile`
+- `docker-compose.yml`
 
 ---
 
@@ -52,12 +78,17 @@ Syncs Canvas deadlines, Gmail, and Google Calendar. Sends a daily 8am briefing +
 |----------|------|-----|
 | Next.js version | **15.2** (not 14) | 14 is outdated; breaking changes in params/cookies now async |
 | Vector DB | **pgvector** (Supabase native) | Chroma dropped — unnecessary Railway service for 50 users |
-| Auth package | **@supabase/ssr** | auth-helpers-nextjs is deprecated |
+| Auth package | **@supabase/ssr** (not `auth-helpers`) | auth-helpers-nextjs is deprecated; session persistence requires `getClaims()` in middleware |
 | SMS for MVP | **Twilio SMS** | No native iMessage API; Sendblue iMessage is v2 |
 | Briefing cadence | **Daily** (7am generate, 8am send) | Not weekly — daily is the confirmed MVP spec |
 | Gmail scope | **MVP** (not v2) | Cross-referencing professor emails is core to deadline accuracy |
 | Background jobs | **FastAPI + Celery + Redis on Railway** | Python needed for Claude AI workloads; Next.js handles webhooks only |
 | Claude in webhooks | **Never inline** | Always enqueue to Celery — Vercel 30s timeout would kill it |
+| Twilio number type | **10DLC local number** | Cheapest + most carrier-trusted for US college audience; A2P registration required before Phase 3 sends bulk SMS |
+| `tasks.ping()` | **Console-only in Phase 1** | `messages.user_id` is NOT NULL — no real user exists yet; DB write deferred to Phase 2 |
+| Railway layout | **3 separate entities** | Next.js service + Celery worker service + Redis plugin; shared env group for secrets |
+| Supabase users table | **FK to `auth.users.id`** | Supabase Auth owns credentials; `public.users` stores app fields only (phone, preferences) |
+| RLS | **On from day one** | User-scoped policies (`WHERE user_id = auth.uid()`) on all 7 tables; never retrofitted |
 
 ---
 
