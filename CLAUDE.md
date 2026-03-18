@@ -157,6 +157,7 @@ id, user_id, playlist_uri, started_at, ended_at, duration_minutes
 ```
 aria-mvp/
 ├── CLAUDE.md                   ← you are here
+├── WORK.md                     ← active work state — read before every session
 ├── FEATURES.md                 ← feature checklist, updated after every push
 ├── README.md
 ├── .env.local                  ← never commit
@@ -178,7 +179,7 @@ aria-mvp/
 │   │   │   ├── canvas-sync.ts  ← diff + alert logic
 │   │   │   └── gcal-sync.ts    ← push notification handler
 │   │   ├── ai/
-│   │   │   ├── briefing.ts     ← weekly briefing generator
+│   │   │   ├── briefing.ts     ← daily briefing generator
 │   │   │   ├── syllabus.ts     ← PDF parser via Claude
 │   │   │   └── replies.ts      ← conversational SMS handler
 │   │   └── sms/
@@ -360,6 +361,41 @@ that mocks the iCal response and verifies the Task mapping is correct.
 - **FERPA compliance** — never access grades, submissions, or enrollment records. Canvas iCal only.
 - **Claude context limit** — pass only the last 14 days of deadlines + 7 days of calendar per request
 - **Syllabus parsing** — use Claude Opus for accuracy, store structured JSON in Supabase, never re-parse the raw PDF
+
+---
+
+## Two-Developer Collaboration Protocol
+
+**The problem:** Josh and Seb each run their own Claude Code session. Without coordination, two Claudes can touch the same files at the same time and create conflicts or duplicate work.
+
+**The solution:** `WORK.md` is the single source of truth for active work. Read it before every session. Update it when you start and finish.
+
+### Every session — no exceptions:
+1. `git pull origin main` — always start from latest
+2. Read `WORK.md` — see what's claimed, what's done, what's next
+3. Pick an **unclaimed** task from the "Up Next" queue
+4. **Claim it** by adding your row to "Currently In Progress" and pushing to main
+5. Work on your branch
+6. When done: update `WORK.md`, post a Handoff Note, push WORK.md to main
+
+### What WORK.md contains:
+- **🔒 Currently In Progress** — tasks that are actively claimed (do not touch these)
+- **🎯 Up Next** — prioritized queue of available work
+- **✅ Completed** — finished features with context
+- **📋 Handoff Notes** — notes from the other developer you need to read
+
+### Ownership enforcement (enforced by Claude, not just a suggestion):
+| Developer | Owns | Never touches |
+|-----------|------|---------------|
+| Josh | `src/lib/`, `src/app/api/`, `supabase/` | `src/app/(pages)/`, `src/components/` |
+| Seb | `src/app/(pages)/`, `src/components/` | `src/lib/`, `src/app/api/`, `supabase/` |
+| Both | `src/types/index.ts` | (sync before every change) |
+
+### Hard rules:
+- Never claim a task already in "Currently In Progress"
+- Never modify the other developer's ownership area
+- Never change `src/types/index.ts` or `supabase/migrations/` without calling the other person
+- Always post a Handoff Note when pushing — the other developer reads this before starting
 
 ---
 
