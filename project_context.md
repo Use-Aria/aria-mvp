@@ -137,3 +137,4 @@ Both must sync before touching: `src/types/index.ts`, `supabase/migrations/`
 - `.planning/ROADMAP.md` — full phase breakdown with success criteria
 - `.planning/REQUIREMENTS.md` — all 52 v1 requirements with traceability
 - `.planning/research/SUMMARY.md` — research synthesis (stack, features, architecture, pitfalls)
+- `.planning/phases/01-infrastructure-foundation/` — context, research, plans, validation for Phase 1
