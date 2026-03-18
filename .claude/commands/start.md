@@ -11,9 +11,9 @@ Run this at the beginning of every Claude Code session — no exceptions.
    If there are merge conflicts, stop and resolve them before continuing.
 
 2. **Read these files in full:**
-   - `CLAUDE.md` — project constitution, architecture, stack, ownership rules
+   - `project_context.md` — TL;DR of entire project state (read this first, reduces context)
    - `WORK.md` — what's claimed, what's done, what's next
-   - `FEATURES.md` — full feature list with status
+   - `CLAUDE.md` — full architecture, stack, ownership rules (if you need deeper detail)
 
 3. **Check for active claims in WORK.md**
    Look at the "Currently In Progress" table. Do not touch anything already claimed by another developer.
