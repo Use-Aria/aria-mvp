@@ -31,30 +31,40 @@ Syncs Canvas deadlines, Gmail, and Google Calendar. Sends a daily 8am briefing +
 | Phase 1 validation | ✅ Done | `.planning/phases/01-infrastructure-foundation/01-VALIDATION.md` |
 | App code | ❌ Not started | — |
 
-**Active phase:** Phase 1 — Infrastructure Foundation (planned, ready to execute)
-**Next action:** `/gsd:execute-phase 1`
+**Active phase:** Phase 2 — Canvas iCal Sync (not started, needs discuss → plan → execute)
+**Next action:** `/gsd:discuss-phase 2`
 
 ---
 
-## Phase 1 — What's Planned
+## Phase 1 — Completed ✅
 
-Two plans run in parallel (Wave 1):
+All code executed, all 4 human verification steps passed (2026-03-18).
 
-| Plan | What it builds |
-|------|---------------|
-| `01-01` | Next.js 15.2 scaffold, Supabase schema (`001_initial_schema.sql`), Supabase Auth middleware, `/api/health` endpoint, `/api/sms/webhook` stub |
-| `01-02` | Celery worker app, `tasks.ping()` smoke test, `Dockerfile`, Docker Compose (Redis + worker), Railway deployment config |
+### Files Created
 
-Files that will be created (none exist yet — greenfield):
-- `src/app/api/health/route.ts`
-- `src/app/api/sms/webhook/route.ts`
-- `src/lib/supabase/server.ts`, `client.ts`, `middleware.ts`
-- `src/middleware.ts`
-- `src/types/index.ts`
-- `.env.example`
-- `supabase/migrations/001_initial_schema.sql`
-- `celery_worker/tasks.py`, `celery_app.py`, `requirements.txt`, `Dockerfile`
-- `docker-compose.yml`
+| File | Key Change |
+|------|-----------|
+| `src/types/index.ts` | Task, CalendarEvent, Message normalized types |
+| `src/lib/supabase/client.ts` | Browser client via `createBrowserClient` |
+| `src/lib/supabase/server.ts` | Server client via `createServerClient` + `await cookies()` (Next.js 15 async API) |
+| `src/middleware.ts` | Token refresh on every request via `getClaims()` — NOT `getSession()` |
+| `src/app/api/health/route.ts` | Returns 200/500 based on presence of 7 required env vars |
+| `src/app/api/sms/webhook/route.ts` | Always 200; logs MessageSid only, never From (phone privacy) |
+| `supabase/migrations/001_initial_schema.sql` | 8 tables + RLS + `handle_new_user` trigger (auto-creates `public.users` on signup) |
+| `.env.example` | All required env var keys with empty values |
+| `celery_worker/celery_app.py` | Celery app configured with Redis broker; `include=["tasks"]` (not `celery_worker.tasks`) |
+| `celery_worker/tasks.py` | `tasks.ping()` — logs timestamp, no DB write; imports from `celery_app` (not `celery_worker.celery_app`) |
+| `celery_worker/requirements.txt` | celery==5.6.2, redis, supabase, python-dotenv |
+| `celery_worker/Dockerfile` | `FROM python:3.12-slim`; CMD uses `celery_app` (not `celery_worker.celery_app`) |
+| `docker-compose.yml` | Redis + Celery worker; command uses `celery_app` (not `celery_worker.celery_app`) |
+
+### Decisions Not Captured in Code
+
+| Decision | Detail |
+|----------|--------|
+| Celery module naming inside container | Build context is `./celery_worker` so files land at `/app` root — all references inside the container drop the `celery_worker.` prefix (use `celery_app`, `tasks`, not `celery_worker.celery_app`, `celery_worker.tasks`) |
+| AUTH-04 browser verification | Verified structurally (middleware compiles, `getClaims()` fires). Full browser login/refresh test deferred to Phase 7 when the onboarding UI exists |
+| Test user created | `test@test.com` / `testpassword123` in Supabase — used to confirm `handle_new_user` trigger. UUID: `c881ebf6-41cd-45a5-9435-36bd2f0b98ad` |
 
 ---
 
