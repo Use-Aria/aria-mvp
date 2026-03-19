@@ -9,7 +9,7 @@ Aria is built in nine phases that follow strict dependency order. The data pipel
 - [x] **Phase 1: Infrastructure Foundation** - Supabase schema, Redis, Celery skeleton, Twilio number provisioned (completed 2026-03-18)
 - [x] **Phase 2: Canvas iCal Sync** - Fetch, parse, diff, and store Canvas deadlines every 60 minutes (completed 2026-03-19)
 - [x] **Phase 3: Twilio SMS + TCPA Compliance** - Send and receive SMS with opt-out, quiet hours, and message cap enforced from day one (completed 2026-03-19)
-- [ ] **Phase 4: Claude AI + Daily Briefing** - Wire Canvas data through Claude Sonnet for daily SMS briefings, Monday extended briefing, conversational replies, task management, and exam countdown
+- [x] **Phase 4: Claude AI + Daily Briefing** - Wire Canvas data through Claude Sonnet for daily SMS briefings, Monday extended briefing, conversational replies, task management, and exam countdown (completed 2026-03-19)
 - [ ] **Phase 5: Priority Engine + Canonical Timeline DB** - Unified event scoring and delivery routing — all Phase 6+ integrations write to Canonical Store; events scored and routed by priority
 - [ ] **Phase 6: Google OAuth + GCal + Gmail + Alerts + Conflict Detection** - Connect Google account, ingest calendar and email, fire deadline alerts within 15 minutes, detect conflicts
 - [ ] **Phase 7: Syllabus Parsing + Study Gap Detection** - Upload PDFs, parse with Claude Opus, extract exam topics + grade weights, run gap analysis before exams
@@ -75,7 +75,7 @@ Plans:
   5. Users can mark tasks complete, snooze, and set priority via SMS; Aria resolves ambiguous matches to soonest-due
   6. Exam countdown fires at T-7, T-5 (stub), T-3, T-1, and day-of; all bundled into daily briefing
   7. Daily load score (green/yellow/red) computed and included in briefing
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 04-01-PLAN.md — Schema migration + AI module skeleton + briefing generator with load score and exam countdown
 - [ ] 04-02-PLAN.md — Conversational reply handler + Celery task wiring (Beat schedule, fan-out, welcome briefing, inbound SMS)
@@ -152,7 +152,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 (Ph
 | 1. Infrastructure Foundation | 2/2 | Complete | 2026-03-18 |
 | 2. Canvas iCal Sync | 2/2 | Complete | 2026-03-19 |
 | 3. Twilio SMS + TCPA Compliance | 3/3 | Complete | 2026-03-19 |
-| 4. Claude AI + Daily Briefing | 1/2 | In Progress|  |
+| 4. Claude AI + Daily Briefing | 2/2 | Complete   | 2026-03-19 |
 | 5. Priority Engine + Canonical Timeline DB | 0/TBD | Not started | - |
 | 6. Google OAuth + GCal + Gmail + Alerts | 0/TBD | Not started | - |
 | 7. Syllabus Parsing + Study Gap Detection | 0/TBD | Not started | - |

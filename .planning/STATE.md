@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-claude-ai-daily-briefing/04-01-PLAN.md
-last_updated: "2026-03-19T21:42:12.937Z"
+stopped_at: Completed 04-claude-ai-daily-briefing/04-02-PLAN.md
+last_updated: "2026-03-19T21:53:52.246Z"
 progress:
   total_phases: 9
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 ---
@@ -68,6 +68,7 @@ Plan: 1 of 2
 | Phase 03 P01 | 417 | 1 tasks | 7 files |
 | Phase 03 P03 | 4 | 2 tasks | 5 files |
 | Phase 04-claude-ai-daily-briefing P01 | 4 | 2 tasks | 8 files |
+| Phase 04-claude-ai-daily-briefing P02 | 9 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,10 @@ Recent decisions affecting current work:
 - [Phase 04-01]: Snoozed deadline filtering done in Python after Supabase query — supabase-py v2 lacks native timestamp comparison filter for snoozed_until > now
 - [Phase 04-01]: generate_briefing takes no conversation_history param — briefing personalization from conversation context deferred per CONTEXT.md; reply handler owns conversation history
 - [Phase 04-01]: Timezone-aware date comparison uses local date for days_until calculation — prevents off-by-one errors with Canvas all-day events stored as 23:59:59 UTC
+- [Phase 04-claude-ai-daily-briefing]: Off-topic SMS handled with OFF_TOPIC_RESPONSE constant (no second Claude call) — saves latency and cost on non-deadline messages
+- [Phase 04-claude-ai-daily-briefing]: build_history_messages deduplicates consecutive same-role messages — prevents invalid alternating-role violations in Claude messages API
+- [Phase 04-claude-ai-daily-briefing]: welcome_briefing.delay called AFTER mark_synced — first sync state is confirmed before triggering welcome
+- [Phase 04-claude-ai-daily-briefing]: process_inbound_sms uses is_proactive=False for reply sends — bypasses daily proactive cap for user-initiated conversations
 
 ### Pending Todos
 
@@ -113,6 +118,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T21:42:12.929Z
-Stopped at: Completed 04-claude-ai-daily-briefing/04-01-PLAN.md
+Last session: 2026-03-19T21:53:52.215Z
+Stopped at: Completed 04-claude-ai-daily-briefing/04-02-PLAN.md
 Resume file: None
