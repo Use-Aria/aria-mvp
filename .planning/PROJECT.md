@@ -16,14 +16,13 @@ Students never miss a deadline or lose track of their week — Aria surfaces wha
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Canvas iCal sync — fetch assignments/exams, diff for changes, store in Supabase (Validated in Phase 2: canvas-ical-sync)
+- [x] Twilio SMS layer — TCPA-compliant outbound guard, STOP/START/PAUSE/HELP keyword dispatch, signature-validated webhook, Celery inbound processing (Validated in Phase 3: twilio-sms-tcpa-compliance)
 
 ### Active
 
-- [ ] Canvas iCal sync — fetch assignments/exams, diff for changes, store in Supabase
 - [ ] Gmail integration — OAuth, monitor professor emails for deadline/schedule changes
 - [ ] Google Calendar integration — OAuth, read/write events, push notifications
-- [ ] Twilio SMS layer — outbound briefings, inbound reply handling with Claude
 - [ ] Syllabus PDF parsing — Claude Opus parses uploads, stores structured JSON
 - [ ] Daily briefing generation — Claude Sonnet synthesizes data into a daily morning SMS
 - [ ] Deadline change alerts — detect Canvas diffs + Gmail signals, fire SMS alert within 15 min
@@ -75,4 +74,4 @@ Students never miss a deadline or lose track of their week — Aria surfaces wha
 | Single Google OAuth client | Calendar + Gmail share same client; reduces setup complexity | — Pending |
 
 ---
-*Last updated: 2026-03-18 after initialization*
+*Last updated: 2026-03-19 — Phase 3 complete (Twilio SMS + TCPA compliance)*
