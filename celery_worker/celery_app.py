@@ -1,5 +1,6 @@
 import os
 from celery import Celery
+from celery.schedules import crontab
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
@@ -20,6 +21,10 @@ celery_app.conf.update(
         "canvas-sync-all-users": {
             "task": "tasks.canvas_sync_all",
             "schedule": 3600.0,  # every 60 minutes
+        },
+        "generate-daily-briefings": {
+            "task": "tasks.generate_daily_briefings_all",
+            "schedule": crontab(minute="*/15", hour="6-12"),
         },
     },
 )

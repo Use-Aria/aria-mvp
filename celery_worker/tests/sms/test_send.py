@@ -130,16 +130,25 @@ def test_paused_blocks(mock_client_cls, mock_get_state):
 def test_paused_expired_allows(mock_client_cls, mock_get_state, mock_increment):
     """sms_paused_until is in the past: pause expired, proceed to send."""
     from sms.send import send_sms_safe
+    from zoneinfo import ZoneInfo
 
-    past = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    # Fixed "now" in UTC for both computing past and for mock
+    fixed_utc_now = datetime(2026, 3, 19, 14, 0, 0, tzinfo=timezone.utc)
+    past = (fixed_utc_now - timedelta(hours=2)).isoformat()
     mock_get_state.return_value = _base_state(sms_paused_until=past)
     mock_message = MagicMock()
     mock_message.sid = "SM_expired"
     mock_client_cls.return_value.messages.create.return_value = mock_message
 
-    local_now = _make_local_now(9)
+    local_now = _make_local_now(9)  # 9am ET = 14:00 UTC
+
+    def _mock_now(tz=None):
+        if tz is timezone.utc:
+            return fixed_utc_now
+        return local_now
+
     with patch("sms.send.datetime") as mock_dt:
-        mock_dt.now.return_value = local_now
+        mock_dt.now.side_effect = _mock_now
         mock_dt.fromisoformat = datetime.fromisoformat
         result = send_sms_safe("user-1", "+12025551234", "hello", is_proactive=True)
 
