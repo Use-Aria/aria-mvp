@@ -5,3 +5,4 @@ python-dotenv>=1.0.0
 icalendar==6.3.2
 requests>=2.32.0
 twilio==9.10.3
+anthropic>=0.86.0
