@@ -43,7 +43,7 @@
 
 - [x] **SMS-01**: System can send outbound SMS to user via Twilio
 - [x] **SMS-02**: Twilio inbound webhook returns 200 immediately and enqueues processing to Celery (never inline)
-- [x] **SMS-03**: Inbound SMS routed to Claude Sonnet for conversational reply
+- [ ] **SMS-03**: Inbound SMS routed to Claude Sonnet for conversational reply
 - [x] **SMS-04**: Maximum 3 unsolicited SMS per day per user enforced
 - [x] **SMS-05**: Quiet hours enforced (no SMS between 10pm–8am in user's timezone)
 - [x] **SMS-06**: STOP command immediately opts user out and confirms with final SMS
@@ -138,7 +138,7 @@
 | CANV-05 | Phase 2 | Complete |
 | SMS-01 | Phase 3 | Complete |
 | SMS-02 | Phase 3 | Complete |
-| SMS-03 | Phase 3 | Complete |
+| SMS-03 | Phase 4 | Pending |
 | SMS-04 | Phase 3 | Complete |
 | SMS-05 | Phase 3 | Complete |
 | SMS-06 | Phase 3 | Complete |
