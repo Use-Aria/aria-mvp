@@ -46,9 +46,9 @@
 - [ ] **SMS-03**: Inbound SMS routed to Claude Sonnet for conversational reply
 - [ ] **SMS-04**: Maximum 3 unsolicited SMS per day per user enforced
 - [ ] **SMS-05**: Quiet hours enforced (no SMS between 10pm–8am in user's timezone)
-- [ ] **SMS-06**: STOP command immediately opts user out and confirms with final SMS
-- [ ] **SMS-07**: PAUSE command suspends SMS for 24 hours
-- [ ] **SMS-08**: HELP command replies with list of commands
+- [x] **SMS-06**: STOP command immediately opts user out and confirms with final SMS
+- [x] **SMS-07**: PAUSE command suspends SMS for 24 hours
+- [x] **SMS-08**: HELP command replies with list of commands
 - [ ] **SMS-09**: Opt-out status checked before every outbound SMS regardless of carrier-level blocking
 
 ### AI Layer
@@ -141,9 +141,9 @@
 | SMS-03 | Phase 3 | Pending |
 | SMS-04 | Phase 3 | Pending |
 | SMS-05 | Phase 3 | Pending |
-| SMS-06 | Phase 3 | Pending |
-| SMS-07 | Phase 3 | Pending |
-| SMS-08 | Phase 3 | Pending |
+| SMS-06 | Phase 3 | Complete |
+| SMS-07 | Phase 3 | Complete |
+| SMS-08 | Phase 3 | Complete |
 | SMS-09 | Phase 3 | Pending |
 | SYNC-02 | Phase 3 | Pending |
 | AI-04 | Phase 4 | Pending |
