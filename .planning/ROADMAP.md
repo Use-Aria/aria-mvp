@@ -2,17 +2,19 @@
 
 ## Overview
 
-Aria is built in seven phases that follow strict dependency order. The data pipeline comes first — no SMS, no AI, no UI until Canvas deadlines can be stored and retrieved. Each phase delivers one independently testable capability: infrastructure that holds state, Canvas sync that captures deadlines, Twilio SMS with full TCPA compliance, Claude briefings that deliver the core value, Google OAuth unlocking Calendar and Gmail signals, syllabus parsing that upgrades briefing quality, and finally the onboarding UI that lets real users connect everything. Seb's frontend work (Phase 7) can begin in parallel once Phase 4 APIs are stable.
+Aria is built in nine phases that follow strict dependency order. The data pipeline comes first — no SMS, no AI, no UI until Canvas deadlines can be stored and retrieved. Each phase delivers one independently testable capability: infrastructure, Canvas sync, Twilio SMS, Claude briefings, a priority-scored event engine, Google integrations + alerts, syllabus intelligence + study gap detection, the full iOS app + onboarding, and finally Todoist task sync. Seb's iOS work (Phase 8) can begin in parallel once Phase 4 APIs are stable.
 
 ## Phases
 
-- [ ] **Phase 1: Infrastructure Foundation** - Supabase schema, Redis, Celery skeleton, Twilio number provisioned — everything else depends on this
+- [x] **Phase 1: Infrastructure Foundation** - Supabase schema, Redis, Celery skeleton, Twilio number provisioned (completed 2026-03-18)
 - [x] **Phase 2: Canvas iCal Sync** - Fetch, parse, diff, and store Canvas deadlines every 60 minutes (completed 2026-03-19)
 - [x] **Phase 3: Twilio SMS + TCPA Compliance** - Send and receive SMS with opt-out, quiet hours, and message cap enforced from day one (completed 2026-03-19)
-- [ ] **Phase 4: Claude AI + Daily Briefing** - Wire Canvas data through Claude Sonnet to produce a daily 8am SMS briefing and handle conversational replies
-- [ ] **Phase 5: Google OAuth + Calendar + Gmail + Deadline Alerts** - Connect Google account, ingest calendar and email signals, fire deadline change alerts within 15 minutes
-- [ ] **Phase 6: Syllabus Parsing** - Upload PDFs, parse with Claude Opus, store structured JSON, enrich briefings with grade weights
-- [ ] **Phase 7: User Onboarding + Frontend UI** - Onboarding flow, syllabus upload UI, preferences, and connection status pages (Seb owns this phase)
+- [ ] **Phase 4: Claude AI + Daily Briefing** - Wire Canvas data through Claude Sonnet for daily SMS briefings, Monday extended briefing, conversational replies, task management, and exam countdown
+- [ ] **Phase 5: Priority Engine + Canonical Timeline DB** - Unified event scoring and delivery routing — all Phase 6+ integrations write to Canonical Store; events scored and routed by priority
+- [ ] **Phase 6: Google OAuth + GCal + Gmail + Alerts + Conflict Detection** - Connect Google account, ingest calendar and email, fire deadline alerts within 15 minutes, detect conflicts
+- [ ] **Phase 7: Syllabus Parsing + Study Gap Detection** - Upload PDFs, parse with Claude Opus, extract exam topics + grade weights, run gap analysis before exams
+- [ ] **Phase 8: iOS App + Onboarding** - Full 4-zone iOS card dashboard, in-app chat, voice input, onboarding flow (Seb leads)
+- [ ] **Phase 9: Todoist Integration** - Todoist OAuth, task read/write, tasks in briefings and scheduling
 
 ## Phase Details
 
@@ -26,10 +28,10 @@ Aria is built in seven phases that follow strict dependency order. The data pipe
   3. A Twilio phone number is provisioned and can receive an inbound SMS in the Railway environment
   4. Environment variables for all services are documented and confirmed non-empty in Vercel + Railway
   5. A user can create an account and their session persists across browser refresh (Supabase Auth)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 complete
 Plans:
-- [ ] 01-01-PLAN.md — Next.js scaffold, Supabase schema + Auth + RLS, health endpoint, SMS webhook stub
-- [ ] 01-02-PLAN.md — Celery worker + Redis, Docker Compose, ping smoke-test task
+- [x] 01-01-PLAN.md — Next.js scaffold, Supabase schema + Auth + RLS, health endpoint, SMS webhook stub
+- [x] 01-02-PLAN.md — Celery worker + Redis, Docker Compose, ping smoke-test task
 
 ### Phase 2: Canvas iCal Sync
 **Goal**: Users' Canvas deadlines are continuously fetched, normalized, and stored — the product has something to brief about
@@ -40,10 +42,10 @@ Plans:
   2. The sync job runs every 60 minutes per user without manual trigger, confirmed by `synced_at` advancing in Supabase
   3. When a deadline is added, modified, or removed in Canvas, the diff engine detects the change within one sync cycle (60 minutes)
   4. A Canvas feed that returns a rate-limit error is retried with exponential backoff and does not crash the worker
-**Plans:** 2/2 plans complete
+**Plans:** 2/2 complete
 Plans:
-- [ ] 02-01-PLAN.md — TDD: iCal fetch, parse, and diff modules with pytest
-- [ ] 02-02-PLAN.md — DB layer, Celery tasks + Beat, Docker Compose, trigger route
+- [x] 02-01-PLAN.md — TDD: iCal fetch, parse, and diff modules with pytest
+- [x] 02-02-PLAN.md — DB layer, Celery tasks + Beat, Docker Compose, trigger route
 
 ### Phase 3: Twilio SMS + TCPA Compliance
 **Goal**: The system can send and receive SMS with every TCPA-required safeguard active before the first outbound message ever leaves
@@ -52,73 +54,104 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. An outbound SMS sent via Twilio is received on a test phone number within 30 seconds
   2. An inbound SMS to the Twilio number triggers the webhook, returns HTTP 200 in under 1 second, and the message appears in the `messages` table — no Claude call happens synchronously
-  3. Texting STOP immediately sets `sms_opted_out: true` in the database; the next scheduled outbound SMS to that user is suppressed even if the carrier-level opt-out has not propagated
+  3. Texting STOP immediately sets `sms_opted_out: true` in the database; the next scheduled outbound SMS to that user is suppressed
   4. No SMS is sent between 10pm and 8am in the user's local timezone; the 3 unsolicited messages/day cap is enforced regardless of trigger source
   5. PAUSE suspends delivery for 24 hours; HELP returns the command list
-**Plans:** 3/3 plans complete
+**Plans:** 3/3 complete
 Plans:
-- [ ] 03-01-PLAN.md — TDD: TCPA migration + send_sms_safe() centralized guard
-- [ ] 03-02-PLAN.md — TDD: STOP/START/PAUSE/HELP command dispatch
-- [ ] 03-03-PLAN.md — Webhook upgrade + process_inbound_sms task + SYNC-02 verification
+- [x] 03-01-PLAN.md — TDD: TCPA migration + send_sms_safe() centralized guard
+- [x] 03-02-PLAN.md — TDD: STOP/START/PAUSE/HELP command dispatch
+- [x] 03-03-PLAN.md — Webhook upgrade + process_inbound_sms task + SYNC-02 verification
 
 ### Phase 4: Claude AI + Daily Briefing
 **Goal**: Canvas data flows through Claude Sonnet and arrives as a readable morning SMS — users receive value on day one without waiting 18 hours
 **Depends on**: Phase 3
-**Requirements**: AI-04, AI-05, AI-06, AI-07, AUTH-07, SYNC-05, SYNC-06
+**Requirements**: SMS-03, AI-04, AI-05, AI-06, AI-07, AI-08 (partial), AI-09, AI-11, AUTH-07, CONV-01, SYNC-05, SYNC-06
 **Success Criteria** (what must be TRUE):
-  1. At 8am in the user's local timezone, an SMS arrives summarizing their upcoming deadlines (scanned in under 10 seconds, 3-5 items maximum)
-  2. Within 60 seconds of completing onboarding, the user receives a welcome briefing SMS (cold-start)
-  3. Replying "what's due this week?" to Aria produces a relevant, accurate SMS reply within 10 seconds
-  4. Briefing generation uses only the last 14 days of deadlines and 7 days of calendar; no prompt exceeds 80% of the model's context limit
-  5. The daily briefing Celery job runs at 7am per user timezone and the exam countdown check runs at 7am daily
+  1. At 8am in the user's local timezone, an SMS arrives summarizing their upcoming deadlines in conversational prose (smart-friend tone, max 800 chars)
+  2. On Monday, the briefing covers the full 7-day horizon with exam topic stubs and daily load score
+  3. Within 60 seconds of saving a Canvas iCal URL, the user receives a welcome briefing SMS
+  4. Replying "what's due this week?" produces a relevant SMS reply within 10 seconds, with last 5 exchanges as context
+  5. Users can mark tasks complete, snooze, and set priority via SMS; Aria resolves ambiguous matches to soonest-due
+  6. Exam countdown fires at T-7, T-5 (stub), T-3, T-1, and day-of; all bundled into daily briefing
+  7. Daily load score (green/yellow/red) computed and included in briefing
 **Plans**: TBD
 
-### Phase 5: Google OAuth + Calendar + Gmail + Deadline Alerts
-**Goal**: Users connect their Google account once and Aria starts detecting deadline changes from both Calendar and professor emails, firing alerts within 15 minutes
+### Phase 5: Priority Engine + Canonical Timeline DB
+**Goal**: All events from all integrations are scored by a unified priority formula and routed to the right delivery channel — the intelligence backbone that Phase 6+ integrations write to
 **Depends on**: Phase 4
-**Requirements**: GCAL-01, GCAL-02, GCAL-03, GCAL-04, GCAL-05, GMAI-01, GMAI-02, GMAI-03, GMAI-04, GMAI-05, ALRT-01, ALRT-02, ALRT-03, SYNC-03, SYNC-04
+**Requirements**: PRIO-01, PRIO-02, PRIO-03
 **Success Criteria** (what must be TRUE):
-  1. A user can connect their Google account via OAuth; the access token and refresh token are stored encrypted in Supabase and the refresh token is rotated on use
-  2. When a Canvas deadline changes, the user receives an SMS alert within 15 minutes that includes the original deadline, new deadline, course name, and assignment title
-  3. When a professor email contains keywords indicating a deadline change, an SMS alert fires and the signal is cross-referenced against the current Canvas state
-  4. Google Calendar events from a 7-day rolling window appear in the `calendar_events` table and are included in the next morning briefing
-  5. GCal push channels and Gmail watch channels are renewed automatically before their 7-day expiry; no manual intervention is needed
+  1. All existing Canvas deadlines are migrated into the Canonical Timeline DB with source, type, title, due_at, course_id, and grade_weight fields
+  2. Every event has a computed priority score using `(grade_weight × 0.35) + (urgency × 0.45) + (source_authority × 0.20)`; urgency decays exponentially by days remaining
+  3. Events scoring ≥ 80 trigger an immediate outbound SMS within 60 seconds of ingestion
+  4. Events scoring 50–79 appear in the next morning digest; events scoring < 50 are logged silently
+  5. Phase 6 GCal and Gmail integrations write to the Canonical Store and receive priority scores on ingestion
 **Plans**: TBD
 
-### Phase 6: Syllabus Parsing
-**Goal**: Users can upload a course syllabus and Aria extracts exam dates, assignment weights, and topics — briefings become grade-aware
+### Phase 6: Google OAuth + GCal + Gmail + Alerts + Conflict Detection
+**Goal**: Users connect their Google account once and Aria starts detecting deadline changes from Calendar and professor emails, firing alerts within 15 minutes; conflicts flagged; SMS batching enforced
 **Depends on**: Phase 5
-**Requirements**: AI-01, AI-02, AI-03
+**Requirements**: GCAL-01, GCAL-02, GCAL-03, GCAL-04, GCAL-05, GMAI-01, GMAI-02, GMAI-03, GMAI-04, GMAI-05, ALRT-01, ALRT-02, ALRT-03, INTEL-03, SMS-10, SMS-11, SYNC-03, SYNC-04, AI-08 (full)
 **Success Criteria** (what must be TRUE):
-  1. A user can upload a syllabus PDF via the web UI and receive a confirmation that parsing has started
-  2. Claude Opus extracts exams, assignment types, grade weights, and key topics from the PDF; the result is stored as structured JSON in the `syllabi` table (raw PDF in Supabase Storage)
-  3. The next morning briefing after a syllabus is parsed includes grade weight context (e.g., "PSET 3 — 15% of grade")
-  4. A PDF is never re-parsed on subsequent briefing requests; the stored `parsed_json` is reused
+  1. A user connects Google via OAuth; tokens stored encrypted in Supabase with refresh rotation
+  2. When a Canvas deadline changes, an SMS alert fires within 15 minutes with original deadline, new deadline, course name, and assignment title
+  3. When a professor email signals a deadline change, an SMS alert fires and is cross-referenced against Canvas state
+  4. GCal events appear in the `calendar_events` table; Monday extended briefing includes GCal conflicts and available study windows
+  5. Multiple alerts within 10 minutes are batched into a single SMS; no more than 3 texts in any 10-minute window
+  6. When a Canvas deadline overlaps an existing GCal commitment, Aria flags the conflict and offers resolution via SMS
+  7. GCal push channels and Gmail watch channels are renewed automatically before 7-day expiry
 **Plans**: TBD
 
-### Phase 7: User Onboarding + Frontend UI
-**Goal**: A new user can go from zero to receiving their first briefing SMS in under 5 minutes using a web UI — the backend pipeline is accessible without Supabase console access
-**Depends on**: Phase 4 (can begin parallel with Phase 5)
-**Requirements**: AUTH-02, AUTH-03, AUTH-05, AUTH-06, UI-01, UI-02, UI-03, UI-04, UI-05
+### Phase 7: Syllabus Parsing + Study Gap Detection
+**Goal**: Users can upload course syllabi and Aria extracts exam topics, grade weights, and coverage — briefings become grade-aware and T-5 gap analysis becomes functional
+**Depends on**: Phase 6
+**Requirements**: AI-01, AI-02, AI-03, AI-10, INTEL-01
 **Success Criteria** (what must be TRUE):
-  1. A new user completes onboarding (phone verification, Canvas iCal URL entry, Google OAuth connect) in under 5 minutes and receives a welcome briefing SMS at completion
-  2. A user can upload a syllabus PDF from the onboarding or preferences UI with visible upload progress and a success confirmation
-  3. The preferences page lets a user update quiet hours and notification frequency; changes take effect on the next outbound SMS
-  4. The connection status page shows live health indicators for Google and Canvas integrations (connected / disconnected / needs re-auth)
-  5. The first briefing preview page shows what the user's first briefing will contain before it sends
+  1. A user uploads a syllabus PDF and Claude Opus extracts exams, assignment types, grade weights, and key topics; stored as structured JSON in the `syllabi` table
+  2. The next morning briefing after a syllabus is parsed includes grade weight context (e.g., "PSET 3 — 15% of grade")
+  3. At T-5 days before an exam, Aria generates a study gap analysis — a prioritized list of uncovered topics ranked by exam weight
+  4. A PDF is never re-parsed; `parsed_json` is reused on every subsequent briefing request
+  5. Monday extended briefing includes exam topic coverage summaries from parsed syllabi
+**Plans**: TBD
+
+### Phase 8: iOS App + Onboarding
+**Goal**: A new user can complete onboarding and access a full-featured iOS app with card dashboard, in-app chat, and voice — Seb leads; can begin parallel with Phase 6
+**Depends on**: Phase 4 (APIs stable)
+**Requirements**: AUTH-02, AUTH-03, AUTH-05, AUTH-06, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08, UI-09
+**Success Criteria** (what must be TRUE):
+  1. A new user completes onboarding (phone verify, Canvas URL, Google OAuth) in under 5 minutes and receives a welcome briefing at completion
+  2. The iOS home screen renders all 4 zones: pinned quick-access (To-Do, Calendar, Notifications), color-coded daily load status bar, scrollable card grid, persistent chat + voice bar
+  3. In-app chat connects to same Aria backend as SMS; all SMS commands work via in-app chat; conversation threads are independent
+  4. Voice input transcribes via on-device speech recognition and routes through the same Claude pipeline as typed messages
+  5. Cards can be dragged to reorder, swiped to hide, tapped to expand; accent color and dark mode configurable
+  6. First briefing preview page shows what the user's first briefing will contain before it sends
+**Plans**: TBD
+
+### Phase 9: Todoist Integration
+**Goal**: Students can connect Todoist and have personal tasks incorporated into briefings, priority scoring, and scheduling recommendations
+**Depends on**: Phase 5 (Priority Engine must exist for task scoring)
+**Requirements**: TASK-01, TASK-02
+**Success Criteria** (what must be TRUE):
+  1. User connects Todoist via OAuth; access token stored encrypted; tasks synced every 2 hours
+  2. Todoist tasks appear in daily briefings alongside Canvas deadlines; P1 tasks have source_authority = 0.8 in the Priority Engine
+  3. User can create, complete, and update Todoist tasks via SMS command
+  4. Task overload detection: if P1 tasks + Canvas deadlines exceed a threshold, Aria warns in the morning briefing
 **Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 (Phase 7 can begin parallel with Phase 5)
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 (Phase 8 can begin parallel with Phase 6)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure Foundation | 1/2 | In Progress|  |
-| 2. Canvas iCal Sync | 2/2 | Complete   | 2026-03-19 |
-| 3. Twilio SMS + TCPA Compliance | 3/3 | Complete   | 2026-03-19 |
+| 1. Infrastructure Foundation | 2/2 | Complete | 2026-03-18 |
+| 2. Canvas iCal Sync | 2/2 | Complete | 2026-03-19 |
+| 3. Twilio SMS + TCPA Compliance | 3/3 | Complete | 2026-03-19 |
 | 4. Claude AI + Daily Briefing | 0/TBD | Not started | - |
-| 5. Google OAuth + Calendar + Gmail + Deadline Alerts | 0/TBD | Not started | - |
-| 6. Syllabus Parsing | 0/TBD | Not started | - |
-| 7. User Onboarding + Frontend UI | 0/TBD | Not started | - |
+| 5. Priority Engine + Canonical Timeline DB | 0/TBD | Not started | - |
+| 6. Google OAuth + GCal + Gmail + Alerts | 0/TBD | Not started | - |
+| 7. Syllabus Parsing + Study Gap Detection | 0/TBD | Not started | - |
+| 8. iOS App + Onboarding | 0/TBD | Not started | - |
+| 9. Todoist Integration | 0/TBD | Not started | - |

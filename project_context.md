@@ -41,7 +41,7 @@ Syncs Canvas deadlines, Gmail, and Google Calendar. Sends a daily 8am briefing +
 | App code | ✅ Phase 3 complete | — |
 
 **Active phase:** Phase 4 — Claude AI + Daily Briefing
-**Next action:** `/gsd:plan-phase 4`
+**Next action:** `/gsd:plan-phase 4` (context already written, research + planning next)
 
 ---
 
@@ -157,17 +157,19 @@ Twilio SMS layer + full TCPA compliance implemented and verified (2026-03-19). 5
 
 ---
 
-## Roadmap (7 phases)
+## Roadmap (9 phases)
 
 | # | Phase | Owner | Key Goal |
 |---|-------|-------|----------|
 | 1 | Infrastructure Foundation | Josh | ✅ Supabase schema + Redis + Celery + Vercel wired up |
 | 2 | Canvas iCal Sync | Josh | ✅ Deadlines fetched, normalized, stored, diffed every 60 min |
 | 3 | Twilio SMS + TCPA | Josh | ✅ TCPA guard, keyword dispatch, validated webhook, Celery inbound pipeline |
-| 4 | Claude AI + Daily Briefing | Josh | 8am SMS + welcome briefing at onboarding end |
-| 5 | Google OAuth + GCal + Gmail + Alerts | Josh | Deadline alerts ≤15 min, watch channel auto-renewal |
-| 6 | Syllabus Parsing | Josh | Claude Opus extracts grade weights, enriches briefings |
-| 7 | Onboarding + Frontend UI | **Seb** | Can start in parallel after Phase 4 ships |
+| 4 | Claude AI + Daily Briefing | Josh | 8am SMS + Monday extended briefing + conversational replies + task mgmt + exam countdown |
+| 5 | Priority Engine + Canonical Timeline DB | Josh | Unified event scoring (grade×0.35 + urgency×0.45 + source×0.20), delivery router |
+| 6 | Google OAuth + GCal + Gmail + Alerts | Josh | Deadline alerts ≤15 min, conflict detection, SMS batching, watch channel auto-renewal |
+| 7 | Syllabus Parsing + Study Gap Detection | Josh | Claude Opus extracts grade weights; T-5 gap analysis goes live |
+| 8 | iOS App + Onboarding | **Seb** | Full 4-zone card dashboard, in-app chat, voice input — starts parallel with Phase 6 |
+| 9 | Todoist Integration | Josh | Personal tasks in briefings, priority scoring, task CRUD via SMS |
 
 ---
 
