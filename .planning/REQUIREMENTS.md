@@ -41,15 +41,15 @@
 
 ### SMS Interface
 
-- [ ] **SMS-01**: System can send outbound SMS to user via Twilio
+- [x] **SMS-01**: System can send outbound SMS to user via Twilio
 - [ ] **SMS-02**: Twilio inbound webhook returns 200 immediately and enqueues processing to Celery (never inline)
 - [ ] **SMS-03**: Inbound SMS routed to Claude Sonnet for conversational reply
-- [ ] **SMS-04**: Maximum 3 unsolicited SMS per day per user enforced
-- [ ] **SMS-05**: Quiet hours enforced (no SMS between 10pm–8am in user's timezone)
+- [x] **SMS-04**: Maximum 3 unsolicited SMS per day per user enforced
+- [x] **SMS-05**: Quiet hours enforced (no SMS between 10pm–8am in user's timezone)
 - [x] **SMS-06**: STOP command immediately opts user out and confirms with final SMS
 - [x] **SMS-07**: PAUSE command suspends SMS for 24 hours
 - [x] **SMS-08**: HELP command replies with list of commands
-- [ ] **SMS-09**: Opt-out status checked before every outbound SMS regardless of carrier-level blocking
+- [x] **SMS-09**: Opt-out status checked before every outbound SMS regardless of carrier-level blocking
 
 ### AI Layer
 
@@ -136,15 +136,15 @@
 | CANV-03 | Phase 2 | Complete |
 | CANV-04 | Phase 2 | Complete |
 | CANV-05 | Phase 2 | Complete |
-| SMS-01 | Phase 3 | Pending |
+| SMS-01 | Phase 3 | Complete |
 | SMS-02 | Phase 3 | Pending |
 | SMS-03 | Phase 3 | Pending |
-| SMS-04 | Phase 3 | Pending |
-| SMS-05 | Phase 3 | Pending |
+| SMS-04 | Phase 3 | Complete |
+| SMS-05 | Phase 3 | Complete |
 | SMS-06 | Phase 3 | Complete |
 | SMS-07 | Phase 3 | Complete |
 | SMS-08 | Phase 3 | Complete |
-| SMS-09 | Phase 3 | Pending |
+| SMS-09 | Phase 3 | Complete |
 | SYNC-02 | Phase 3 | Pending |
 | AI-04 | Phase 4 | Pending |
 | AI-05 | Phase 4 | Pending |

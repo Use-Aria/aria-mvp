@@ -55,7 +55,7 @@ Plans:
   3. Texting STOP immediately sets `sms_opted_out: true` in the database; the next scheduled outbound SMS to that user is suppressed even if the carrier-level opt-out has not propagated
   4. No SMS is sent between 10pm and 8am in the user's local timezone; the 3 unsolicited messages/day cap is enforced regardless of trigger source
   5. PAUSE suspends delivery for 24 hours; HELP returns the command list
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 - [ ] 03-01-PLAN.md — TDD: TCPA migration + send_sms_safe() centralized guard
 - [ ] 03-02-PLAN.md — TDD: STOP/START/PAUSE/HELP command dispatch
@@ -117,7 +117,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 (Phase 7 can be
 |-------|----------------|--------|-----------|
 | 1. Infrastructure Foundation | 1/2 | In Progress|  |
 | 2. Canvas iCal Sync | 2/2 | Complete   | 2026-03-19 |
-| 3. Twilio SMS + TCPA Compliance | 1/3 | In Progress|  |
+| 3. Twilio SMS + TCPA Compliance | 2/3 | In Progress|  |
 | 4. Claude AI + Daily Briefing | 0/TBD | Not started | - |
 | 5. Google OAuth + Calendar + Gmail + Deadline Alerts | 0/TBD | Not started | - |
 | 6. Syllabus Parsing | 0/TBD | Not started | - |

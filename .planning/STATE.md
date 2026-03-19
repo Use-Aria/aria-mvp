@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 03-twilio-sms-tcpa-compliance/03-02-PLAN.md
-last_updated: "2026-03-19T05:03:20.671Z"
+stopped_at: Completed 03-twilio-sms-tcpa-compliance/03-01-PLAN.md
+last_updated: "2026-03-19T05:04:56.170Z"
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 ---
@@ -65,6 +65,7 @@ Plan: 1 of 3
 | Phase 02-canvas-ical-sync P01 | 7 | 2 tasks | 12 files |
 | Phase 02-canvas-ical-sync P02 | 6 | 2 tasks | 8 files |
 | Phase 03-twilio-sms-tcpa-compliance P02 | 25 | 1 tasks | 6 files |
+| Phase 03 P01 | 417 | 1 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ Recent decisions affecting current work:
 - [Phase 02-canvas-ical-sync]: celery_beat service has no SUPABASE_URL — Beat only dispatches tasks, workers execute them
 - [Phase 03-twilio-sms-tcpa-compliance]: STOP confirmation uses send_sms_direct (not send_sms_safe) — guard would suppress required opt-out confirmation
 - [Phase 03-twilio-sms-tcpa-compliance]: SMS keyword dispatch: exact set-lookup after body.strip().upper() — no regex or NLP, required for CTIA carrier compliance
+- [Phase 03-01]: conftest.py adds celery_worker root to sys.path for pytest — required because @patch() resolves module paths at collection time, not runtime
+- [Phase 03-01]: Midnight-spanning quiet window uses OR logic: (local_time >= qs) or (local_time < qe) — naive range check always evaluates False for overnight windows
 
 ### Pending Todos
 
@@ -103,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T05:03:20.665Z
-Stopped at: Completed 03-twilio-sms-tcpa-compliance/03-02-PLAN.md
+Last session: 2026-03-19T05:04:56.163Z
+Stopped at: Completed 03-twilio-sms-tcpa-compliance/03-01-PLAN.md
 Resume file: None
