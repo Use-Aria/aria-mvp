@@ -69,7 +69,7 @@ def test_generate_daily_briefing_user_sends_on_valid_window():
     """Mock all deps; verify send_sms_safe and write_outbound_message called."""
     with patch("ai.briefing.is_in_briefing_window", return_value=True), \
          patch("ai.db.briefing_sent_today", return_value=False), \
-         patch("ai.db.get_deadlines_for_briefing", return_value=[]), \
+         patch("ai.db.get_events_for_briefing", return_value=[]), \
          patch("ai.briefing.generate_briefing", return_value="Good morning! Clear day ahead."), \
          patch("sms.send._get_user_sms_state", return_value={
              "phone": "+15551234567",
@@ -96,7 +96,7 @@ def test_welcome_briefing_sends_with_welcome_flag():
              "phone": "+15551234567",
              "preferences_json": {"timezone": "America/New_York"},
          }), \
-         patch("ai.db.get_deadlines_for_briefing", return_value=[]), \
+         patch("ai.db.get_events_for_briefing", return_value=[]), \
          patch("ai.briefing.generate_briefing", return_value="Hey, I'm Aria! Here's what I see...") as mock_gen, \
          patch("sms.send.send_sms_safe", return_value=True), \
          patch("ai.db.write_outbound_message"):
@@ -114,7 +114,7 @@ def test_welcome_briefing_writes_welcome_trigger_type():
              "phone": "+15551234567",
              "preferences_json": {"timezone": "America/New_York"},
          }), \
-         patch("ai.db.get_deadlines_for_briefing", return_value=[]), \
+         patch("ai.db.get_events_for_briefing", return_value=[]), \
          patch("ai.briefing.generate_briefing", return_value="Hey, I'm Aria! Here's what I see..."), \
          patch("sms.send.send_sms_safe", return_value=True), \
          patch("ai.db.write_outbound_message") as mock_write:

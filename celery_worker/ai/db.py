@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from supabase import create_client
 
 
+
 def _get_supabase():
     """Create Supabase client using service role key (bypasses RLS)."""
     url = os.environ["SUPABASE_URL"]
@@ -11,6 +12,8 @@ def _get_supabase():
     return create_client(url, key)
 
 
+# DEPRECATED: Use get_events_for_briefing() which reads from canonical_events.
+# Kept until Phase 6 confirms canonical_events has full coverage.
 def get_deadlines_for_briefing(user_id: str, days_ahead: int = 7) -> list[dict]:
     """Fetch active, non-snoozed deadlines for a user within days_ahead window.
 
@@ -49,6 +52,66 @@ def get_deadlines_for_briefing(user_id: str, days_ahead: int = 7) -> list[dict]:
             if now < snooze_dt:
                 continue
         active.append(d)
+    return active
+
+
+def get_events_for_briefing(user_id: str, days_ahead: int = 7) -> list[dict]:
+    """Fetch active digest/immediate events from canonical_events for briefing.
+
+    Replaces get_deadlines_for_briefing() — reads canonical_events going forward.
+    Returns events ordered by due_at ascending. Filters out:
+    - deleted (deleted_at IS NOT NULL)
+    - snoozed (snoozed_until > now, filtered in Python)
+    - silent events (only digest and immediate included)
+
+    After fetching, marks all returned digest events as 'sent' to prevent
+    re-inclusion in future briefings.
+
+    Field mapping shim: appends due_date=due_at and course=course_id so existing
+    briefing code (generate_briefing) works without modification.
+
+    Args:
+        user_id: UUID of the user.
+        days_ahead: Number of days ahead to include events (default 7).
+
+    Returns:
+        List of event dicts with keys: id, title, due_at, course_id, type,
+        grade_weight, priority_score, delivery_status, snoozed_until,
+        plus due_date and course aliases for backwards compatibility.
+    """
+    client = _get_supabase()
+    now = datetime.now(timezone.utc)
+    cutoff = (now + timedelta(days=days_ahead)).isoformat()
+    result = (
+        client.table("canonical_events")
+        .select("id, title, due_at, course_id, type, grade_weight, priority_score, delivery_status, snoozed_until")
+        .eq("user_id", user_id)
+        .is_("deleted_at", "null")
+        .in_("delivery_status", ["digest", "immediate"])
+        .lte("due_at", cutoff)
+        .order("due_at", desc=False)
+        .execute()
+    )
+    active = []
+    for e in result.data:
+        snoozed = e.get("snoozed_until")
+        if snoozed:
+            snooze_dt = datetime.fromisoformat(str(snoozed))
+            if now < snooze_dt:
+                continue
+        # Field mapping shim — generate_briefing uses due_date and course keys
+        e["due_date"] = e["due_at"]
+        e["course"] = e.get("course_id")
+        active.append(e)
+
+    # Mark digest events as 'sent' to prevent re-inclusion in future briefings
+    digest_ids = [e["id"] for e in active if e.get("delivery_status") == "digest"]
+    if digest_ids:
+        for eid in digest_ids:
+            client.table("canonical_events").update(
+                {"delivery_status": "sent"}
+            ).eq("id", eid).execute()
+
     return active
 
 
