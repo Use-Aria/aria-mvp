@@ -17,11 +17,11 @@
 
 ### Canvas Integration
 
-- [ ] **CANV-01**: System fetches user's Canvas iCal feed and parses VEVENT records into Task type
+- [x] **CANV-01**: System fetches user's Canvas iCal feed and parses VEVENT records into Task type
 - [ ] **CANV-02**: Parsed Canvas deadlines stored in Supabase `deadlines` table with `synced_at`
 - [ ] **CANV-03**: Canvas iCal feed synced every 60 minutes via background job
-- [ ] **CANV-04**: Diff engine detects added, changed, and removed deadlines between syncs
-- [ ] **CANV-05**: Canvas API rate limits handled with exponential backoff (max 120 req/min)
+- [x] **CANV-04**: Diff engine detects added, changed, and removed deadlines between syncs
+- [x] **CANV-05**: Canvas API rate limits handled with exponential backoff (max 120 req/min)
 
 ### Gmail Integration
 
@@ -131,11 +131,11 @@
 | AUTH-01 | Phase 1 | Complete |
 | AUTH-04 | Phase 1 | Complete |
 | SYNC-01 | Phase 1 | Complete |
-| CANV-01 | Phase 2 | Pending |
+| CANV-01 | Phase 2 | Complete |
 | CANV-02 | Phase 2 | Pending |
 | CANV-03 | Phase 2 | Pending |
-| CANV-04 | Phase 2 | Pending |
-| CANV-05 | Phase 2 | Pending |
+| CANV-04 | Phase 2 | Complete |
+| CANV-05 | Phase 2 | Complete |
 | SMS-01 | Phase 3 | Pending |
 | SMS-02 | Phase 3 | Pending |
 | SMS-03 | Phase 3 | Pending |

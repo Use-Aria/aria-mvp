@@ -40,7 +40,7 @@ Plans:
   2. The sync job runs every 60 minutes per user without manual trigger, confirmed by `synced_at` advancing in Supabase
   3. When a deadline is added, modified, or removed in Canvas, the diff engine detects the change within one sync cycle (60 minutes)
   4. A Canvas feed that returns a rate-limit error is retried with exponential backoff and does not crash the worker
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 02-01-PLAN.md — TDD: iCal fetch, parse, and diff modules with pytest
 - [ ] 02-02-PLAN.md — DB layer, Celery tasks + Beat, Docker Compose, trigger route
@@ -112,7 +112,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 (Phase 7 can be
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Infrastructure Foundation | 1/2 | In Progress|  |
-| 2. Canvas iCal Sync | 0/2 | Planned | - |
+| 2. Canvas iCal Sync | 1/2 | In Progress|  |
 | 3. Twilio SMS + TCPA Compliance | 0/TBD | Not started | - |
 | 4. Claude AI + Daily Briefing | 0/TBD | Not started | - |
 | 5. Google OAuth + Calendar + Gmail + Deadline Alerts | 0/TBD | Not started | - |

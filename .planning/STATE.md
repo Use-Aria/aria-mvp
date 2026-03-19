@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 2 context gathered
-last_updated: "2026-03-18T23:21:39.347Z"
+stopped_at: Completed 02-canvas-ical-sync/02-01-PLAN.md
+last_updated: "2026-03-19T03:26:13.644Z"
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
 ---
 
 ---
@@ -33,12 +33,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Students never miss a deadline or lose track of their week — Aria surfaces what matters, when it matters, over SMS.
-**Current focus:** Phase 01 — infrastructure-foundation
+**Current focus:** Phase 02 — canvas-ical-sync
 
 ## Current Position
 
-Phase: 01 (infrastructure-foundation) — EXECUTING
-Plan: 2 of 2
+Phase: 02 (canvas-ical-sync) — EXECUTING
+Plan: 1 of 2
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Plan: 2 of 2
 *Updated after each plan completion*
 | Phase 01-infrastructure-foundation P02 | 1 | 2 tasks | 6 files |
 | Phase 01-infrastructure-foundation P01 | 5 | 2 tasks | 11 files |
+| Phase 02-canvas-ical-sync P01 | 7 | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 01-infrastructure-foundation]: Dockerfile over Nixpacks for Railway — explicit Python 3.12 version control, no Railway-specific build magic
 - [Phase 01-infrastructure-foundation]: Used @supabase/ssr with getClaims() (not deprecated @supabase/auth-helpers or getSession()) for session persistence in Next.js 15 App Router
 - [Phase 01-infrastructure-foundation]: server.ts createClient() is async (await cookies()) — required for Next.js 15 async Request API; handle_new_user trigger uses SECURITY DEFINER SET search_path = '' to prevent injection
+- [Phase 02-canvas-ical-sync]: icalendar==6.3.2 chosen over 7.0.3 (too new) and ics.py (weaker TZID handling) for Canvas iCal parsing
+- [Phase 02-canvas-ical-sync]: All-day DATE events normalized to 23:59:59Z (not midnight UTC) to avoid false overdue status on deadline day
+- [Phase 02-canvas-ical-sync]: Diff sensitivity: only due_date changes trigger changed entries; title-only changes silently ignored
 
 ### Pending Todos
 
@@ -92,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T23:21:39.341Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-canvas-ical-sync/02-CONTEXT.md
+Last session: 2026-03-19T03:26:13.639Z
+Stopped at: Completed 02-canvas-ical-sync/02-01-PLAN.md
+Resume file: None
