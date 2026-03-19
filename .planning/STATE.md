@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-canvas-ical-sync/02-01-PLAN.md
-last_updated: "2026-03-19T03:26:13.644Z"
+stopped_at: Completed 02-canvas-ical-sync/02-02-PLAN.md
+last_updated: "2026-03-19T03:43:00.319Z"
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 ---
@@ -63,6 +63,7 @@ Plan: 1 of 2
 | Phase 01-infrastructure-foundation P02 | 1 | 2 tasks | 6 files |
 | Phase 01-infrastructure-foundation P01 | 5 | 2 tasks | 11 files |
 | Phase 02-canvas-ical-sync P01 | 7 | 2 tasks | 12 files |
+| Phase 02-canvas-ical-sync P02 | 6 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase 02-canvas-ical-sync]: icalendar==6.3.2 chosen over 7.0.3 (too new) and ics.py (weaker TZID handling) for Canvas iCal parsing
 - [Phase 02-canvas-ical-sync]: All-day DATE events normalized to 23:59:59Z (not midnight UTC) to avoid false overdue status on deadline day
 - [Phase 02-canvas-ical-sync]: Diff sensitivity: only due_date changes trigger changed entries; title-only changes silently ignored
+- [Phase 02-canvas-ical-sync]: celery_beat uses --schedule=/tmp/celerybeat-schedule to keep generated binary out of source tree
+- [Phase 02-canvas-ical-sync]: mark_synced is last call in canvas_sync_user — synced_at only written after apply_diff succeeds
+- [Phase 02-canvas-ical-sync]: celery_beat service has no SUPABASE_URL — Beat only dispatches tasks, workers execute them
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T03:26:13.639Z
-Stopped at: Completed 02-canvas-ical-sync/02-01-PLAN.md
+Last session: 2026-03-19T03:43:00.314Z
+Stopped at: Completed 02-canvas-ical-sync/02-02-PLAN.md
 Resume file: None

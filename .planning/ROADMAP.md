@@ -7,7 +7,7 @@ Aria is built in seven phases that follow strict dependency order. The data pipe
 ## Phases
 
 - [ ] **Phase 1: Infrastructure Foundation** - Supabase schema, Redis, Celery skeleton, Twilio number provisioned — everything else depends on this
-- [ ] **Phase 2: Canvas iCal Sync** - Fetch, parse, diff, and store Canvas deadlines every 60 minutes
+- [x] **Phase 2: Canvas iCal Sync** - Fetch, parse, diff, and store Canvas deadlines every 60 minutes (completed 2026-03-19)
 - [ ] **Phase 3: Twilio SMS + TCPA Compliance** - Send and receive SMS with opt-out, quiet hours, and message cap enforced from day one
 - [ ] **Phase 4: Claude AI + Daily Briefing** - Wire Canvas data through Claude Sonnet to produce a daily 8am SMS briefing and handle conversational replies
 - [ ] **Phase 5: Google OAuth + Calendar + Gmail + Deadline Alerts** - Connect Google account, ingest calendar and email signals, fire deadline change alerts within 15 minutes
@@ -40,7 +40,7 @@ Plans:
   2. The sync job runs every 60 minutes per user without manual trigger, confirmed by `synced_at` advancing in Supabase
   3. When a deadline is added, modified, or removed in Canvas, the diff engine detects the change within one sync cycle (60 minutes)
   4. A Canvas feed that returns a rate-limit error is retried with exponential backoff and does not crash the worker
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 02-01-PLAN.md — TDD: iCal fetch, parse, and diff modules with pytest
 - [ ] 02-02-PLAN.md — DB layer, Celery tasks + Beat, Docker Compose, trigger route
@@ -112,7 +112,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 (Phase 7 can be
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Infrastructure Foundation | 1/2 | In Progress|  |
-| 2. Canvas iCal Sync | 1/2 | In Progress|  |
+| 2. Canvas iCal Sync | 2/2 | Complete   | 2026-03-19 |
 | 3. Twilio SMS + TCPA Compliance | 0/TBD | Not started | - |
 | 4. Claude AI + Daily Briefing | 0/TBD | Not started | - |
 | 5. Google OAuth + Calendar + Gmail + Deadline Alerts | 0/TBD | Not started | - |
