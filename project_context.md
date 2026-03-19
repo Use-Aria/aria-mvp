@@ -29,10 +29,15 @@ Syncs Canvas deadlines, Gmail, and Google Calendar. Sends a daily 8am briefing +
 | Phase 1 research | ✅ Done | `.planning/phases/01-infrastructure-foundation/01-RESEARCH.md` |
 | Phase 1 plans (2) | ✅ Done | `.planning/phases/01-infrastructure-foundation/01-01-PLAN.md`, `01-02-PLAN.md` |
 | Phase 1 validation | ✅ Done | `.planning/phases/01-infrastructure-foundation/01-VALIDATION.md` |
-| App code | ❌ Not started | — |
+| Phase 2 context | ✅ Done | `.planning/phases/02-canvas-ical-sync/02-CONTEXT.md` |
+| Phase 2 research | ✅ Done | `.planning/phases/02-canvas-ical-sync/02-RESEARCH.md` |
+| Phase 2 plans (2) | ✅ Done | `.planning/phases/02-canvas-ical-sync/02-01-PLAN.md`, `02-02-PLAN.md` |
+| Phase 2 validation | ✅ Done | `.planning/phases/02-canvas-ical-sync/02-VALIDATION.md` |
+| Phase 2 verification | ✅ Done | `.planning/phases/02-canvas-ical-sync/02-VERIFICATION.md` |
+| App code | ✅ Phase 2 complete | — |
 
-**Active phase:** Phase 2 — Canvas iCal Sync (not started, needs discuss → plan → execute)
-**Next action:** `/gsd:discuss-phase 2`
+**Active phase:** Phase 3 — Twilio SMS + TCPA
+**Next action:** `/gsd:discuss-phase 3`
 
 ---
 
@@ -68,12 +73,53 @@ All code executed, all 4 human verification steps passed (2026-03-18).
 
 ---
 
+## Phase 2 — Completed ✅
+
+Canvas iCal sync fully implemented and verified (2026-03-18). 22/22 tests passing.
+
+### Files Created
+
+| File | Key Change |
+|------|-----------|
+| `celery_worker/requirements-dev.txt` | `pytest` + `pytest-mock` for test infrastructure |
+| `celery_worker/pytest.ini` | pytest config; `testpaths = tests` |
+| `celery_worker/tests/__init__.py` | Test package init |
+| `celery_worker/tests/canvas/__init__.py` | Canvas test sub-package init |
+| `celery_worker/tests/canvas/test_parse.py` | 8 tests: VEVENT parsing, DATE vs DATETIME UTC normalization, course/type extraction |
+| `celery_worker/tests/canvas/test_diff.py` | 5 tests: added/changed/removed detection, title-only no-op |
+| `celery_worker/tests/canvas/test_fetch.py` | 1 test: HTTP 429 raises `requests.HTTPError` |
+| `celery_worker/tests/canvas/test_db.py` | 5 tests: upsert, soft-delete, mark_synced |
+| `celery_worker/tests/test_celery_app.py` | 3 tests: beat_schedule entry at 3600s |
+| `celery_worker/canvas/__init__.py` | Canvas module package init |
+| `celery_worker/canvas/fetch.py` | `fetch_ical(url) -> bytes`; calls `raise_for_status()` so HTTP 429 triggers Celery retry |
+| `celery_worker/canvas/parse.py` | `parse_vevents(bytes) -> list[dict]`; handles `DTSTART;TZID=` (UTC convert) and `DTSTART;VALUE=DATE` (→ 23:59:59Z end-of-day) |
+| `celery_worker/canvas/diff.py` | `compute_diff(current, fresh) -> {added, changed, removed}`; due_date-only sensitivity (title-only changes ignored) |
+| `celery_worker/canvas/db.py` | 4 Supabase functions: `get_all_canvas_integrations`, `load_current_deadlines`, `apply_diff` (upsert + soft-delete), `mark_synced` |
+| `celery_worker/tasks.py` | Added `canvas_sync_all` (fan-out) + `canvas_sync_user` (full pipeline); `autoretry_for=(requests.HTTPError,)`, `retry_backoff=2`, `max_retries=5`; `mark_synced` called last |
+| `celery_worker/celery_app.py` | Added `beat_schedule`: `canvas-sync-all-users` every 3600s |
+| `supabase/migrations/002_deadlines_soft_delete.sql` | Adds `deleted_at TIMESTAMPTZ`, `idx_deadlines_active` partial index, `UNIQUE(canvas_uid, user_id)` constraint |
+| `docker-compose.yml` | Added `celery_beat` service; uses `--schedule=/tmp/celerybeat-schedule` to keep binary out of source tree |
+| `src/app/api/sync/canvas/route.ts` | Thin POST trigger returning 202; zero DB or iCal logic |
+| `.gitignore` | Added `__pycache__/`, `*.pyc`, `.pytest_cache/`, `celerybeat-schedule` |
+
+### Decisions Not Captured in Code
+
+| Decision | Detail |
+|----------|--------|
+| `icalendar==6.3.2` (not 7.x) | 7.0.3 released 2026-03-03 — too new; 6.3.2 is proven stable with full docs |
+| `canvas_uid` is user-scoped | Canvas UIDs are unique per feed, not globally — all DB queries must scope by `user_id`; upsert `on_conflict` is `(canvas_uid, user_id)` composite |
+| Beat runs as separate container | `celery -A celery_app worker --beat` is dev-only; production always separates beat from worker to prevent scheduling drift |
+| `mark_synced` called last | `integrations.synced_at` only written after `apply_diff` completes — partial sync failures don't advance the timestamp |
+| Trigger route defers Redis publish | `/api/sync/canvas` returns 202 immediately; direct Celery task enqueueing via Redis is Phase 7 (requires Redis client in Next.js) |
+
+---
+
 ## Roadmap (7 phases)
 
 | # | Phase | Owner | Key Goal |
 |---|-------|-------|----------|
-| 1 | Infrastructure Foundation | Josh | Supabase schema + Redis + Celery + Vercel wired up |
-| 2 | Canvas iCal Sync | Josh | Deadlines fetched, normalized, stored, diffed every 60 min |
+| 1 | Infrastructure Foundation | Josh | ✅ Supabase schema + Redis + Celery + Vercel wired up |
+| 2 | Canvas iCal Sync | Josh | ✅ Deadlines fetched, normalized, stored, diffed every 60 min |
 | 3 | Twilio SMS + TCPA | Josh | Send/receive SMS with full TCPA compliance from day 1 |
 | 4 | Claude AI + Daily Briefing | Josh | 8am SMS + welcome briefing at onboarding end |
 | 5 | Google OAuth + GCal + Gmail + Alerts | Josh | Deadline alerts ≤15 min, watch channel auto-renewal |
@@ -148,3 +194,4 @@ Both must sync before touching: `src/types/index.ts`, `supabase/migrations/`
 - `.planning/REQUIREMENTS.md` — all 52 v1 requirements with traceability
 - `.planning/research/SUMMARY.md` — research synthesis (stack, features, architecture, pitfalls)
 - `.planning/phases/01-infrastructure-foundation/` — context, research, plans, validation for Phase 1
+- `.planning/phases/02-canvas-ical-sync/` — context, research, plans, validation, verification for Phase 2
