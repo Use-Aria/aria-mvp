@@ -13,11 +13,24 @@ services:
     build:
       context: ./celery_worker
       dockerfile: Dockerfile
-    command: celery -A celery_worker.celery_app worker --loglevel=info --concurrency=2
+    command: celery -A celery_app worker --loglevel=info --concurrency=2
     environment:
       - REDIS_URL=redis://redis:6379/0
       - SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./celery_worker:/app
+
+  celery_beat:
+    build:
+      context: ./celery_worker
+      dockerfile: Dockerfile
+    command: celery -A celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+    environment:
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       redis:
         condition: service_healthy

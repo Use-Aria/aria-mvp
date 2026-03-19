@@ -7,7 +7,7 @@ celery_app = Celery(
     "aria",
     broker=REDIS_URL,
     backend=REDIS_URL,
-    include=["celery_worker.tasks"],
+    include=["tasks"],
 )
 
 celery_app.conf.update(
@@ -16,4 +16,10 @@ celery_app.conf.update(
     accept_content=["json"],
     timezone="UTC",
     enable_utc=True,
+    beat_schedule={
+        "canvas-sync-all-users": {
+            "task": "tasks.canvas_sync_all",
+            "schedule": 3600.0,  # every 60 minutes
+        },
+    },
 )
