@@ -90,7 +90,10 @@ Plans:
   3. Events scoring ≥ 80 trigger an immediate outbound SMS within 60 seconds of ingestion
   4. Events scoring 50–79 appear in the next morning digest; events scoring < 50 are logged silently
   5. Phase 6 GCal and Gmail integrations write to the Canonical Store and receive priority scores on ingestion
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 05-01-PLAN.md — TDD: Priority scoring engine + delivery router (pure Python)
+- [ ] 05-02-PLAN.md — Migration 005, ingest entry point, canvas_sync wiring, backfill, briefing switchover
 
 ### Phase 6: Google OAuth + GCal + Gmail + Alerts + Conflict Detection
 **Goal**: Users connect their Google account once and Aria starts detecting deadline changes from Calendar and professor emails, firing alerts within 15 minutes; conflicts flagged; SMS batching enforced
@@ -153,7 +156,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 (Ph
 | 2. Canvas iCal Sync | 2/2 | Complete | 2026-03-19 |
 | 3. Twilio SMS + TCPA Compliance | 3/3 | Complete | 2026-03-19 |
 | 4. Claude AI + Daily Briefing | 2/2 | Complete   | 2026-03-19 |
-| 5. Priority Engine + Canonical Timeline DB | 0/TBD | Not started | - |
+| 5. Priority Engine + Canonical Timeline DB | 0/2 | Planning complete | - |
 | 6. Google OAuth + GCal + Gmail + Alerts | 0/TBD | Not started | - |
 | 7. Syllabus Parsing + Study Gap Detection | 0/TBD | Not started | - |
 | 8. iOS App + Onboarding | 0/TBD | Not started | - |
