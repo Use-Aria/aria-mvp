@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-priority-engine-canonical-timeline-db/05-01-PLAN.md
-last_updated: "2026-03-19T23:44:46.060Z"
+stopped_at: Completed 05-priority-engine-canonical-timeline-db/05-02-PLAN.md
+last_updated: "2026-03-19T23:53:13.631Z"
 progress:
   total_phases: 9
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 ---
@@ -70,6 +70,7 @@ Plan: 1 of 2
 | Phase 04-claude-ai-daily-briefing P01 | 4 | 2 tasks | 8 files |
 | Phase 04-claude-ai-daily-briefing P02 | 9 | 2 tasks | 7 files |
 | Phase 05-priority-engine-canonical-timeline-db P01 | 2 | 2 tasks | 6 files |
+| Phase 05-priority-engine-canonical-timeline-db P02 | 6 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,9 @@ Recent decisions affecting current work:
 - [Phase 04-claude-ai-daily-briefing]: process_inbound_sms uses is_proactive=False for reply sends — bypasses daily proactive cap for user-initiated conversations
 - [Phase 05-priority-engine-canonical-timeline-db]: score_event() returns int (round(raw * 100)) stored as 0-100 integer for clean DB queries and delivery threshold comparisons
 - [Phase 05-priority-engine-canonical-timeline-db]: compute_urgency clamp: days_remaining <= 0 (including exactly 0) returns 1.0 — due-today events get max urgency
+- [Phase 05-priority-engine-canonical-timeline-db]: ingest_canonical_event uses lazy import for send_priority_alert to avoid circular dependency (tasks.py imports from priority)
+- [Phase 05-priority-engine-canonical-timeline-db]: get_events_for_briefing appends due_date/course shim keys — generate_briefing remains unchanged, transition is backwards-compatible
+- [Phase 05-priority-engine-canonical-timeline-db]: backfill_canonical_events_user uses skip_routing=True to prevent alert spam for pre-existing deadlines on Phase 5 deploy
 
 ### Pending Todos
 
@@ -121,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T23:44:46.053Z
-Stopped at: Completed 05-priority-engine-canonical-timeline-db/05-01-PLAN.md
+Last session: 2026-03-19T23:53:13.624Z
+Stopped at: Completed 05-priority-engine-canonical-timeline-db/05-02-PLAN.md
 Resume file: None

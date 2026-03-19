@@ -74,7 +74,7 @@
 
 ### Priority Engine
 
-- [ ] **PRIO-01**: Canonical Timeline DB stores all normalized events from all integrations in a unified schema with source, type, title, due_at, course_id, and grade_weight
+- [x] **PRIO-01**: Canonical Timeline DB stores all normalized events from all integrations in a unified schema with source, type, title, due_at, course_id, and grade_weight
 - [x] **PRIO-02**: Priority Engine scores every event: `Priority = (grade_weight × 0.35) + (urgency × 0.45) + (source_authority × 0.20)` where Canvas = 1.0, professor email = 0.9, Todoist = 0.8, Discord = 0.6
 - [x] **PRIO-03**: Delivery router: score ≥ 80 triggers immediate SMS; score 50–79 queues for next digest; score < 50 logged silently (visible in app only)
 
@@ -181,7 +181,7 @@
 | CONV-01 | Phase 4 | Complete |
 | SYNC-05 | Phase 4 | Complete |
 | SYNC-06 | Phase 4 | Complete |
-| PRIO-01 | Phase 5 | Pending |
+| PRIO-01 | Phase 5 | Complete |
 | PRIO-02 | Phase 5 | Complete |
 | PRIO-03 | Phase 5 | Complete |
 | GCAL-01 | Phase 6 | Pending |
