@@ -1,0 +1,244 @@
+"""Conversational SMS reply handler using Claude Sonnet.
+
+Handles deadline queries and task management (mark complete, snooze, set priority).
+Uses a two-step approach:
+1. Claude extracts structured intent (action + task_hint) as JSON
+2. Python performs DB mutation based on intent
+3. Claude generates friendly confirmation/response
+
+Called from process_inbound_sms Celery task — never inline in webhooks.
+"""
+import hashlib
+import json
+import logging
+import os
+import time
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+from anthropic import Anthropic
+
+from ai.db import get_deadlines_for_briefing, get_conversation_history
+
+logger = logging.getLogger(__name__)
+
+INTENT_SYSTEM_PROMPT = """You are Aria's intent classifier.
+Given a student's SMS, return ONLY valid JSON (no markdown, no explanation):
+{
+  "action": "query" | "mark_complete" | "snooze" | "set_priority" | "off_topic",
+  "task_hint": "<partial task name, lowercase, or null>",
+  "priority_value": "high" | "normal" | null
+}
+
+Rules:
+- "query" for deadline questions ("what's due?", "do I have anything tomorrow?")
+- "mark_complete" for done/finished/completed ("mark bio lab done", "finished econ pset")
+- "snooze" for snooze/remind me later ("snooze chem hw", "not now for bio")
+- "set_priority" for priority changes ("high priority econ pset", "urgent: calc midterm")
+- "off_topic" for anything not deadline-related
+- task_hint: extract the course/assignment name fragment, lowercase"""
+
+REPLY_SYSTEM_PROMPT = """You are Aria, a smart personal assistant for college students.
+You're replying to a student's SMS about their deadlines.
+
+TONE: Warm, casual, like a text from a knowledgeable friend. Use contractions.
+FORMAT: Under 800 characters. Conversational, not robotic. No bullet points unless listing multiple items.
+If the student asked about deadlines, summarize what's relevant.
+If you performed an action (marked done, snoozed, set priority), confirm specifically what you did.
+If the message is off-topic, redirect: "I can help with your deadlines! Try: 'what's due this week?', 'mark bio lab done', or 'snooze econ pset'."
+
+Do not mention Canvas or data sources. Do not use jargon."""
+
+OFF_TOPIC_RESPONSE = (
+    "I can help with your deadlines! Try: 'what's due this week?', "
+    "'mark bio lab done', or 'snooze econ pset'."
+)
+
+
+def build_history_messages(history_rows: list[dict]) -> list[dict]:
+    """Convert DB message rows (DESC order) to SDK message format (ASC, alternating roles).
+
+    Args:
+        history_rows: Rows from get_conversation_history (sent_at DESC order).
+
+    Returns:
+        List of {"role": "user"|"assistant", "content": "..."} in chronological order.
+        Consecutive same-role entries are deduplicated (keep most recent in original order).
+    """
+    role_map = {"in": "user", "out": "assistant"}
+    # Reverse to chronological (oldest first)
+    chronological = list(reversed(history_rows))
+    messages = []
+    for row in chronological:
+        role = role_map.get(row.get("direction"))
+        if not role:
+            continue
+        content = row.get("body") or ""
+        # Deduplicate consecutive same-role entries
+        if messages and messages[-1]["role"] == role:
+            messages[-1]["content"] = content  # keep most recent
+        else:
+            messages.append({"role": role, "content": content})
+    return messages
+
+
+def _find_best_match(task_hint: str, deadlines: list[dict]) -> dict | None:
+    """Find the soonest-due deadline whose title contains the task_hint.
+
+    Args:
+        task_hint: Partial task name (lowercase) from Claude intent extraction.
+        deadlines: Active deadlines sorted by due_date ascending.
+
+    Returns:
+        Best matching deadline dict, or None if no match found.
+    """
+    if not task_hint:
+        return None
+    hint_lower = task_hint.lower()
+    matches = [
+        d for d in deadlines
+        if hint_lower in (d.get("title") or "").lower()
+        or hint_lower in (d.get("course") or "").lower()
+    ]
+    # Deadlines are already sorted by due_date ASC — first match is soonest
+    return matches[0] if matches else None
+
+
+def _apply_mutation(action: str, deadline: dict, priority_value: str | None) -> str:
+    """Apply a task management mutation to the database.
+
+    Args:
+        action: One of 'mark_complete', 'snooze', 'set_priority'.
+        deadline: The matched deadline dict (must have 'id').
+        priority_value: 'high' or 'normal' (only used for set_priority).
+
+    Returns:
+        Description of what was done, for Claude to confirm.
+    """
+    from ai.db import _get_supabase
+
+    client = _get_supabase()
+    deadline_id = deadline["id"]
+    title = deadline.get("title", "task")
+    course = deadline.get("course", "")
+
+    if action == "mark_complete":
+        client.table("deadlines").update(
+            {"status": "completed"}
+        ).eq("id", deadline_id).execute()
+        return f"Marked '{title}' ({course}) as done"
+
+    elif action == "snooze":
+        snooze_until = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
+        client.table("deadlines").update(
+            {"snoozed_until": snooze_until}
+        ).eq("id", deadline_id).execute()
+        return f"Snoozed '{title}' ({course}) for 24 hours"
+
+    elif action == "set_priority":
+        pv = priority_value or "high"
+        client.table("deadlines").update(
+            {"priority": pv}
+        ).eq("id", deadline_id).execute()
+        return f"Set '{title}' ({course}) to {pv} priority"
+
+    return ""
+
+
+def handle_reply(user_id: str, body: str) -> str:
+    """Handle an inbound SMS by extracting intent, mutating DB if needed, and generating a reply.
+
+    Args:
+        user_id: UUID of the sender.
+        body: Raw inbound SMS text.
+
+    Returns:
+        Reply text string, guaranteed <= 800 characters.
+    """
+    client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    hashed_id = hashlib.sha256(user_id.encode()).hexdigest()[:12]
+
+    # Fetch context
+    deadlines = get_deadlines_for_briefing(user_id, days_ahead=14)
+    history_rows = get_conversation_history(user_id, limit=10)
+    history_messages = build_history_messages(history_rows)
+
+    # Step 1: Extract intent via Claude
+    start_time = time.monotonic()
+    intent_response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=100,
+        system=INTENT_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": body}],
+    )
+    intent_text = intent_response.content[0].text.strip()
+
+    try:
+        intent = json.loads(intent_text)
+    except json.JSONDecodeError:
+        intent = {"action": "off_topic", "task_hint": None, "priority_value": None}
+
+    action = intent.get("action", "off_topic")
+    task_hint = intent.get("task_hint")
+    priority_value = intent.get("priority_value")
+
+    # Step 2: Apply mutation if needed
+    mutation_result = ""
+    if action in ("mark_complete", "snooze", "set_priority"):
+        matched = _find_best_match(task_hint, deadlines)
+        if matched:
+            mutation_result = _apply_mutation(action, matched, priority_value)
+        else:
+            mutation_result = f"Couldn't find a matching deadline for '{task_hint}'"
+
+    # Step 3: Handle off-topic directly (no second Claude call needed)
+    if action == "off_topic":
+        latency_ms = int((time.monotonic() - start_time) * 1000)
+        logger.info(json.dumps({
+            "event": "claude_reply",
+            "uid": hashed_id,
+            "action": "off_topic",
+            "latency_ms": latency_ms,
+        }))
+        return OFF_TOPIC_RESPONSE
+
+    # Step 4: Generate reply via Claude with full context
+    # Build deadline context
+    deadline_context = "Current deadlines:\n"
+    if deadlines:
+        for d in deadlines[:10]:  # cap at 10 for context size
+            due = datetime.fromisoformat(str(d["due_date"]))
+            deadline_context += f"- {d['title']} | {d.get('course', '?')} | Due: {due.strftime('%a %b %d')}\n"
+    else:
+        deadline_context += "No upcoming deadlines.\n"
+
+    if mutation_result:
+        deadline_context += f"\nAction taken: {mutation_result}\n"
+
+    # Build messages array: history + current message
+    messages = list(history_messages)  # copy
+    messages.append({"role": "user", "content": f"{body}\n\n[Context for Aria]\n{deadline_context}"})
+
+    reply_response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=300,
+        system=REPLY_SYSTEM_PROMPT,
+        messages=messages,
+    )
+    latency_ms = int((time.monotonic() - start_time) * 1000)
+
+    logger.info(json.dumps({
+        "event": "claude_reply",
+        "uid": hashed_id,
+        "action": action,
+        "task_hint": task_hint,
+        "mutation": mutation_result or None,
+        "input_tokens": reply_response.usage.input_tokens,
+        "output_tokens": reply_response.usage.output_tokens,
+        "latency_ms": latency_ms,
+    }))
+
+    text = reply_response.content[0].text
+    if len(text) > 800:
+        text = text[:797] + "..."
+    return text
