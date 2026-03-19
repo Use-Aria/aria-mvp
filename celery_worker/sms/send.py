@@ -160,7 +160,7 @@ def _get_user_sms_state(user_id: str) -> dict:
     result = (
         client.table("users")
         .select(
-            "id, sms_opted_out, sms_opted_out_at, sms_paused_until, "
+            "id, phone, sms_opted_out, sms_opted_out_at, sms_paused_until, "
             "daily_sms_count, daily_sms_date, quiet_hours_start, "
             "quiet_hours_end, preferences_json"
         )

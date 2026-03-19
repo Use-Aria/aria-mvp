@@ -58,3 +58,36 @@ def canvas_sync_user(self, user_id: str, ical_url: str) -> dict:
         "changed": len(diff["changed"]),
         "removed": len(diff["removed"]),
     }
+
+
+@celery_app.task(name="tasks.process_inbound_sms", bind=True)
+def process_inbound_sms(self, message_sid: str, body: str, user_id: str) -> dict:
+    """Process one inbound SMS. Dispatch to command handler or stub Claude reply (Phase 4).
+
+    Args:
+        message_sid: Twilio MessageSid for tracing.
+        body: Message body text (raw).
+        user_id: UUID of the sender user (looked up by webhook, never a phone number).
+
+    Returns:
+        dict with message_sid, command_dispatched, and user_id.
+    """
+    from sms.commands import dispatch_command
+    from sms.send import _get_user_sms_state
+
+    # Look up user's phone for reply (phone is included in _get_user_sms_state select)
+    user = _get_user_sms_state(user_id)
+    to_phone = user.get("phone", "")
+
+    if not to_phone:
+        print(f"[process_inbound_sms] no phone for user — skipping (sid={message_sid})")
+        return {"message_sid": message_sid, "command_dispatched": False, "error": "no_phone"}
+
+    command_dispatched = dispatch_command(body, user_id, to_phone)
+
+    if not command_dispatched:
+        # Phase 4: route to Claude conversational handler
+        # Stub: log and skip — no phone number or body in log
+        print(f"[process_inbound_sms] non-command message — Phase 4 stub (sid={message_sid})")
+
+    return {"message_sid": message_sid, "command_dispatched": command_dispatched}
