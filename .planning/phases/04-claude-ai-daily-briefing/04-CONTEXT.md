@@ -1,0 +1,144 @@
+# Phase 4: Claude AI + Daily Briefing - Context
+
+**Gathered:** 2026-03-19
+**Status:** Ready for planning
+
+<domain>
+## Phase Boundary
+
+Integrate Claude Sonnet into Aria's Celery pipeline to produce three user-facing SMS behaviors:
+
+1. **Daily briefing** — generated at 7am, sent at 8am in the user's local timezone via the existing `send_sms_safe()` path
+2. **Welcome briefing** — fired immediately when a user saves their Canvas iCal URL; intro line + regular briefing content
+3. **Conversational replies** — replace the Phase 3 stub in `process_inbound_sms` with a Claude-powered handler for deadline queries and task management (mark complete, snooze, set priority)
+
+Out of scope: Gmail email summaries (Phase 5), Google Calendar events from GCal (Phase 5), weather data (not in roadmap), multi-turn conversation history.
+
+</domain>
+
+<decisions>
+## Implementation Decisions
+
+### Briefing format & tone
+- **Conversational prose** — warm, casual, like a text from a knowledgeable friend. Not bullets, not robotic. Uses contractions, abbreviates course names, brief context (e.g. "your bio lab, the big one").
+- **Personality:** Smart friend. Never sounds like a calendar alert or marketing message.
+- **Max length:** 5 SMS segments (~800 chars). Claude must be prompted to stay under this limit.
+
+### Briefing content
+- Include: upcoming deadlines in next 48h (max 3–5 items), anything due this week (broader horizon), overdue items (flag separately), exam-specific callout when T-7 / T-3 / T-1 days out.
+- **Exam callout** is always surfaced with extra emphasis regardless of distance — e.g. "EXAM IN 7 DAYS: Chem midterm (Mar 26)".
+- Canvas calendar events already in the DB (parsed from iCal VEVENTs by Phase 2) may be included if present — surface class times or important events within the 7-day window.
+- **Nothing-due day:** send a short light message — e.g. "Clear day ahead! Nothing due in the next 48 hours." Do not skip sending.
+
+### Exam countdown logic
+- Exam countdown check runs as a Celery Beat job at 7am daily (SYNC-06).
+- Countdown fires at **T-7, T-3, and T-1 days** before an exam.
+- Countdown is **bundled into the daily briefing** — not a separate SMS. The briefing generator checks for upcoming exams and includes the countdown line when applicable.
+- Exam identification uses the **`type` field** already set by `canvas/parse.py` (e.g. `type='exam'`). No re-parsing or Haiku classification needed.
+
+### Welcome briefing
+- **Trigger:** Canvas iCal URL saved by the user during onboarding. Fire immediately — do not wait for GCal or any other integration.
+- **Content:** Intro line ("Hey, I'm Aria! Here's what I see for you:") followed by the same content as a regular briefing generated from the just-synced Canvas data.
+- **Late signup handling:** The welcome briefing IS the "today's briefing" for users who sign up after 8am. Do not also send a separate regular briefing that day — the welcome covers it.
+- Welcome briefing is sent via `send_sms_safe(is_proactive=True)` and counts toward the daily cap.
+
+### Conversational reply scope
+- **Supported query types:**
+  1. Deadline queries — "what's due this week?", "do I have anything tomorrow?", "when is my chem midterm?"
+  2. Task management — mark complete (`status='completed'`), snooze (suppress reminders for 24h via a new `snoozed_until` field), set priority (new `priority` field on deadlines, values: `normal` / `high`)
+- **Claude's context per reply:** Last 14 days of deadlines from DB + the user's current message. No conversation history passed (single-turn).
+- **Ambiguous task match (multiple candidates for mark/snooze/priority):** Silently resolve to the **soonest-due match** — do not ask a clarifying question. Claude should acknowledge what it acted on (e.g. "Marked Bio Lab Report (due tonight) as done!").
+- **Off-topic / unrecognized messages:** Friendly redirect. e.g. "I can help with your deadlines! Try: 'what's due this week?', 'mark bio lab done', or 'snooze econ pset'."
+- Conversational replies use `send_sms_safe(is_proactive=False)` — uncapped (user initiated the conversation).
+
+### Task management schema additions
+Three new capabilities require schema changes on the `deadlines` table:
+- `status` — already exists (`upcoming` / `overdue` / `completed`); mark-complete sets `status='completed'`
+- `snoozed_until TIMESTAMPTZ` — new column; briefing generator skips items where `snoozed_until > now()`
+- `priority VARCHAR DEFAULT 'normal'` — new column; values: `normal`, `high`; briefing generator surfaces high-priority items first
+
+### Claude's Discretion
+- Exact Claude system prompt wording (tone, instructions, output constraints)
+- How to implement the 80% context limit check before calling Claude
+- Whether to call Claude API directly from Celery or via a thin `celery_worker/ai/` module
+- Exact Python Anthropic SDK usage pattern
+- Whether `generate_briefing` and `handle_reply` are separate functions or one unified Claude caller
+- Logging format for Claude calls (latency, token usage, hashed user_id)
+
+</decisions>
+
+<canonical_refs>
+## Canonical References
+
+**Downstream agents MUST read these before planning or implementing.**
+
+### Project architecture & constraints
+- `CLAUDE.md` — Claude model breakdown (Sonnet for briefing + replies), webhook rules (never inline Claude), context limit (14 days deadlines + 7 days calendar), env var list, team ownership
+- `project_context.md` — Phase 3 decisions (esp. `send_sms_safe` API, `is_proactive` flag, daily cap behavior)
+
+### Existing Celery patterns to build on
+- `celery_worker/tasks.py` — `process_inbound_sms` Phase 3 stub to replace; `canvas_sync_all/canvas_sync_user` as task structure reference
+- `celery_worker/celery_app.py` — Beat schedule where Phase 4 must add `generate-daily-briefings` and `exam-countdown-check` entries
+- `celery_worker/sms/send.py` — `send_sms_safe()` signature; all outbound SMS routes here
+- `celery_worker/canvas/` — Module structure to replicate for `celery_worker/ai/`
+
+### Database schema
+- `supabase/migrations/001_initial_schema.sql` — `deadlines` table (fields: `id`, `user_id`, `canvas_uid`, `title`, `due_date`, `course`, `type`, `grade_weight`), `messages` table, `users` table
+- `supabase/migrations/002_deadlines_soft_delete.sql` — `deleted_at`, partial index pattern to follow for new `snoozed_until` migration
+- `supabase/migrations/003_tcpa_columns.sql` — Pattern for adding columns to `users`; `preferences_json` timezone lookup pattern
+
+### Requirements
+- `.planning/REQUIREMENTS.md` — AI-04 (daily briefing content), AI-05 (8am send), AI-06 (7am generation job), AI-07 (conversational replies), AUTH-07 (welcome briefing), SYNC-05 (briefing Celery Beat), SYNC-06 (exam countdown Beat)
+- `.planning/ROADMAP.md` §Phase 4 — Success criteria (5 items); depends on Phase 3
+
+</canonical_refs>
+
+<code_context>
+## Existing Code Insights
+
+### Reusable Assets
+- `celery_worker/sms/send.py` — `send_sms_safe(user_id, to_phone, body, is_proactive)` is the only outbound path. Phase 4 briefing tasks call this with `is_proactive=True`; reply handler calls with `is_proactive=False`.
+- `celery_worker/sms/send.py::_get_user_sms_state()` — already fetches user phone, timezone (from `preferences_json`), TCPA columns. Briefing generator can call this for timezone lookup.
+- `celery_worker/tasks.py::process_inbound_sms` — stub at line `# Phase 4: route to Claude conversational handler` is the exact insertion point for the reply handler.
+- `celery_worker/canvas/db.py` — Supabase query patterns to replicate for deadline fetching in briefing generator.
+
+### Established Patterns
+- All heavy AI work in Python Celery — Next.js webhook returns 200 and enqueues. Phase 4 adds no new Next.js routes.
+- Module structure: `celery_worker/[domain]/` — Phase 4 should add `celery_worker/ai/` with `briefing.py` and `replies.py` (mirrors `celery_worker/sms/` and `celery_worker/canvas/`).
+- Beat schedule entries in `celery_app.py` — add alongside existing `canvas-sync-all-users`.
+- Timestamps always UTC TIMESTAMPTZ; timezone conversion at render time using `preferences_json.timezone`.
+
+### Integration Points
+- `celery_app.beat_schedule` — needs two new entries: `generate-daily-briefings` (7am, per-user or fan-out) and `exam-countdown-check` (7am daily)
+- `deadlines` table — briefing generator reads from here; task management handler writes `status`, `snoozed_until`, `priority`
+- `process_inbound_sms` task — stub to replace with real Claude reply handler
+- `messages` table — outbound briefings and replies should be written here with `direction='out'`, `trigger_type='briefing'` or `trigger_type='reply'`
+
+</code_context>
+
+<specifics>
+## Specific Ideas
+
+- Aria's voice should feel like a smart friend who happens to know your schedule — not a calendar notification, not a marketing message. Examples of good tone: "You've got your bio lab tonight (11:59pm) and that econ pset at 5pm — busy day. Also heads up: chem midterm in 7 days."
+- Exam callout always gets its own emphasis line, even if it's already in the deadlines list: "📅 EXAM IN 7 DAYS: Chem 101 Midterm — Mar 26"
+- Task management confirmations should be specific: "Marked Bio Lab Report (due tonight) as done!" not just "Done!"
+- Friendly redirect example: "I can help with your deadlines! Try: 'what's due this week?', 'mark bio lab done', or 'high priority econ pset'."
+
+</specifics>
+
+<deferred>
+## Deferred Ideas
+
+- **Email summary in briefings** — Cross-reference professor emails to surface deadline changes. Phase 5 (Gmail integration).
+- **Google Calendar events in briefings** — Surface GCal meetings/interviews. Phase 5 (GCal integration).
+- **Weather report in briefings** — Not in roadmap; consider for v2 if user research supports it.
+- **Multi-turn conversation history** — Passing last N SMS exchanges to Claude for context. Consider for Phase 4 revision or v2 if users ask follow-up questions frequently.
+- **Conversation reply abuse cap** — E.g. 10 AI replies/day to prevent misuse. Consider for Phase 4 if needed (noted in Phase 3 deferred).
+- **Natural-language opt-out** — "Turn off my messages" handled by Claude. Phase 4 stub exists; wire up in this phase if time allows, otherwise Phase 7.
+
+</deferred>
+
+---
+
+*Phase: 04-claude-ai-daily-briefing*
+*Context gathered: 2026-03-19*
