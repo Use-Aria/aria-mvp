@@ -43,8 +43,54 @@ Syncs Canvas deadlines, Gmail, and Google Calendar. Sends a daily 8am briefing +
 | Phase 4 validation | ✅ Done | `.planning/phases/04-claude-ai-daily-briefing/04-VALIDATION.md` |
 | Phase 4 plans (2) | ✅ Done | `.planning/phases/04-claude-ai-daily-briefing/04-01-PLAN.md`, `04-02-PLAN.md` |
 
-**Active phase:** Phase 4 — Claude AI + Daily Briefing
-**Next action:** `/gsd:execute-phase 4` — plans verified, ready to execute (`/clear` first)
+**Active phase:** Phase 5 — Priority Engine + Canonical Timeline DB
+**Next action:** `/gsd:plan-phase 5` — context captured, ready to plan (`/clear` first)
+
+---
+
+## Session Summary — 2026-03-19 (third session)
+
+### What We Accomplished
+
+1. **Executed Phase 4** — ran both plans via `gsd:execute-phase 4`; all 94 tests passing; verification passed 14/14 must-haves
+2. **Discussed Phase 5** — captured all Priority Engine + Canonical Timeline DB decisions into `05-CONTEXT.md`
+
+### Files Created
+
+| File | Key Change |
+|------|------------|
+| `supabase/migrations/004_deadlines_task_management.sql` | **CREATED** — `status`, `snoozed_until`, `priority` columns on `deadlines`; `idx_deadlines_briefing` partial index |
+| `celery_worker/ai/__init__.py` | **CREATED** — ai module package init |
+| `celery_worker/ai/db.py` | **CREATED** — 4 shared Supabase query functions: `get_deadlines_for_briefing`, `get_conversation_history`, `briefing_sent_today`, `write_outbound_message` |
+| `celery_worker/ai/briefing.py` | **CREATED** — `generate_briefing()` via Claude Sonnet; `compute_load_score()` (green/yellow/red); exam touchpoints (T-7,5,3,1,0); Monday 7-day extended mode; 800-char enforcement |
+| `celery_worker/ai/replies.py` | **CREATED** — two-step Claude reply handler: intent extraction (JSON) → DB mutation (snooze/complete/priority) → warm reply; `OFF_TOPIC_RESPONSE` constant; conversation history dedup |
+| `celery_worker/tests/ai/test_briefing.py` | **CREATED** — 18 unit tests for briefing generator |
+| `celery_worker/tests/ai/test_replies.py` | **CREATED** — 11 unit tests for reply handler |
+| `celery_worker/tests/test_tasks_ai.py` | **CREATED** — 10 integration tests for Celery AI tasks |
+| `.planning/phases/04-claude-ai-daily-briefing/04-VERIFICATION.md` | **CREATED** — 14/14 must-haves verified; all requirement IDs (AI-04 through AI-11, CONV-01, etc.) accounted for |
+| `.planning/phases/05-priority-engine-canonical-timeline-db/05-CONTEXT.md` | **CREATED** — Phase 5 implementation decisions (see below) |
+
+### Files Modified
+
+| File | Key Change |
+|------|------------|
+| `celery_worker/tasks.py` | Added `generate_daily_briefings_all` (fan-out), `generate_daily_briefing_user` (timezone + dedup guard), `welcome_briefing`, real `process_inbound_sms` routing via `handle_reply` |
+| `celery_worker/celery_app.py` | Added Beat schedule: `generate_daily_briefings_all` every 15 min during hours 6–12 UTC |
+| `celery_worker/requirements.txt` | Added `anthropic>=0.86.0` |
+| `.planning/ROADMAP.md` | Phase 4 marked complete; Phase 5 status updated |
+| `.planning/STATE.md` | Updated to reflect Phase 4 complete, Phase 5 context gathered |
+| `.planning/PROJECT.md` | Claude AI briefings requirement moved from Active → Validated; new key decision row added |
+
+### Decisions Made This Session (Not Captured in Code)
+
+| Decision | Detail |
+|----------|--------|
+| `canonical_events` is a new table | `deadlines` stays as Canvas source-of-truth; backfill job copies existing rows into `canonical_events` on Phase 5 deploy; `ai/db.py` briefing queries switch to read from `canonical_events` going forward |
+| Urgency decay: `min(1.0, e^(-0.15 × days))` | Aggressive decay — 3 days out = 0.64 urgency, 1 day = 0.86, 0 days = 1.0; overdue clamped to 1.0 |
+| Score ≥ 80 bypasses quiet hours | Immediate alerts treated as transactional; use `send_sms_direct` (not `send_sms_safe`); opt-out check still applies — STOP always honored |
+| Score ≥ 80 exempt from 3/day cap | Priority alerts don't count toward the daily proactive cap |
+| Score 50–79 → always next morning | Digest-tier events always queue for tomorrow's 8am briefing; no same-night send regardless of when the event arrives |
+| Phase 8 onboarding needs TCPA copy | Bypassing quiet hours for urgent alerts requires explicit opt-in language: "I agree to receive time-sensitive deadline alerts at any hour." Flag for Seb's onboarding UI. |
 
 ---
 
@@ -238,7 +284,7 @@ Twilio SMS layer + full TCPA compliance implemented and verified (2026-03-19). 5
 | 1 | Infrastructure Foundation | Josh | ✅ Supabase schema + Redis + Celery + Vercel wired up |
 | 2 | Canvas iCal Sync | Josh | ✅ Deadlines fetched, normalized, stored, diffed every 60 min |
 | 3 | Twilio SMS + TCPA | Josh | ✅ TCPA guard, keyword dispatch, validated webhook, Celery inbound pipeline |
-| 4 | Claude AI + Daily Briefing | Josh | 8am SMS + Monday extended briefing + conversational replies + task mgmt + exam countdown |
+| 4 | Claude AI + Daily Briefing | Josh | ✅ 8am SMS + Monday extended briefing + conversational replies + task mgmt + exam countdown |
 | 5 | Priority Engine + Canonical Timeline DB | Josh | Unified event scoring (grade×0.35 + urgency×0.45 + source×0.20), delivery router |
 | 6 | Google OAuth + GCal + Gmail + Alerts | Josh | Deadline alerts ≤15 min, conflict detection, SMS batching, watch channel auto-renewal |
 | 7 | Syllabus Parsing + Study Gap Detection | Josh | Claude Opus extracts grade weights; T-5 gap analysis goes live |
