@@ -41,7 +41,48 @@ Syncs Canvas deadlines, Gmail, and Google Calendar. Sends a daily 8am briefing +
 | App code | ✅ Phase 3 complete | — |
 
 **Active phase:** Phase 4 — Claude AI + Daily Briefing
-**Next action:** `/gsd:plan-phase 4` (context already written, research + planning next)
+**Next action:** `/gsd:plan-phase 4` — context already written (`04-CONTEXT.md`), run research + planning next
+
+---
+
+## Session Summary — 2026-03-19
+
+### What We Accomplished
+
+1. **Ran `/gsd:discuss-phase 4`** — captured all Phase 4 implementation decisions into `04-CONTEXT.md`
+2. **Received PRD v1.1 from Seb** — full product vision including iOS app, Priority Engine, expanded integrations
+3. **Compared PRD v1.1 against all planning files** — identified 9 strategic discrepancies
+4. **Made 9 product/architecture decisions** (see below)
+5. **Updated 5 planning files** to align with PRD v1.1 — roadmap expanded 7 → 9 phases, requirements 52 → 68
+6. **Pushed all work to GitHub** — 22 commits, branch `main`, remote `origin`
+7. **Updated Notion PRD** — synced all changes to "Product Requirements Document — Aria v1" in Seb's workspace
+
+### Planning Files Created or Modified
+
+| File | Key Change |
+|------|-----------|
+| `.planning/phases/04-claude-ai-daily-briefing/04-CONTEXT.md` | **CREATED** — Phase 4 implementation decisions: conversational prose briefings, smart-friend tone, task management (mark done/snooze/priority), exam countdown (5 touchpoints), welcome briefing on Canvas URL save, last 5 exchanges in Claude context, Monday extended briefing, daily load score |
+| `.planning/REQUIREMENTS.md` | **UPDATED** — 52 → 68 reqs; added PRIO-01/02/03 (Priority Engine), CONV-01 (conversation history), AI-08 (Monday briefing), AI-09 (daily load score), AI-10 (study gap), AI-11 (exam day-of), SMS-10/11 (batching), UI-06–09 (iOS app), TASK-01/02 (Todoist); INTEL-01/03 promoted from v2 to v1; GMAI-03 updated (metadata only, not full storage) |
+| `.planning/ROADMAP.md` | **UPDATED** — 7 → 9 phases; Phase 5 = Priority Engine + Canonical Timeline DB (new); Phase 6 = GCal/Gmail/Alerts/Conflict Detection; Phase 7 = Syllabus + Study Gap; Phase 8 = iOS App + Onboarding; Phase 9 = Todoist |
+| `.planning/PROJECT.md` | **UPDATED** — iOS = equal primary interface; 6-layer intelligence pipeline documented; Priority Engine scoring formula added; Gmail metadata-only policy; target audience expanded beyond Yale |
+| `project_context.md` | **UPDATED** — roadmap table updated to 9 phases; this session summary added |
+
+### Decisions Made This Session (Not Captured in Code)
+
+| Decision | Detail |
+|----------|--------|
+| iOS app = equal primary interface | Phase 8, Seb leads; 4-zone card dashboard, in-app chat, voice input; starts parallel with Phase 6 once Phase 4 APIs are stable |
+| Priority Engine is its own phase | Phase 5 — Canonical Timeline DB + scoring formula (`grade×0.35 + urgency×0.45 + source×0.20`). All Phase 6+ integrations write to the Canonical Store, not directly to their own tables |
+| Conversation history in Claude context | Last 5 SMS exchanges included in every conversational reply (was: no history). Fetch from `messages` table ordered by `sent_at` descending |
+| Exam countdown expanded to 5 touchpoints | T-7 (topics + study windows), T-5 (gap analysis — stub in Phase 4, live in Phase 7), T-3 (midpoint + office hours reminder), T-1 (final review), T-0 (day-of logistics at 7am) |
+| Monday extended briefing | Added to Phase 4 scope (partial: 7-day horizon + daily load score); Phase 6 adds GCal conflicts and study windows. Triggered by `datetime.weekday() == 0` check in briefing generator |
+| Daily load score | Green/yellow/red computed at briefing time; included in every briefing and feeds iOS app Zone 2 status bar in Phase 8 |
+| Conflict detection promoted to v1 | INTEL-03 moved from v2 → Phase 6. Fires when Canvas deadline overlaps existing GCal event |
+| Study gap detection promoted to v1 | INTEL-01 moved from v2 → Phase 7. Requires syllabus parsing (Phase 7) — runs gap analysis at T-5 days before exam |
+| Todoist promoted to v1 | TASK-01/02 moved from v2 → Phase 9. Depends on Phase 5 Priority Engine for task scoring |
+| SMS batching added | SMS-10/11: multiple alerts within 10 minutes batched into one message; no more than 3 texts in any 10-minute window. Added to Phase 6 when alerts are introduced |
+| Gmail metadata only | GMAI-03 corrected — flagged emails stored as metadata in `gmail_flags` table (subject, sender, summary); full email content never stored permanently |
+| `process_inbound_sms` non-command stub | Currently in `celery_worker/tasks.py` — the `# Phase 4 stub` comment marks the exact line where the Claude reply handler + conversation history goes in Phase 4 |
 
 ---
 
