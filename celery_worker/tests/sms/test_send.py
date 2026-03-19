@@ -425,3 +425,70 @@ def test_suppressed_log_no_phone(mock_client_cls, mock_get_state, caplog):
     log_text = " ".join(r.getMessage() for r in caplog.records)
     assert phone not in log_text, "Raw phone number found in log output"
     assert user_id not in log_text, "Raw user_id found in log output"
+
+
+# ---------------------------------------------------------------------------
+# Tests: send_sms_alert — bypasses quiet hours / cap, checks opt-out
+# ---------------------------------------------------------------------------
+
+@patch.dict(os.environ, _TWILIO_ENV)
+@patch("sms.send._get_user_sms_state")
+@patch("sms.send.Client")
+def test_send_sms_alert_active_user(mock_client_cls, mock_get_state):
+    """send_sms_alert returns True and calls Twilio for opted-in user."""
+    from sms.send import send_sms_alert
+
+    mock_get_state.return_value = _base_state()
+    mock_message = MagicMock()
+    mock_message.sid = "SM_alert_123"
+    mock_client_cls.return_value.messages.create.return_value = mock_message
+
+    result = send_sms_alert("user-uuid-alert", "+12025551234", "URGENT: your assignment is due!")
+
+    assert result is True
+    mock_client_cls.return_value.messages.create.assert_called_once()
+    call_kwargs = mock_client_cls.return_value.messages.create.call_args
+    assert call_kwargs.kwargs.get("to") == "+12025551234"
+    assert call_kwargs.kwargs.get("body") == "URGENT: your assignment is due!"
+
+
+@patch("sms.send._get_user_sms_state")
+@patch("sms.send.Client")
+def test_send_sms_alert_opted_out(mock_client_cls, mock_get_state):
+    """send_sms_alert returns False and does NOT call Twilio for opted-out user."""
+    from sms.send import send_sms_alert
+
+    mock_get_state.return_value = _base_state(sms_opted_out=True)
+
+    result = send_sms_alert("user-uuid-optout", "+12025551234", "URGENT: due soon!")
+
+    assert result is False
+    mock_client_cls.return_value.messages.create.assert_not_called()
+
+
+@patch.dict(os.environ, _TWILIO_ENV)
+@patch("sms.send._get_user_sms_state")
+@patch("sms.send.Client")
+def test_alert_bypasses_guards(mock_client_cls, mock_get_state):
+    """send_sms_alert ignores quiet hours, pause, and daily cap — sends anyway."""
+    from sms.send import send_sms_alert
+    from datetime import timedelta
+
+    # User has pause active, is in quiet hours, and has hit daily cap —
+    # send_sms_alert should still send because it bypasses all these guards.
+    future_pause = (datetime.now(timezone.utc) + timedelta(hours=12)).isoformat()
+    mock_get_state.return_value = _base_state(
+        sms_paused_until=future_pause,
+        quiet_hours_start="22:00",
+        quiet_hours_end="08:00",
+        daily_sms_count=3,
+        daily_sms_date="2026-03-19",
+    )
+    mock_message = MagicMock()
+    mock_message.sid = "SM_bypass_test"
+    mock_client_cls.return_value.messages.create.return_value = mock_message
+
+    result = send_sms_alert("user-uuid-bypass", "+12025551234", "URGENT: overdue exam!")
+
+    assert result is True
+    mock_client_cls.return_value.messages.create.assert_called_once()

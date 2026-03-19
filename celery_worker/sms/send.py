@@ -134,6 +134,41 @@ def send_sms_direct(to_phone: str, body: str) -> str:
     return message.sid
 
 
+def send_sms_alert(user_id: str, to_phone: str, body: str) -> bool:
+    """Send time-sensitive alert SMS bypassing quiet hours and daily cap.
+
+    Still checks opt-out — never send to opted-out users regardless of score.
+    Reserved for priority_score >= 80 events only.
+    Requires explicit onboarding consent before Yale beta (TCPA — Phase 8 Seb task).
+
+    Args:
+        user_id: UUID of recipient (used for opt-out check and hashed logging).
+        to_phone: Recipient E.164 phone number. Never logged in plaintext.
+        body: Alert message body.
+
+    Returns:
+        True if sent, False if user is opted out.
+    """
+    user = _get_user_sms_state(user_id)
+    hashed_id = hashlib.sha256(user_id.encode()).hexdigest()[:12]
+
+    if user["sms_opted_out"]:
+        _log_suppressed(hashed_id, "opted_out")
+        return False
+
+    account_sid = os.environ["TWILIO_ACCOUNT_SID"]
+    auth_token = os.environ["TWILIO_AUTH_TOKEN"]
+    from_number = os.environ["TWILIO_PHONE_NUMBER"]
+    client = Client(account_sid, auth_token)
+    message = client.messages.create(from_=from_number, to=to_phone, body=body)
+    logger.info(json.dumps({
+        "event": "sms_alert_sent",
+        "sid": message.sid,
+        "uid": hashed_id,
+    }))
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
