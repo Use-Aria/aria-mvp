@@ -75,7 +75,7 @@ Plans:
   5. Users can mark tasks complete, snooze, and set priority via SMS; Aria resolves ambiguous matches to soonest-due
   6. Exam countdown fires at T-7, T-5 (stub), T-3, T-1, and day-of; all bundled into daily briefing
   7. Daily load score (green/yellow/red) computed and included in briefing
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 04-01-PLAN.md — Schema migration + AI module skeleton + briefing generator with load score and exam countdown
 - [ ] 04-02-PLAN.md — Conversational reply handler + Celery task wiring (Beat schedule, fan-out, welcome briefing, inbound SMS)
@@ -152,7 +152,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 (Ph
 | 1. Infrastructure Foundation | 2/2 | Complete | 2026-03-18 |
 | 2. Canvas iCal Sync | 2/2 | Complete | 2026-03-19 |
 | 3. Twilio SMS + TCPA Compliance | 3/3 | Complete | 2026-03-19 |
-| 4. Claude AI + Daily Briefing | 0/2 | Planned | - |
+| 4. Claude AI + Daily Briefing | 1/2 | In Progress|  |
 | 5. Priority Engine + Canonical Timeline DB | 0/TBD | Not started | - |
 | 6. Google OAuth + GCal + Gmail + Alerts | 0/TBD | Not started | - |
 | 7. Syllabus Parsing + Study Gap Detection | 0/TBD | Not started | - |
