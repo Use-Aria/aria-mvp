@@ -8,9 +8,16 @@ Phone numbers are never logged — only hashed user_id (uid).
 """
 import json
 import logging
+import os
 from datetime import datetime, timezone, timedelta, time
 from unittest.mock import MagicMock, patch, call
 import pytest
+
+_TWILIO_ENV = {
+    "TWILIO_ACCOUNT_SID": "ACtest123",
+    "TWILIO_AUTH_TOKEN": "auth_token_test",
+    "TWILIO_PHONE_NUMBER": "+15005550006",
+}
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -42,6 +49,7 @@ def _make_local_now(hour: int, minute: int = 0, date_str: str = "2026-03-19"):
 # Test: happy path
 # ---------------------------------------------------------------------------
 
+@patch.dict(os.environ, _TWILIO_ENV)
 @patch("sms.send._increment_daily_count")
 @patch("sms.send._get_user_sms_state")
 @patch("sms.send.Client")
@@ -115,6 +123,7 @@ def test_paused_blocks(mock_client_cls, mock_get_state):
 # Test: paused with past timestamp allows
 # ---------------------------------------------------------------------------
 
+@patch.dict(os.environ, _TWILIO_ENV)
 @patch("sms.send._increment_daily_count")
 @patch("sms.send._get_user_sms_state")
 @patch("sms.send.Client")
@@ -186,6 +195,7 @@ def test_quiet_hours_blocks_3am(mock_client_cls, mock_get_state):
 # Test: allows 9am
 # ---------------------------------------------------------------------------
 
+@patch.dict(os.environ, _TWILIO_ENV)
 @patch("sms.send._increment_daily_count")
 @patch("sms.send._get_user_sms_state")
 @patch("sms.send.Client")
@@ -212,6 +222,7 @@ def test_quiet_hours_allows_9am(mock_client_cls, mock_get_state, mock_increment)
 # Test: allows 9pm
 # ---------------------------------------------------------------------------
 
+@patch.dict(os.environ, _TWILIO_ENV)
 @patch("sms.send._increment_daily_count")
 @patch("sms.send._get_user_sms_state")
 @patch("sms.send.Client")
@@ -264,6 +275,7 @@ def test_daily_cap_blocks_4th_proactive(mock_client_cls, mock_get_state):
 # Test: daily cap allows reply even at count 3
 # ---------------------------------------------------------------------------
 
+@patch.dict(os.environ, _TWILIO_ENV)
 @patch("sms.send._get_user_sms_state")
 @patch("sms.send.Client")
 def test_daily_cap_allows_reply(mock_client_cls, mock_get_state):
@@ -293,6 +305,7 @@ def test_daily_cap_allows_reply(mock_client_cls, mock_get_state):
 # Test: daily cap resets on new day
 # ---------------------------------------------------------------------------
 
+@patch.dict(os.environ, _TWILIO_ENV)
 @patch("sms.send._increment_daily_count")
 @patch("sms.send._get_user_sms_state")
 @patch("sms.send.Client")
@@ -326,6 +339,7 @@ def test_daily_cap_resets_new_day(mock_client_cls, mock_get_state, mock_incremen
 # Test: daily count incremented after successful proactive send
 # ---------------------------------------------------------------------------
 
+@patch.dict(os.environ, _TWILIO_ENV)
 @patch("sms.send._increment_daily_count")
 @patch("sms.send._get_user_sms_state")
 @patch("sms.send.Client")
