@@ -11,6 +11,9 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, patch, call
 import pytest
 
+# Pre-import so patch("sms.commands.*") can resolve the module via sys.modules
+import sms.commands  # noqa: F401
+
 
 FROZEN_NOW = datetime(2026, 3, 19, 12, 0, 0, tzinfo=timezone.utc)
 FROZEN_PAUSED_UNTIL = FROZEN_NOW + timedelta(hours=24)
