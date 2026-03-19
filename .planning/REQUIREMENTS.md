@@ -42,8 +42,8 @@
 ### SMS Interface
 
 - [x] **SMS-01**: System can send outbound SMS to user via Twilio
-- [ ] **SMS-02**: Twilio inbound webhook returns 200 immediately and enqueues processing to Celery (never inline)
-- [ ] **SMS-03**: Inbound SMS routed to Claude Sonnet for conversational reply
+- [x] **SMS-02**: Twilio inbound webhook returns 200 immediately and enqueues processing to Celery (never inline)
+- [x] **SMS-03**: Inbound SMS routed to Claude Sonnet for conversational reply
 - [x] **SMS-04**: Maximum 3 unsolicited SMS per day per user enforced
 - [x] **SMS-05**: Quiet hours enforced (no SMS between 10pm–8am in user's timezone)
 - [x] **SMS-06**: STOP command immediately opts user out and confirms with final SMS
@@ -70,7 +70,7 @@
 ### Sync Engine
 
 - [x] **SYNC-01**: Celery + Redis deployed on Railway for all background jobs
-- [ ] **SYNC-02**: Canvas iCal sync job runs every 60 minutes per user
+- [x] **SYNC-02**: Canvas iCal sync job runs every 60 minutes per user
 - [ ] **SYNC-03**: GCal push notification handler processes calendar changes in real time
 - [ ] **SYNC-04**: GCal and Gmail watch channels renewed via Celery Beat cron (48 hours before expiry)
 - [ ] **SYNC-05**: Daily briefing generation job runs at 7am per user timezone (Celery Beat)
@@ -137,15 +137,15 @@
 | CANV-04 | Phase 2 | Complete |
 | CANV-05 | Phase 2 | Complete |
 | SMS-01 | Phase 3 | Complete |
-| SMS-02 | Phase 3 | Pending |
-| SMS-03 | Phase 3 | Pending |
+| SMS-02 | Phase 3 | Complete |
+| SMS-03 | Phase 3 | Complete |
 | SMS-04 | Phase 3 | Complete |
 | SMS-05 | Phase 3 | Complete |
 | SMS-06 | Phase 3 | Complete |
 | SMS-07 | Phase 3 | Complete |
 | SMS-08 | Phase 3 | Complete |
 | SMS-09 | Phase 3 | Complete |
-| SYNC-02 | Phase 3 | Pending |
+| SYNC-02 | Phase 3 | Complete |
 | AI-04 | Phase 4 | Pending |
 | AI-05 | Phase 4 | Pending |
 | AI-06 | Phase 4 | Pending |
