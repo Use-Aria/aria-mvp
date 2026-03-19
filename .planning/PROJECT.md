@@ -21,7 +21,7 @@ Students don't have a productivity problem — they have a fragmentation problem
 
 ### Active
 
-- [ ] Claude AI briefings — daily morning SMS, Monday extended briefing, conversational replies, task management, exam countdown
+- [x] Claude AI briefings — daily morning SMS, Monday extended briefing, conversational replies, task management, exam countdown (Validated in Phase 4: claude-ai-daily-briefing)
 - [ ] Priority Engine — canonical event store, priority scoring formula, delivery router
 - [ ] Google Calendar + Gmail — OAuth, real-time alerts, conflict detection, Monday briefing enrichment
 - [ ] Syllabus parsing — Claude Opus extracts grade weights, topics; study gap analysis before exams
@@ -68,6 +68,7 @@ Students don't have a productivity problem — they have a fragmentation problem
 |----------|-----------|---------|
 | Canvas via iCal (not API) | No institutional approval needed, no FERPA risk | Validated Phase 2 |
 | SMS via Twilio (not iMessage) | No native iMessage API; Twilio is TCPA-compliant | Validated Phase 3 |
+| Claude Sonnet for briefings + replies | Two-step intent→reply pattern; 800-char enforcement; conversation history context | Validated Phase 4 |
 | Supabase over Firebase | Relational schema fits the data model better long-term | Active |
 | FastAPI for AI jobs (alongside Next.js) | Python ecosystem for Celery, better for AI workloads | Active |
 | Backend-first build order | Pipeline must work before iOS app delivers value | Active |
@@ -77,4 +78,4 @@ Students don't have a productivity problem — they have a fragmentation problem
 | Gmail metadata only | Full email content never stored permanently — privacy + compliance | Active |
 
 ---
-*Last updated: 2026-03-19 — PRD v1.1 alignment: 9-phase roadmap, iOS primary interface, Priority Engine phase, conflict detection and study gaps promoted to v1, Todoist v1*
+*Last updated: 2026-03-19 — Phase 4 complete: Claude AI briefings and conversational SMS replies shipped*
