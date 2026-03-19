@@ -42,9 +42,49 @@ Syncs Canvas deadlines, Gmail, and Google Calendar. Sends a daily 8am briefing +
 | Phase 4 research | ✅ Done | `.planning/phases/04-claude-ai-daily-briefing/04-RESEARCH.md` |
 | Phase 4 validation | ✅ Done | `.planning/phases/04-claude-ai-daily-briefing/04-VALIDATION.md` |
 | Phase 4 plans (2) | ✅ Done | `.planning/phases/04-claude-ai-daily-briefing/04-01-PLAN.md`, `04-02-PLAN.md` |
+| Phase 5 research | ✅ Done | `.planning/phases/05-priority-engine-canonical-timeline-db/05-RESEARCH.md` |
+| Phase 5 validation | ✅ Done | `.planning/phases/05-priority-engine-canonical-timeline-db/05-VALIDATION.md` |
+| Phase 5 plans (2) | ✅ Done | `.planning/phases/05-priority-engine-canonical-timeline-db/05-01-PLAN.md`, `05-02-PLAN.md` |
 
 **Active phase:** Phase 5 — Priority Engine + Canonical Timeline DB
-**Next action:** `/gsd:plan-phase 5` — context captured, ready to plan (`/clear` first)
+**Next action:** `/gsd:execute-phase 5` — all plans ready (`/clear` first)
+
+---
+
+## Session Summary — 2026-03-19 (fourth session)
+
+### What We Accomplished
+
+1. **Ran `/gsd:plan-phase 5`** — researched, planned, and verified Phase 5 (Priority Engine + Canonical Timeline DB)
+2. **Verification passed 9/9 dimensions** — all requirement IDs (PRIO-01, PRIO-02, PRIO-03) covered
+
+### Files Created
+
+| File | Key Change |
+|------|------------|
+| `.planning/phases/05-priority-engine-canonical-timeline-db/05-RESEARCH.md` | **CREATED** — no new deps; `priority/` module structure; grade_weight normalization pitfall; backfill `skip_routing=True` guard; UNIQUE constraint idempotency; `has_alert_consent` TCPA gate recommendation |
+| `.planning/phases/05-priority-engine-canonical-timeline-db/05-VALIDATION.md` | **CREATED** — pytest validation strategy; Wave 0 gaps list; manual-only tests for live alert latency and backfill no-spam |
+| `.planning/phases/05-priority-engine-canonical-timeline-db/05-01-PLAN.md` | **CREATED** — Wave 1 TDD: `priority/engine.py` (score_event, compute_urgency) + `priority/router.py` (route_event) + 19 tests |
+| `.planning/phases/05-priority-engine-canonical-timeline-db/05-02-PLAN.md` | **CREATED** — Wave 2: migration 005 (`canonical_events`), `priority/ingest.py` (shared entry point), `send_sms_alert()`, canvas_sync wiring, backfill tasks, briefing switchover |
+
+### Files Modified
+
+| File | Key Change |
+|------|------------|
+| `.planning/ROADMAP.md` | Phase 5 Plans field updated from TBD to 2 plans |
+| `project_context.md` | This session summary added; Phase 5 artifacts added to Current State |
+
+### Decisions Made This Session (Not Captured in Code)
+
+| Decision | Detail |
+|----------|--------|
+| `priority_score` stored as INTEGER 0–100 | `score_event()` returns raw 0.0–1.0; multiply × 100 and round before DB write. Avoids float comparison edge cases in delivery routing SQL queries. |
+| `grade_weight` normalized before scoring | Canvas `deadlines.grade_weight` may be a raw percentage (e.g. 25.0). `ingest_canonical_event()` normalizes: if `grade_weight > 1` divide by 100; NULL defaults to 0.0. Stored as normalized 0.0–1.0 in `canonical_events`. |
+| Backfill uses `skip_routing=True` | Prevents spamming users with immediate alerts for already-known Canvas events during Phase 5 deploy. Backfilled events get `delivery_status='silent'` regardless of score. |
+| UNIQUE constraint `(user_id, source, title, due_at)` | Makes both backfill and canvas_sync idempotent at DB level. Backfill uses `ON CONFLICT DO NOTHING`; live sync uses `ON CONFLICT DO UPDATE`. |
+| `delivery_status` marked `'sent'` after digest briefing | After `generate_daily_briefing_user` sends, all included `canonical_events` rows with `delivery_status='digest'` are updated to `'sent'`. Prevents repeat inclusion in future briefings. |
+| `has_alert_consent` TCPA gate | `send_sms_alert()` checks `users.preferences_json['has_alert_consent']`; falls back to `send_sms_safe()` when absent/false. Column defaults false. Phase 8 onboarding UI (Seb) must add consent toggle before Yale beta. |
+| `get_deadlines_for_briefing()` deprecated | Kept in `ai/db.py` with deprecation comment. Replaced by `get_events_for_briefing()` which reads `canonical_events`. Old function not deleted until Phase 6 confirms full coverage. |
 
 ---
 
