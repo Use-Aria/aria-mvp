@@ -39,9 +39,42 @@ Syncs Canvas deadlines, Gmail, and Google Calendar. Sends a daily 8am briefing +
 | Phase 3 plans (3) | ✅ Done | `.planning/phases/03-twilio-sms-tcpa-compliance/03-01-PLAN.md`, `03-02-PLAN.md`, `03-03-PLAN.md` |
 | Phase 3 validation | ✅ Done | `.planning/phases/03-twilio-sms-tcpa-compliance/03-VALIDATION.md` |
 | App code | ✅ Phase 3 complete | — |
+| Phase 4 research | ✅ Done | `.planning/phases/04-claude-ai-daily-briefing/04-RESEARCH.md` |
+| Phase 4 validation | ✅ Done | `.planning/phases/04-claude-ai-daily-briefing/04-VALIDATION.md` |
+| Phase 4 plans (2) | ✅ Done | `.planning/phases/04-claude-ai-daily-briefing/04-01-PLAN.md`, `04-02-PLAN.md` |
 
 **Active phase:** Phase 4 — Claude AI + Daily Briefing
-**Next action:** `/gsd:plan-phase 4` — context already written (`04-CONTEXT.md`), run research + planning next
+**Next action:** `/gsd:execute-phase 4` — plans verified, ready to execute (`/clear` first)
+
+---
+
+## Session Summary — 2026-03-19 (second session)
+
+### What We Accomplished
+
+1. **Ran `/gsd:plan-phase 4`** — researched, planned, and verified Phase 4 (Claude AI + Daily Briefing)
+2. **Fixed briefing window bug before writing any code** — checker caught that `hour == 7` fires during quiet hours (10pm–8am), suppressing all briefings; shifted to `hour == 8`
+3. **All plans committed** — 4 commits on `main`
+
+### Planning Files Created or Modified
+
+| File | Key Change |
+|------|------------|
+| `.planning/phases/04-claude-ai-daily-briefing/04-RESEARCH.md` | **CREATED** — anthropic 0.86.0 SDK patterns, per-user timezone scheduling via Beat + hour-check guard, conversation history dedup for SDK alternating-role requirement, welcome briefing trigger via `synced_at IS NULL` check |
+| `.planning/phases/04-claude-ai-daily-briefing/04-VALIDATION.md` | **CREATED** — pytest-based validation strategy; 5 automated test files to create; 3 manual-only verifications (live SMS timing, tone quality, welcome briefing latency) |
+| `.planning/phases/04-claude-ai-daily-briefing/04-01-PLAN.md` | **CREATED** — Wave 1: DB migration (`snoozed_until`, `priority` columns on `deadlines`) + `celery_worker/ai/db.py` data layer + `celery_worker/ai/briefing.py` (generate_briefing, compute_load_score, get_exam_touchpoints, Monday extended, 8am window guard) |
+| `.planning/phases/04-claude-ai-daily-briefing/04-02-PLAN.md` | **CREATED** — Wave 2: `celery_worker/ai/replies.py` (conversational handler + task management via Claude) + Celery wiring (Beat fan-out, `generate_daily_briefing_user`, welcome briefing trigger, inbound SMS non-command path) |
+| `.planning/ROADMAP.md` | **UPDATED** — Phase 4 Plans field updated from TBD to 2 plans |
+
+### Decisions Made This Session (Not Captured in Code)
+
+| Decision | Detail |
+|----------|--------|
+| Briefing window is `hour == 8`, not `hour == 7` | `send_sms_safe` enforces quiet hours until 8am — generating at 7am and sending immediately would be suppressed. Generation and send both happen at 8am. The Beat crontab `(minute="*/15", hour="6-12")` covers all US 8am windows. |
+| Conversation history not included in daily briefing | AI-04 requires "last 5 exchanges" in briefing context, but CONTEXT.md scopes this to conversational replies only (CONV-01). Briefing generator receives only deadline data. Documented as intentional in plan design notes. |
+| Welcome briefing detected via `synced_at IS NULL` | No new webhook or API route needed — `canvas_sync_user` detects first-ever sync by checking if `synced_at` was NULL before calling `mark_synced()`. Fires `welcome_briefing.delay(user_id)` on first sync. |
+| Exam countdown bundled into daily briefing | Not a separate Celery Beat entry. `generate_briefing()` calls `get_exam_touchpoints()` internally. Single Beat job covers both. |
+| `ai/` module pattern | New `celery_worker/ai/` package mirrors `celery_worker/canvas/` and `celery_worker/sms/` — separate `db.py`, `briefing.py`, `replies.py`. Tests in `celery_worker/tests/ai/`. |
 
 ---
 
