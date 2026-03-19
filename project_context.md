@@ -34,10 +34,14 @@ Syncs Canvas deadlines, Gmail, and Google Calendar. Sends a daily 8am briefing +
 | Phase 2 plans (2) | ✅ Done | `.planning/phases/02-canvas-ical-sync/02-01-PLAN.md`, `02-02-PLAN.md` |
 | Phase 2 validation | ✅ Done | `.planning/phases/02-canvas-ical-sync/02-VALIDATION.md` |
 | Phase 2 verification | ✅ Done | `.planning/phases/02-canvas-ical-sync/02-VERIFICATION.md` |
-| App code | ✅ Phase 2 complete | — |
+| Phase 3 context | ✅ Done | `.planning/phases/03-twilio-sms-tcpa-compliance/03-CONTEXT.md` |
+| Phase 3 research | ✅ Done | `.planning/phases/03-twilio-sms-tcpa-compliance/03-RESEARCH.md` |
+| Phase 3 plans (3) | ✅ Done | `.planning/phases/03-twilio-sms-tcpa-compliance/03-01-PLAN.md`, `03-02-PLAN.md`, `03-03-PLAN.md` |
+| Phase 3 validation | ✅ Done | `.planning/phases/03-twilio-sms-tcpa-compliance/03-VALIDATION.md` |
+| App code | ✅ Phase 3 complete | — |
 
-**Active phase:** Phase 3 — Twilio SMS + TCPA
-**Next action:** `/gsd:discuss-phase 3`
+**Active phase:** Phase 4 — Claude AI + Daily Briefing
+**Next action:** `/gsd:plan-phase 4`
 
 ---
 
@@ -114,13 +118,52 @@ Canvas iCal sync fully implemented and verified (2026-03-18). 22/22 tests passin
 
 ---
 
+## Phase 3 — Completed ✅
+
+Twilio SMS layer + full TCPA compliance implemented and verified (2026-03-19). 55/55 tests passing.
+
+### Files Created
+
+| File | Key Change |
+|------|-----------|
+| `supabase/migrations/003_tcpa_columns.sql` | 7 TCPA columns on `users` table: `sms_opted_out`, `sms_opted_out_at`, `sms_paused_until`, `daily_sms_count`, `daily_sms_date`, `quiet_hours_start`, `quiet_hours_end`; 2 partial indexes |
+| `celery_worker/sms/__init__.py` | sms package init |
+| `celery_worker/sms/send.py` | `send_sms_safe()` with 4 ordered guards: opt-out → pause → quiet hours → daily proactive cap (3/day). `send_sms_direct()` bypass for STOP confirmation only. Midnight-spanning quiet hours use OR logic (`>= start OR < end`). PII-free structured logging (SHA-256 hashed uid). |
+| `celery_worker/sms/commands.py` | `dispatch_command(body, user_id, to_phone)` — case-insensitive exact match on STOP/START/PAUSE/HELP. STOP uses `send_sms_direct` (bypasses guard); others use `send_sms_safe`. Returns `bool` indicating whether a command was handled. |
+| `celery_worker/tests/sms/__init__.py` | sms test package init |
+| `celery_worker/tests/sms/test_send.py` | 14 tests covering all guard paths and PII-free logging |
+| `celery_worker/tests/sms/test_commands.py` | 16 tests covering all command paths and edge cases |
+| `celery_worker/tests/test_tasks_sms.py` | 3 tests for `process_inbound_sms` task |
+| `celery_worker/conftest.py` | `sys.path` setup so `@patch("sms.send.*")` resolves correctly at pytest collection time |
+
+### Files Modified
+
+| File | Key Change |
+|------|-----------|
+| `src/app/api/sms/webhook/route.ts` | Upgraded from Phase 1 stub: Twilio signature validation via `validateRequest` (returns 403 on spoof, always 200 to Twilio), user lookup, `messages` table write (`direction='in'`), `LPUSH` Redis enqueue for Celery. Uses `TWILIO_WEBHOOK_URL` env var (proxy-safe). Dev bypass via `TWILIO_DEV_BYPASS=true`. |
+| `celery_worker/tasks.py` | Added `process_inbound_sms` task: looks up user phone, calls `dispatch_command`, stubs non-command path for Phase 4 |
+| `celery_worker/requirements.txt` | Added `twilio==9.10.3` |
+| `.env.example` | Added `TWILIO_WEBHOOK_URL`, `TWILIO_DEV_BYPASS`, `REDIS_URL` |
+| `.planning/REQUIREMENTS.md` | SMS-03 moved from Phase 3 Complete → Phase 4 Pending (Claude conversational reply is Phase 4 scope) |
+
+### Decisions Not Captured in Code
+
+| Decision | Detail |
+|----------|--------|
+| SMS-03 scoping | Claude conversational reply (`process_inbound_sms` non-command path) is intentionally stubbed — Phase 4 work. Plan 03-03 incorrectly claimed SMS-03 as complete; corrected in traceability. |
+| `send_sms_direct` bypass | STOP confirmation MUST use the direct bypass — using `send_sms_safe` would block the confirmation because the guard checks opt-out status first. Carrier compliance requires the final confirmation to send. |
+| Quiet hours OR logic | Midnight-spanning windows (e.g. 22:00–08:00) require `time >= start OR time < end`, NOT a naive range comparison (which always evaluates False for spanning windows). |
+| Test env mocking | Tests for send paths that reach Twilio must `@patch.dict(os.environ, TWILIO_ENV)` — `os.environ["TWILIO_ACCOUNT_SID"]` runs before the `Client` mock can intercept. |
+
+---
+
 ## Roadmap (7 phases)
 
 | # | Phase | Owner | Key Goal |
 |---|-------|-------|----------|
 | 1 | Infrastructure Foundation | Josh | ✅ Supabase schema + Redis + Celery + Vercel wired up |
 | 2 | Canvas iCal Sync | Josh | ✅ Deadlines fetched, normalized, stored, diffed every 60 min |
-| 3 | Twilio SMS + TCPA | Josh | Send/receive SMS with full TCPA compliance from day 1 |
+| 3 | Twilio SMS + TCPA | Josh | ✅ TCPA guard, keyword dispatch, validated webhook, Celery inbound pipeline |
 | 4 | Claude AI + Daily Briefing | Josh | 8am SMS + welcome briefing at onboarding end |
 | 5 | Google OAuth + GCal + Gmail + Alerts | Josh | Deadline alerts ≤15 min, watch channel auto-renewal |
 | 6 | Syllabus Parsing | Josh | Claude Opus extracts grade weights, enriches briefings |
@@ -195,3 +238,4 @@ Both must sync before touching: `src/types/index.ts`, `supabase/migrations/`
 - `.planning/research/SUMMARY.md` — research synthesis (stack, features, architecture, pitfalls)
 - `.planning/phases/01-infrastructure-foundation/` — context, research, plans, validation for Phase 1
 - `.planning/phases/02-canvas-ical-sync/` — context, research, plans, validation, verification for Phase 2
+- `.planning/phases/03-twilio-sms-tcpa-compliance/` — context, research, plans, summaries, verification for Phase 3
