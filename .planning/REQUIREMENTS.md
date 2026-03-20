@@ -10,7 +10,7 @@
 
 - [x] **AUTH-01**: User can create an account with email and password via Supabase Auth
 - [ ] **AUTH-02**: User can connect Google account via OAuth 2.0 (Calendar + Gmail scopes)
-- [ ] **AUTH-03**: Google OAuth tokens stored encrypted (AES-256) in Supabase with refresh rotation
+- [x] **AUTH-03**: Google OAuth tokens stored encrypted (AES-256) in Supabase with refresh rotation
 - [x] **AUTH-04**: User session persists across browser refresh
 - [ ] **AUTH-05**: User can enter Canvas iCal URL during onboarding (validated before saving)
 - [ ] **AUTH-06**: User can enter phone number during onboarding and verify via SMS PIN
@@ -209,7 +209,7 @@
 | AI-10 | Phase 7 | Pending |
 | INTEL-01 | Phase 7 | Pending |
 | AUTH-02 | Phase 8 | Pending |
-| AUTH-03 | Phase 8 | Pending |
+| AUTH-03 | Phase 8 | Complete |
 | AUTH-05 | Phase 8 | Pending |
 | AUTH-06 | Phase 8 | Pending |
 | UI-01 | Phase 8 | Pending |

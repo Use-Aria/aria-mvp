@@ -132,7 +132,7 @@ Plans:
   4. Voice input transcribes via on-device speech recognition and routes through the same Claude pipeline as typed messages
   5. Cards can be dragged to reorder, swiped to hide, tapped to expand; accent color and dark mode configurable
   6. First briefing preview page shows what the user's first briefing will contain before it sends
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 Plans:
 - [ ] 08-01-PLAN.md — Expo SDK 55 scaffold, Supabase client + ExpoSecureStoreAdapter, theme system, root layout, Jest setup
 - [ ] 08-02-PLAN.md — Onboarding screens 1-4: Welcome, Phone, PIN verify, Canvas URL validation
@@ -165,5 +165,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 (Ph
 | 5. Priority Engine + Canonical Timeline DB | 0/2 | Planning complete | - |
 | 6. Google OAuth + GCal + Gmail + Alerts | 0/TBD | Not started | - |
 | 7. Syllabus Parsing + Study Gap Detection | 0/TBD | Not started | - |
-| 8. iOS App + Onboarding | 0/5 | Planning complete | - |
+| 8. iOS App + Onboarding | 1/5 | In Progress|  |
 | 9. Todoist Integration | 0/TBD | Not started | - |

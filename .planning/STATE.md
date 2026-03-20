@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 8 context gathered
-last_updated: "2026-03-20T01:11:11.412Z"
+stopped_at: Completed 08-ios-app-onboarding/08-01-PLAN.md
+last_updated: "2026-03-20T02:20:04.544Z"
 progress:
   total_phases: 9
   completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 16
+  completed_plans: 12
 ---
 
 ---
@@ -33,12 +33,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Students never miss a deadline or lose track of their week — Aria surfaces what matters, when it matters, over SMS.
-**Current focus:** Phase 05 — priority-engine-canonical-timeline-db
+**Current focus:** Phase 08 — ios-app-onboarding
 
 ## Current Position
 
-Phase: 05 (priority-engine-canonical-timeline-db) — EXECUTING
-Plan: 1 of 2
+Phase: 08 (ios-app-onboarding) — EXECUTING
+Plan: 1 of 5
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Plan: 1 of 2
 | Phase 04-claude-ai-daily-briefing P02 | 9 | 2 tasks | 7 files |
 | Phase 05-priority-engine-canonical-timeline-db P01 | 2 | 2 tasks | 6 files |
 | Phase 05-priority-engine-canonical-timeline-db P02 | 6 | 2 tasks | 8 files |
+| Phase 08-ios-app-onboarding P01 | 683 | 2 tasks | 29 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,9 @@ Recent decisions affecting current work:
 - [Phase 05-priority-engine-canonical-timeline-db]: ingest_canonical_event uses lazy import for send_priority_alert to avoid circular dependency (tasks.py imports from priority)
 - [Phase 05-priority-engine-canonical-timeline-db]: get_events_for_briefing appends due_date/course shim keys — generate_briefing remains unchanged, transition is backwards-compatible
 - [Phase 05-priority-engine-canonical-timeline-db]: backfill_canonical_events_user uses skip_routing=True to prevent alert spam for pre-existing deadlines on Phase 5 deploy
+- [Phase 08-ios-app-onboarding]: Excluded src/ template directory from tsconfig — SDK 55 template uses src/app but plan specifies mobile/app
+- [Phase 08-ios-app-onboarding]: Added @types/jest and types:[jest] in tsconfig — required for jest globals in mock and test files
+- [Phase 08-ios-app-onboarding]: ThemeContextType.colors typed as union (COLORS.light | COLORS.dark) — literal string types differ between light and dark palettes
 
 ### Pending Todos
 
@@ -125,6 +129,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T01:11:11.405Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-ios-app-onboarding/08-CONTEXT.md
+Last session: 2026-03-20T02:20:04.541Z
+Stopped at: Completed 08-ios-app-onboarding/08-01-PLAN.md
+Resume file: None
