@@ -330,6 +330,12 @@ def generate_daily_briefing_user(self, user_id: str) -> dict:
     is_monday = datetime.now(user_tz).weekday() == 0
     days_ahead = 7 if is_monday else 2
 
+    # Monday: enrich briefing with GCal conflict warnings and study windows (AI-08)
+    gcal_context = None
+    if is_monday:
+        from ai.briefing import get_briefing_gcal_context
+        gcal_context = get_briefing_gcal_context(user_id)
+
     # Fetch deadlines and generate
     deadlines = get_events_for_briefing(user_id, days_ahead=days_ahead)
     briefing_text = generate_briefing(
@@ -337,6 +343,7 @@ def generate_daily_briefing_user(self, user_id: str) -> dict:
         deadlines=deadlines,
         is_monday=is_monday,
         user_tz=user_tz,
+        gcal_context=gcal_context,
     )
 
     # Send via TCPA-compliant path

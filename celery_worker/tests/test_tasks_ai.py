@@ -146,6 +146,7 @@ def test_canvas_sync_user_triggers_welcome_on_first_sync():
          patch("canvas.db.apply_diff"), \
          patch("canvas.db._get_supabase", return_value=mock_db), \
          patch("canvas.db.mark_synced"), \
+         patch("tasks.detect_conflicts_user"), \
          patch("tasks.welcome_briefing") as mock_welcome:
         from tasks import canvas_sync_user
         canvas_sync_user("user-new-001", "https://canvas.yale.edu/feeds/calendars/user_abc.ics")
@@ -168,6 +169,7 @@ def test_canvas_sync_user_no_welcome_on_subsequent_sync():
          patch("canvas.db.apply_diff"), \
          patch("canvas.db._get_supabase", return_value=mock_db), \
          patch("canvas.db.mark_synced"), \
+         patch("tasks.detect_conflicts_user"), \
          patch("tasks.welcome_briefing") as mock_welcome:
         from tasks import canvas_sync_user
         canvas_sync_user("user-returning-001", "https://canvas.yale.edu/feeds/calendars/user_abc.ics")
