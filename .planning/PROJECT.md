@@ -78,4 +78,4 @@ Students don't have a productivity problem — they have a fragmentation problem
 | Gmail metadata only | Full email content never stored permanently — privacy + compliance | Active |
 
 ---
-*Last updated: 2026-03-19 — Phase 4 complete: Claude AI briefings and conversational SMS replies shipped*
+*Last updated: 2026-03-20 — Phase 5 complete: Priority engine + canonical_events DB shipped. score_event/route_event locked. canvas_sync wired. 123 tests passing.*
