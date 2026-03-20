@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 06-04-PLAN.md
-last_updated: "2026-03-20T03:17:16.869Z"
+stopped_at: Completed 06-05-PLAN.md
+last_updated: "2026-03-20T03:30:46.365Z"
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 ---
@@ -75,6 +75,7 @@ Plan: 1 of 5
 | Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P02 | 8 | 2 tasks | 3 files |
 | Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P03 | 8 | 2 tasks | 13 files |
 | Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P04 | 6 | 2 tasks | 11 files |
+| Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P05 | 10 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -125,6 +126,9 @@ Recent decisions affecting current work:
 - [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: detect_conflicts_user registered as stub task now — allows gcal_sync_user to chain immediately; Plan 05 replaces stub
 - [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: rapidfuzz token_set_ratio threshold=70 for email-deadline fuzzy matching — allows partial title matches while rejecting unrelated subjects
 - [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: Gmail watch renewal piggybacks on existing renew_watch_channels Beat task — no new Beat schedule entry needed
+- [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: Patch ai.db._get_supabase not gcal.conflicts._get_supabase in conflict tests — lazy import means attribute only exists on source module
+- [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: gcal_context enrichment gated by is_monday in generate_briefing — avoids cluttering daily briefings with conflict data
+- [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: Study windows computed deterministically from calendar_events (not Claude API call) for Monday briefing enrichment
 
 ### Pending Todos
 
@@ -138,6 +142,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T03:17:16.863Z
-Stopped at: Completed 06-04-PLAN.md
+Last session: 2026-03-20T03:30:46.360Z
+Stopped at: Completed 06-05-PLAN.md
 Resume file: None

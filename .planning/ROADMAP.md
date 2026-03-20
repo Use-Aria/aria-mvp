@@ -11,7 +11,7 @@ Aria is built in nine phases that follow strict dependency order. The data pipel
 - [x] **Phase 3: Twilio SMS + TCPA Compliance** - Send and receive SMS with opt-out, quiet hours, and message cap enforced from day one (completed 2026-03-19)
 - [x] **Phase 4: Claude AI + Daily Briefing** - Wire Canvas data through Claude Sonnet for daily SMS briefings, Monday extended briefing, conversational replies, task management, and exam countdown (completed 2026-03-19)
 - [ ] **Phase 5: Priority Engine + Canonical Timeline DB** - Unified event scoring and delivery routing — all Phase 6+ integrations write to Canonical Store; events scored and routed by priority
-- [ ] **Phase 6: Google OAuth + GCal + Gmail + Alerts + Conflict Detection** - Connect Google account, ingest calendar and email, fire deadline alerts within 15 minutes, detect conflicts
+- [x] **Phase 6: Google OAuth + GCal + Gmail + Alerts + Conflict Detection** - Connect Google account, ingest calendar and email, fire deadline alerts within 15 minutes, detect conflicts (completed 2026-03-20)
 - [ ] **Phase 7: Syllabus Parsing + Study Gap Detection** - Upload PDFs, parse with Claude Opus, extract exam topics + grade weights, run gap analysis before exams
 - [ ] **Phase 8: iOS App + Onboarding** - Full 4-zone iOS card dashboard, in-app chat, voice input, onboarding flow (Seb leads)
 - [ ] **Phase 9: Todoist Integration** - Todoist OAuth, task read/write, tasks in briefings and scheduling
@@ -107,7 +107,7 @@ Plans:
   5. Multiple alerts within 10 minutes are batched into a single SMS; no more than 3 texts in any 10-minute window
   6. When a Canvas deadline overlaps an existing GCal commitment, Aria flags the conflict and offers resolution via SMS
   7. GCal push channels and Gmail watch channels are renewed automatically before 7-day expiry
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 Plans:
 - [ ] 06-01-PLAN.md — Migration 006 + token encryption + Google OAuth flow (initiation + callback)
 - [ ] 06-02-PLAN.md — SMS batching layer (Redis hold queue + flush task + send_priority_alert integration)
@@ -163,7 +163,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 (Ph
 | 3. Twilio SMS + TCPA Compliance | 3/3 | Complete | 2026-03-19 |
 | 4. Claude AI + Daily Briefing | 2/2 | Complete   | 2026-03-19 |
 | 5. Priority Engine + Canonical Timeline DB | 0/2 | Planning complete | - |
-| 6. Google OAuth + GCal + Gmail + Alerts | 4/5 | In Progress|  |
+| 6. Google OAuth + GCal + Gmail + Alerts | 5/5 | Complete   | 2026-03-20 |
 | 7. Syllabus Parsing + Study Gap Detection | 0/TBD | Not started | - |
 | 8. iOS App + Onboarding | 0/TBD | Not started | - |
 | 9. Todoist Integration | 0/TBD | Not started | - |

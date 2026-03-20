@@ -38,7 +38,7 @@
 - [x] **GCAL-02**: Calendar events normalized to CalendarEvent type and stored in Supabase
 - [x] **GCAL-03**: GCal push notification channel established for real-time change detection
 - [x] **GCAL-04**: GCal push channel renewed automatically before 7-day expiry
-- [ ] **GCAL-05**: User can request study blocks written to their Google Calendar via SMS
+- [x] **GCAL-05**: User can request study blocks written to their Google Calendar via SMS
 
 ### SMS Interface
 
@@ -87,7 +87,7 @@
 ### Intelligence
 
 - [ ] **INTEL-01**: Study gap detection — cross-reference syllabus topics with student's covered material; surface gaps before exams
-- [ ] **INTEL-03**: Conflict detection — flag Canvas deadlines that overlap existing GCal events; offer resolution options via SMS
+- [x] **INTEL-03**: Conflict detection — flag Canvas deadlines that overlap existing GCal events; offer resolution options via SMS
 
 ### Sync Engine
 
@@ -188,7 +188,7 @@
 | GCAL-02 | Phase 6 | Complete |
 | GCAL-03 | Phase 6 | Complete |
 | GCAL-04 | Phase 6 | Complete |
-| GCAL-05 | Phase 6 | Pending |
+| GCAL-05 | Phase 6 | Complete |
 | GMAI-01 | Phase 6 | Complete |
 | GMAI-02 | Phase 6 | Complete |
 | GMAI-03 | Phase 6 | Complete |
@@ -197,7 +197,7 @@
 | ALRT-01 | Phase 6 | Complete |
 | ALRT-02 | Phase 6 | Complete |
 | ALRT-03 | Phase 6 | Complete |
-| INTEL-03 | Phase 6 | Pending |
+| INTEL-03 | Phase 6 | Complete |
 | SMS-10 | Phase 6 | Complete |
 | SMS-11 | Phase 6 | Complete |
 | SYNC-03 | Phase 6 | Complete |
