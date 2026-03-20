@@ -1,8 +1,8 @@
-import { View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { QuickAccessBar } from '@/components/home/QuickAccessBar'
 import { LoadStatusBar } from '@/components/home/LoadStatusBar'
 import { CardGrid } from '@/components/home/CardGrid'
+import { ChatBar } from '@/components/home/ChatBar'
 import { useCards } from '@/hooks/useCards'
 import { useTheme } from '@/lib/theme'
 
@@ -11,7 +11,7 @@ export default function Home() {
   const { colors } = useTheme()
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.dominant }}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: colors.dominant }}>
       {/* Zone 1: Quick-access icon bar (To-Do, Calendar, Notifications) */}
       <QuickAccessBar />
 
@@ -35,8 +35,8 @@ export default function Home() {
         onReorder={reorderCards}
       />
 
-      {/* Zone 4: ChatBar spacer — real ChatBar added in Plan 05 */}
-      <View style={{ height: 64 }} />
+      {/* Zone 4: ChatBar — persistent bottom bar that opens full-screen chat sheet */}
+      <ChatBar />
     </SafeAreaView>
   )
 }
