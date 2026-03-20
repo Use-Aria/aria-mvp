@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 6 context gathered
-last_updated: "2026-03-20T01:33:22.103Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-20T02:52:18.691Z"
 progress:
   total_phases: 9
   completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 16
+  completed_plans: 12
 ---
 
 ---
@@ -33,12 +33,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Students never miss a deadline or lose track of their week — Aria surfaces what matters, when it matters, over SMS.
-**Current focus:** Phase 05 — priority-engine-canonical-timeline-db
+**Current focus:** Phase 06 — google-oauth-gcal-gmail-alerts-conflict-detection
 
 ## Current Position
 
-Phase: 05 (priority-engine-canonical-timeline-db) — EXECUTING
-Plan: 1 of 2
+Phase: 06 (google-oauth-gcal-gmail-alerts-conflict-detection) — EXECUTING
+Plan: 1 of 5
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Plan: 1 of 2
 | Phase 04-claude-ai-daily-briefing P02 | 9 | 2 tasks | 7 files |
 | Phase 05-priority-engine-canonical-timeline-db P01 | 2 | 2 tasks | 6 files |
 | Phase 05-priority-engine-canonical-timeline-db P02 | 6 | 2 tasks | 8 files |
+| Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P01 | 5 | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,9 @@ Recent decisions affecting current work:
 - [Phase 05-priority-engine-canonical-timeline-db]: ingest_canonical_event uses lazy import for send_priority_alert to avoid circular dependency (tasks.py imports from priority)
 - [Phase 05-priority-engine-canonical-timeline-db]: get_events_for_briefing appends due_date/course shim keys — generate_briefing remains unchanged, transition is backwards-compatible
 - [Phase 05-priority-engine-canonical-timeline-db]: backfill_canonical_events_user uses skip_routing=True to prevent alert spam for pre-existing deadlines on Phase 5 deploy
+- [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: Celery task is the encryption boundary for OAuth tokens — plaintext only in Next.js memory and transient Redis queue, encrypted before any Supabase write
+- [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: HMAC state in httpOnly oauth_state cookie for stateless CSRF protection — no DB round-trip needed on OAuth initiation
+- [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: Study preference interception before Claude intent extraction — no second LLM call for a 1-word answer
 
 ### Pending Todos
 
@@ -125,6 +129,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T01:33:22.068Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-google-oauth-gcal-gmail-alerts-conflict-detection/06-CONTEXT.md
+Last session: 2026-03-20T02:52:18.683Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: None
