@@ -35,9 +35,9 @@
 ### Google Calendar Integration
 
 - [x] **GCAL-01**: System fetches user's Google Calendar events (7-day rolling window) via OAuth
-- [ ] **GCAL-02**: Calendar events normalized to CalendarEvent type and stored in Supabase
-- [ ] **GCAL-03**: GCal push notification channel established for real-time change detection
-- [ ] **GCAL-04**: GCal push channel renewed automatically before 7-day expiry
+- [x] **GCAL-02**: Calendar events normalized to CalendarEvent type and stored in Supabase
+- [x] **GCAL-03**: GCal push notification channel established for real-time change detection
+- [x] **GCAL-04**: GCal push channel renewed automatically before 7-day expiry
 - [ ] **GCAL-05**: User can request study blocks written to their Google Calendar via SMS
 
 ### SMS Interface
@@ -93,7 +93,7 @@
 
 - [x] **SYNC-01**: Celery + Redis deployed on Railway for all background jobs
 - [x] **SYNC-02**: Canvas iCal sync job runs every 60 minutes per user
-- [ ] **SYNC-03**: GCal push notification handler processes calendar changes in real time
+- [x] **SYNC-03**: GCal push notification handler processes calendar changes in real time
 - [x] **SYNC-04**: GCal and Gmail watch channels renewed via Celery Beat cron (48 hours before expiry)
 - [x] **SYNC-05**: Daily briefing generation job runs at 7am per user timezone (Celery Beat)
 - [x] **SYNC-06**: Exam countdown check job runs daily at 7am; fires touchpoints at T-7 (topics + study windows), T-5 (gap analysis stub → Phase 7 full), T-3 (midpoint check + office hours reminder), T-1 (final review), T-0 (day-of logistics message)
@@ -185,9 +185,9 @@
 | PRIO-02 | Phase 5 | Complete |
 | PRIO-03 | Phase 5 | Complete |
 | GCAL-01 | Phase 6 | Complete |
-| GCAL-02 | Phase 6 | Pending |
-| GCAL-03 | Phase 6 | Pending |
-| GCAL-04 | Phase 6 | Pending |
+| GCAL-02 | Phase 6 | Complete |
+| GCAL-03 | Phase 6 | Complete |
+| GCAL-04 | Phase 6 | Complete |
 | GCAL-05 | Phase 6 | Pending |
 | GMAI-01 | Phase 6 | Pending |
 | GMAI-02 | Phase 6 | Pending |
@@ -200,7 +200,7 @@
 | INTEL-03 | Phase 6 | Pending |
 | SMS-10 | Phase 6 | Complete |
 | SMS-11 | Phase 6 | Complete |
-| SYNC-03 | Phase 6 | Pending |
+| SYNC-03 | Phase 6 | Complete |
 | SYNC-04 | Phase 6 | Complete |
 | AI-08 | Phase 6 (full) | Complete |
 | AI-01 | Phase 7 | Pending |

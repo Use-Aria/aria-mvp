@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-03-20T02:56:36.122Z"
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-03-20T03:08:11.898Z"
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 ---
@@ -73,6 +73,7 @@ Plan: 1 of 5
 | Phase 05-priority-engine-canonical-timeline-db P02 | 6 | 2 tasks | 8 files |
 | Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P01 | 5 | 2 tasks | 14 files |
 | Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P02 | 8 | 2 tasks | 3 files |
+| Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P03 | 8 | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,9 @@ Recent decisions affecting current work:
 - [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: HMAC state in httpOnly oauth_state cookie for stateless CSRF protection — no DB round-trip needed on OAuth initiation
 - [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: Study preference interception before Claude intent extraction — no second LLM call for a 1-word answer
 - [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: SMS-10/SMS-11 enforced via batch queue: all priority alerts enqueue then flush after 600s countdown; SETNX lock for atomic first-enqueuer detection; event marked sent at enqueue not flush to prevent priority router re-dispatch
+- [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: Patch at gcal.auth.build_gcal_service (not gcal.fetch) for lazy import mocking — attribute only exists on source module
+- [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: X-Goog-Channel-Token set to user_id during watch setup — stateless push routing without DB lookup
+- [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: detect_conflicts_user registered as stub task now — allows gcal_sync_user to chain immediately; Plan 05 replaces stub
 
 ### Pending Todos
 
@@ -131,6 +135,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T02:56:36.103Z
-Stopped at: Completed 06-02-PLAN.md
+Last session: 2026-03-20T03:08:11.892Z
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None
