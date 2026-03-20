@@ -197,7 +197,8 @@ def test_monday_uses_7day_window():
     deadlines = []
     mock_resp = _mock_anthropic_response("Have a great Monday!")
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+    with patch("ai.briefing.Anthropic") as mock_anthropic_cls, \
+         patch("ai.briefing._count_items_due_today", return_value=(0, [])):
         mock_client = MagicMock()
         mock_anthropic_cls.return_value = mock_client
         mock_client.messages.create.return_value = mock_resp
@@ -215,7 +216,8 @@ def test_weekday_uses_2day_window():
     deadlines = []
     mock_resp = _mock_anthropic_response("Clear day!")
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+    with patch("ai.briefing.Anthropic") as mock_anthropic_cls, \
+         patch("ai.briefing._count_items_due_today", return_value=(0, [])):
         mock_client = MagicMock()
         mock_anthropic_cls.return_value = mock_client
         mock_client.messages.create.return_value = mock_resp
@@ -231,7 +233,8 @@ def test_generate_briefing_calls_claude():
     """Mock Anthropic client; verify messages.create called with correct model and system containing 'Aria'."""
     mock_resp = _mock_anthropic_response("Hey! Clear day ahead.")
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+    with patch("ai.briefing.Anthropic") as mock_anthropic_cls, \
+         patch("ai.briefing._count_items_due_today", return_value=(0, [])):
         mock_client = MagicMock()
         mock_anthropic_cls.return_value = mock_client
         mock_client.messages.create.return_value = mock_resp
@@ -250,7 +253,8 @@ def test_generate_briefing_returns_text():
     expected = "Hey! Clear day ahead."
     mock_resp = _mock_anthropic_response(expected)
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+    with patch("ai.briefing.Anthropic") as mock_anthropic_cls, \
+         patch("ai.briefing._count_items_due_today", return_value=(0, [])):
         mock_client = MagicMock()
         mock_anthropic_cls.return_value = mock_client
         mock_client.messages.create.return_value = mock_resp
@@ -266,7 +270,8 @@ def test_briefing_truncates_over_800():
     long_text = "A" * 900
     mock_resp = _mock_anthropic_response(long_text)
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+    with patch("ai.briefing.Anthropic") as mock_anthropic_cls, \
+         patch("ai.briefing._count_items_due_today", return_value=(0, [])):
         mock_client = MagicMock()
         mock_anthropic_cls.return_value = mock_client
         mock_client.messages.create.return_value = mock_resp
@@ -276,3 +281,127 @@ def test_briefing_truncates_over_800():
 
     assert len(result) <= 800
     assert result.endswith("...")
+
+
+# ---------------------------------------------------------------------------
+# Overload detection tests
+# ---------------------------------------------------------------------------
+
+
+def _make_canonical_event(title: str, priority_score: int) -> dict:
+    """Build a minimal canonical_event dict for overload tests."""
+    return {
+        "id": f"ev-{title[:4]}",
+        "title": title,
+        "due_at": "2026-03-20T23:59:59+00:00",
+        "priority_score": priority_score,
+        "source": "canvas",
+    }
+
+
+def test_count_items_due_today_returns_count_and_top_2():
+    """Mock Supabase returning 6 items -> returns (6, [top_item_1, top_item_2]) sorted by priority_score desc."""
+    from ai.briefing import _count_items_due_today
+    from datetime import datetime, timezone
+
+    items = [
+        _make_canonical_event("Task A", 90),
+        _make_canonical_event("Task B", 80),
+        _make_canonical_event("Task C", 70),
+        _make_canonical_event("Task D", 60),
+        _make_canonical_event("Task E", 50),
+        _make_canonical_event("Task F", 40),
+    ]
+
+    mock_result = MagicMock()
+    mock_result.data = items
+
+    mock_supabase = MagicMock()
+    (
+        mock_supabase.table.return_value
+        .select.return_value
+        .eq.return_value
+        .is_.return_value
+        .gte.return_value
+        .lte.return_value
+        .order.return_value
+        .execute.return_value
+    ) = mock_result
+
+    briefing_time = datetime(2026, 3, 20, 8, 0, 0, tzinfo=timezone.utc)
+
+    with patch("ai.db._get_supabase", return_value=mock_supabase):
+        count, top_2 = _count_items_due_today("user-123", briefing_time)
+
+    assert count == 6
+    assert len(top_2) == 2
+    assert top_2[0]["title"] == "Task A"
+    assert top_2[1]["title"] == "Task B"
+
+
+def test_count_items_due_today_returns_zero_for_no_items():
+    """Mock Supabase returning empty list -> returns (0, [])."""
+    from ai.briefing import _count_items_due_today
+    from datetime import datetime, timezone
+
+    mock_result = MagicMock()
+    mock_result.data = []
+
+    mock_supabase = MagicMock()
+    (
+        mock_supabase.table.return_value
+        .select.return_value
+        .eq.return_value
+        .is_.return_value
+        .gte.return_value
+        .lte.return_value
+        .order.return_value
+        .execute.return_value
+    ) = mock_result
+
+    briefing_time = datetime(2026, 3, 20, 8, 0, 0, tzinfo=timezone.utc)
+
+    with patch("ai.db._get_supabase", return_value=mock_supabase):
+        count, top_2 = _count_items_due_today("user-123", briefing_time)
+
+    assert count == 0
+    assert top_2 == []
+
+
+def test_overload_prepend_adds_warning_line():
+    """When 5+ items due, briefing starts with 'Heavy day'."""
+    from datetime import datetime, timezone
+
+    mock_resp = _mock_anthropic_response("You've got a packed day!")
+
+    items = [_make_canonical_event(f"Task {i}", 90 - i * 10) for i in range(5)]
+    mock_count_result = (5, items[:2])
+
+    with patch("ai.briefing.Anthropic") as mock_anthropic_cls, \
+         patch("ai.briefing._count_items_due_today", return_value=mock_count_result) as mock_count, \
+         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+        mock_client = MagicMock()
+        mock_anthropic_cls.return_value = mock_client
+        mock_client.messages.create.return_value = mock_resp
+
+        result = generate_briefing("user-123", [])
+
+    assert result.startswith("Heavy day")
+    mock_count.assert_called_once()
+
+
+def test_no_overload_under_threshold():
+    """When fewer than 5 items due, briefing does NOT start with 'Heavy day'."""
+    mock_resp = _mock_anthropic_response("Clear day ahead!")
+    mock_count_result = (3, [_make_canonical_event("Task A", 80), _make_canonical_event("Task B", 70)])
+
+    with patch("ai.briefing.Anthropic") as mock_anthropic_cls, \
+         patch("ai.briefing._count_items_due_today", return_value=mock_count_result), \
+         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+        mock_client = MagicMock()
+        mock_anthropic_cls.return_value = mock_client
+        mock_client.messages.create.return_value = mock_resp
+
+        result = generate_briefing("user-123", [])
+
+    assert "Heavy day" not in result

@@ -3,6 +3,8 @@
 Generates conversational prose SMS briefings from Canvas deadline data.
 Called by Celery tasks — never inline in API routes.
 """
+from __future__ import annotations
+
 import hashlib
 import json
 import logging
@@ -114,6 +116,36 @@ def is_in_briefing_window(preferences_json: dict | None) -> bool:
     return local_now.hour == 8
 
 
+def _count_items_due_today(user_id: str, briefing_time: datetime) -> tuple[int, list[dict]]:
+    """Count canonical_events due within 24h of briefing_time.
+
+    Counts ALL non-deleted events regardless of delivery_status
+    (avoids double-counting pitfall from RESEARCH.md Pitfall 6).
+
+    Args:
+        user_id: UUID of the user.
+        briefing_time: The reference time for the 24h window start.
+
+    Returns:
+        Tuple of (total_count, top_2_items_by_priority_score).
+    """
+    from ai.db import _get_supabase
+    client = _get_supabase()
+    window_end = (briefing_time + timedelta(hours=24)).isoformat()
+    result = (
+        client.table("canonical_events")
+        .select("id, title, due_at, priority_score, source")
+        .eq("user_id", user_id)
+        .is_("deleted_at", "null")
+        .gte("due_at", briefing_time.isoformat())
+        .lte("due_at", window_end)
+        .order("priority_score", desc=True)
+        .execute()
+    )
+    items = result.data or []
+    return len(items), items[:2]
+
+
 def generate_briefing(
     user_id: str,
     deadlines: list[dict],
@@ -203,6 +235,13 @@ def generate_briefing(
     }))
 
     text = response.content[0].text
+
+    # Overload detection — prepend warning if 5+ items due in 24h
+    overload_count, top_items = _count_items_due_today(user_id, now)
+    if overload_count >= 5:
+        top_titles = ", ".join(t["title"] for t in top_items)
+        overload_line = f"Heavy day — {overload_count} items due today. Prioritize: {top_titles}.\n\n"
+        text = overload_line + text
 
     # Enforce 800 char limit — truncate with ellipsis if Claude exceeded
     if len(text) > 800:
