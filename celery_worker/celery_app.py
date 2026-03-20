@@ -26,5 +26,9 @@ celery_app.conf.update(
             "task": "tasks.generate_daily_briefings_all",
             "schedule": crontab(minute="*/15", hour="6-12"),
         },
+        "todoist-sync-all-users": {
+            "task": "tasks.todoist_sync_all",
+            "schedule": 7200.0,  # every 2 hours
+        },
     },
 )

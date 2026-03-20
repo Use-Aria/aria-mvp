@@ -194,6 +194,45 @@ def backfill_canonical_events_user(user_id: str) -> dict:
     return {"user_id": user_id, "backfilled": count}
 
 
+@celery_app.task(name="tasks.todoist_sync_all")
+def todoist_sync_all():
+    """Query all Todoist integrations and dispatch one sync task per user.
+
+    Called by Celery Beat every 2 hours. Fans out to todoist_sync_user
+    for per-user isolation — one user's failure does not block another.
+
+    Security: only user_id is dispatched (never access_token via Redis).
+    """
+    from todoist.db import get_all_todoist_integrations
+
+    integrations = get_all_todoist_integrations()
+    for row in integrations:
+        todoist_sync_user.delay(row["user_id"])
+    return {"status": "ok", "dispatched": len(integrations)}
+
+
+@celery_app.task(
+    name="tasks.todoist_sync_user",
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=2,
+    retry_backoff_max=300,
+    retry_jitter=True,
+    max_retries=5,
+)
+def todoist_sync_user(self, user_id: str) -> dict:
+    """Fetch, parse, and ingest one user's Todoist tasks into canonical_events.
+
+    Access token is fetched from Supabase inside sync_todoist_user() — it is
+    never passed as a task argument to keep tokens out of Redis.
+
+    403 revocation is handled inside sync_todoist_user() and returns normally
+    (does not raise), so Celery will not retry on permanently revoked tokens.
+    """
+    from todoist.sync import sync_todoist_user
+    return sync_todoist_user(user_id)
+
+
 @celery_app.task(name="tasks.process_inbound_sms", bind=True)
 def process_inbound_sms(self, message_sid: str, body: str, user_id: str) -> dict:
     """Process one inbound SMS. Dispatch to command handler or Claude conversational reply.
