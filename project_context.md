@@ -45,9 +45,46 @@ Syncs Canvas deadlines, Gmail, and Google Calendar. Sends a daily 8am briefing +
 | Phase 5 research | ✅ Done | `.planning/phases/05-priority-engine-canonical-timeline-db/05-RESEARCH.md` |
 | Phase 5 validation | ✅ Done | `.planning/phases/05-priority-engine-canonical-timeline-db/05-VALIDATION.md` |
 | Phase 5 plans (2) | ✅ Done | `.planning/phases/05-priority-engine-canonical-timeline-db/05-01-PLAN.md`, `05-02-PLAN.md` |
+| Phase 5 app code | ✅ Done | — |
+| Phase 8 context | ✅ Done | `.planning/phases/08-ios-app-onboarding/08-CONTEXT.md` |
 
-**Active phase:** Phase 5 — Priority Engine + Canonical Timeline DB
-**Next action:** `/gsd:execute-phase 5` — all plans ready (`/clear` first)
+**Active phases:** Phase 6 (Josh — Google OAuth + GCal + Gmail), Phase 8 (Seb — iOS App + Onboarding, parallel)
+**Next action (Seb):** `/gsd:plan-phase 8` — context ready (`/clear` first)
+**Next action (Josh):** `/gsd:plan-phase 6` or `/gsd:execute-phase 6` if plans exist
+
+---
+
+## Session Summary — 2026-03-19 (fifth session)
+
+### What We Accomplished
+
+1. **Confirmed Phase 5 complete** — git log showed `docs(phase-05): complete phase execution`; 123 tests passing
+2. **Seb joined** — established that Phase 8 (iOS App + Onboarding) runs parallel to Josh's Phase 6; no file ownership conflicts
+3. **Ran `/gsd:discuss-phase 8`** — captured all Phase 8 implementation decisions into `08-CONTEXT.md`
+
+### Files Created
+
+| File | Key Change |
+|------|------------|
+| `.planning/phases/08-ios-app-onboarding/08-CONTEXT.md` | **CREATED** — Phase 8 decisions: React Native/Expo in `/mobile`, 7-screen onboarding wizard, TCPA consent screen, 4-zone dashboard layout, card interactions, in-app chat |
+
+### Decisions Made This Session (Not Captured in Code)
+
+| Decision | Detail |
+|----------|--------|
+| iOS app = React Native / Expo | Not a Next.js PWA. Lives in `/mobile` directory within same repo. Josh owns `/src`, Seb owns `/mobile`. |
+| Mobile calls Next.js API routes | No separate backend for mobile. Same `/api/*` routes Josh builds for web. |
+| Supabase Auth JS SDK + ExpoSecureStoreAdapter | Session stored in iOS keychain. Google OAuth via `expo-auth-session → Supabase signInWithIdToken`. |
+| 7-screen onboarding wizard | Welcome → Phone → PIN → Canvas URL → Google OAuth → TCPA consent → Briefing preview |
+| Google OAuth skippable | "Skip for now" secondary CTA on Screen 5. GCal card shows placeholder until connected. |
+| TCPA consent = dedicated Screen 6 | Explicit opt-in toggle, default OFF. Copy: "I agree to receive time-sensitive deadline alerts at any hour." Writes `has_alert_consent: true` to `users.preferences_json`. |
+| Placeholder cards for unconnected integrations | Greyed-out "Connect Google Calendar →" / "Connect Gmail →" cards in the grid until Phase 6 integrations are connected. |
+| Load status bar = full-width color banner | Zone 2: "Light/Busy/Heavy week" label + deadline count. Tappable to expand breakdown. |
+| Card interactions | Tap → expand inline (with Done/Snooze/More actions). Long-press → drag to reorder. Swipe-left → Hide. |
+| Accent color: Indigo default + 6 presets | `#5856D6` iOS system indigo. User picks from Indigo/Blue/Green/Orange/Pink/Purple in Preferences. |
+| Chat bar: tap to expand | Persistent bottom bar → slides up to full-screen chat. Swipe down to collapse. |
+| Voice: tap-to-start / tap-to-stop | Not hold-to-record. On-device speech recognition via `expo-speech` / `@react-native-voice`. |
+| In-app chat history: last 20 messages | Paginate on scroll up. Independent thread from SMS — SMS history never appears in app chat. |
 
 ---
 
