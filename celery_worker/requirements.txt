@@ -6,3 +6,10 @@ icalendar==6.3.2
 requests>=2.32.0
 twilio==9.10.3
 anthropic>=0.86.0
+cryptography>=42.0.0
+google-api-python-client>=2.120.0
+google-auth>=2.29.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+google-cloud-pubsub>=2.21.0
+rapidfuzz>=3.9.0
