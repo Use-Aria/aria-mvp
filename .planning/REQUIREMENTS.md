@@ -51,8 +51,8 @@
 - [x] **SMS-07**: PAUSE command suspends SMS for 24 hours
 - [x] **SMS-08**: HELP command replies with list of commands
 - [x] **SMS-09**: Opt-out status checked before every outbound SMS regardless of carrier-level blocking
-- [ ] **SMS-10**: Multiple alerts firing within 10 minutes are batched into a single SMS
-- [ ] **SMS-11**: No more than 3 texts sent in any 10-minute window regardless of trigger source
+- [x] **SMS-10**: Multiple alerts firing within 10 minutes are batched into a single SMS
+- [x] **SMS-11**: No more than 3 texts sent in any 10-minute window regardless of trigger source
 
 ### Conversational AI
 
@@ -198,8 +198,8 @@
 | ALRT-02 | Phase 6 | Pending |
 | ALRT-03 | Phase 6 | Pending |
 | INTEL-03 | Phase 6 | Pending |
-| SMS-10 | Phase 6 | Pending |
-| SMS-11 | Phase 6 | Pending |
+| SMS-10 | Phase 6 | Complete |
+| SMS-11 | Phase 6 | Complete |
 | SYNC-03 | Phase 6 | Pending |
 | SYNC-04 | Phase 6 | Complete |
 | AI-08 | Phase 6 (full) | Complete |

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-03-20T02:52:18.691Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-03-20T02:56:36.122Z"
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 16
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 ---
@@ -72,6 +72,7 @@ Plan: 1 of 5
 | Phase 05-priority-engine-canonical-timeline-db P01 | 2 | 2 tasks | 6 files |
 | Phase 05-priority-engine-canonical-timeline-db P02 | 6 | 2 tasks | 8 files |
 | Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P01 | 5 | 2 tasks | 14 files |
+| Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P02 | 8 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,7 @@ Recent decisions affecting current work:
 - [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: Celery task is the encryption boundary for OAuth tokens — plaintext only in Next.js memory and transient Redis queue, encrypted before any Supabase write
 - [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: HMAC state in httpOnly oauth_state cookie for stateless CSRF protection — no DB round-trip needed on OAuth initiation
 - [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: Study preference interception before Claude intent extraction — no second LLM call for a 1-word answer
+- [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: SMS-10/SMS-11 enforced via batch queue: all priority alerts enqueue then flush after 600s countdown; SETNX lock for atomic first-enqueuer detection; event marked sent at enqueue not flush to prevent priority router re-dispatch
 
 ### Pending Todos
 
@@ -129,6 +131,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T02:52:18.683Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-03-20T02:56:36.103Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
