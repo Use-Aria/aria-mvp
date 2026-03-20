@@ -30,15 +30,15 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-18)
+See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Students never miss a deadline or lose track of their week — Aria surfaces what matters, when it matters, over SMS.
-**Current focus:** Phase 06 — google-oauth-gcal-gmail-alerts-conflict-detection
+**Current focus:** Phase 07 — syllabus-parsing-+-study-gap-detection
 
 ## Current Position
 
-Phase: 06 (google-oauth-gcal-gmail-alerts-conflict-detection) — EXECUTING
-Plan: 1 of 5
+Phase: 07 (syllabus-parsing-+-study-gap-detection) — Ready to plan
+Plan: Not started
 
 ## Performance Metrics
 
@@ -136,12 +136,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- Google OAuth app verification (Gmail readonly is a sensitive scope) can take 1–6 weeks. Start the Google Cloud Console verification request before Phase 5 begins, ideally during Phase 3.
-- Verify `claude-haiku-4-5-20251001` is a valid model string before Phase 5 implementation. Use `anthropic.models.list()`.
+- Google OAuth app verification (Gmail readonly is a sensitive scope) can take 1–6 weeks. Start the Google Cloud Console verification request if not already done.
 - Confirm Vercel function timeout limit (Hobby vs Pro plan) before Phase 3 deployment — affects error handling on webhook paths.
+- Phase 7 requires PDF upload endpoint (Next.js API route) — confirm Vercel 4.5MB body size limit is sufficient for typical syllabus PDFs.
 
 ## Session Continuity
 
-Last session: 2026-03-20T03:30:46.360Z
-Stopped at: Completed 06-05-PLAN.md
+Last session: 2026-03-20
+Stopped at: Phase 06 complete, ready to plan Phase 07
 Resume file: None

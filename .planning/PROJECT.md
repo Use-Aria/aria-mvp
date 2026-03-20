@@ -18,12 +18,12 @@ Students don't have a productivity problem — they have a fragmentation problem
 
 - [x] Canvas iCal sync — fetch assignments/exams, diff for changes, store in Supabase (Validated in Phase 2: canvas-ical-sync)
 - [x] Twilio SMS layer — TCPA-compliant outbound guard, STOP/START/PAUSE/HELP keyword dispatch, signature-validated webhook, Celery inbound processing (Validated in Phase 3: twilio-sms-tcpa-compliance)
+- [x] Claude AI briefings — daily morning SMS, Monday extended briefing, conversational replies, task management, exam countdown (Validated in Phase 4: claude-ai-daily-briefing)
+- [x] Priority Engine — canonical event store, priority scoring formula, delivery router (Validated in Phase 5: priority-engine-canonical-timeline-db)
+- [x] Google Calendar + Gmail — OAuth, Fernet-encrypted tokens, real-time GCal sync, Gmail push pipeline, conflict detection, study block writeback, Monday briefing enrichment (Validated in Phase 6: google-oauth-gcal-gmail-alerts-conflict-detection)
 
 ### Active
 
-- [x] Claude AI briefings — daily morning SMS, Monday extended briefing, conversational replies, task management, exam countdown (Validated in Phase 4: claude-ai-daily-briefing)
-- [ ] Priority Engine — canonical event store, priority scoring formula, delivery router
-- [ ] Google Calendar + Gmail — OAuth, real-time alerts, conflict detection, Monday briefing enrichment
 - [ ] Syllabus parsing — Claude Opus extracts grade weights, topics; study gap analysis before exams
 - [ ] iOS app — 4-zone card dashboard, in-app chat, voice input, card customization (Seb)
 - [ ] Onboarding — phone capture, Canvas URL, Google OAuth, SMS verification, first briefing preview
@@ -76,6 +76,11 @@ Students don't have a productivity problem — they have a fragmentation problem
 | Priority Engine as dedicated phase | Canonical Store + scoring formula is the architectural foundation for all Phase 6+ intelligence | Active |
 | iOS app = equal primary interface | SMS + app together; not SMS-only; Seb builds Phase 8 in parallel | Active |
 | Gmail metadata only | Full email content never stored permanently — privacy + compliance | Active |
+| Fernet encryption boundary in Celery task | OAuth tokens plaintext only in Next.js memory + transient Redis queue; encrypted before Supabase write | Validated Phase 6 |
+| SETNX for SMS batch atomicity | Prevents race condition on first-enqueuer detection vs `llen==0` check; events marked sent at enqueue not flush | Validated Phase 6 |
+| X-Goog-Channel-Token = user_id | Stateless push routing for GCal webhooks — no DB lookup on notification receipt | Validated Phase 6 |
+| rapidfuzz threshold=70 for Gmail-Canvas matching | Allows partial title matches (course code prefixes) while rejecting unrelated subjects | Validated Phase 6 |
+| GCal context enrichment gated by is_monday | Avoids cluttering daily briefings; study windows computed deterministically, no extra LLM call | Validated Phase 6 |
 
 ---
-*Last updated: 2026-03-20 — Phase 5 complete: Priority engine + canonical_events DB shipped. score_event/route_event locked. canvas_sync wired. 123 tests passing.*
+*Last updated: 2026-03-20 — Phase 6 complete: Google OAuth + GCal sync + Gmail pipeline + conflict detection shipped. 220 tests passing.*
