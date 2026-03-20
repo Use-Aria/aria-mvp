@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 08-ios-app-onboarding/08-02-PLAN.md
-last_updated: "2026-03-20T02:27:05.228Z"
+stopped_at: Completed 08-ios-app-onboarding/08-04-PLAN.md
+last_updated: "2026-03-20T02:27:32.216Z"
 progress:
   total_phases: 9
   completed_phases: 5
@@ -74,6 +74,7 @@ Plan: 1 of 5
 | Phase 08-ios-app-onboarding P01 | 683 | 2 tasks | 29 files |
 | Phase 08-ios-app-onboarding P02 | 15 | 2 tasks | 7 files |
 | Phase 08-ios-app-onboarding P03 | 226 | 2 tasks | 3 files |
+| Phase 08-ios-app-onboarding P04 | 25 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,12 @@ Recent decisions affecting current work:
 - [Phase 08-ios-app-onboarding]: CanvasUrlInput client-side regex delegates format error to canvas.tsx screen — component always calls onValidate, parent owns regex check and error state
 - [Phase 08-ios-app-onboarding]: PinInput uses individual TextInput refs per cell (not masked input) for precise focus control per iOS UX guidelines
 - [Phase 08-ios-app-onboarding]: canvas.tsx uses Promise.race with 10-second timeout for validateCanvasUrl to surface network failures as unreachable error variant
+- [Phase 08-ios-app-onboarding]: Google provider_token NOT stored client-side — ExpoSecureStore 2KB limit causes silent failures; backend stores via Supabase auth webhook
+- [Phase 08-ios-app-onboarding]: TCPA has_alert_consent written as explicit false (not omitted) when OFF — Phase 5 send_sms_alert reads this field to distinguish declined from unset
+- [Phase 08-ios-app-onboarding]: router.replace (not push) on Enter Aria — removes onboarding stack so user cannot swipe back after completing onboarding
+- [Phase 08-ios-app-onboarding]: Zone 4 in home/index.tsx is a 64px spacer View — Plan 05 replaces with real ChatBar component
+- [Phase 08-ios-app-onboarding]: DeadlineCard onDone/onSnooze are UI-only with TODO comments — no backend task completion or snooze routes in Phase 8
+- [Phase 08-ios-app-onboarding]: Urgency score field absent from DeadlineCard — deferred to Phase 9 post Phase 6 canonical_events integration
 
 ### Pending Todos
 
@@ -134,6 +141,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T02:26:50.532Z
-Stopped at: Completed 08-ios-app-onboarding/08-02-PLAN.md
+Last session: 2026-03-20T02:27:32.213Z
+Stopped at: Completed 08-ios-app-onboarding/08-04-PLAN.md
 Resume file: None
