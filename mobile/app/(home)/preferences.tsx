@@ -10,6 +10,7 @@ import {
 import { Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import * as DocumentPicker from 'expo-document-picker'
+import * as WebBrowser from 'expo-web-browser'
 import { useTheme, ACCENT_COLORS, AccentColorName } from '@/lib/theme'
 // Accent color presets: Indigo | Blue | Green | Orange | Pink | Purple
 import { supabase } from '@/lib/supabase'
@@ -217,13 +218,16 @@ export default function Preferences() {
 
   /** Show disconnect confirmation and handle disconnect */
   const handleDisconnect = useCallback((platform: string) => {
-    const platformLabel = platform === 'google' ? 'Google' : 'Canvas'
+    const platformLabel =
+      platform === 'google' ? 'Google' : platform === 'todoist' ? 'Todoist' : 'Canvas'
     const detail =
       platform === 'google'
         ? 'This will stop syncing your calendar.'
-        : 'This will stop syncing your deadlines.'
+        : platform === 'todoist'
+          ? 'This will stop syncing your Todoist tasks.'
+          : 'This will stop syncing your deadlines.'
 
-    const keepLabel = platform === 'google' ? 'Keep Google' : 'Keep Canvas'
+    const keepLabel = `Keep ${platformLabel}`
 
     Alert.alert(
       `Disconnect ${platformLabel}?`,
@@ -255,6 +259,25 @@ export default function Preferences() {
     )
   }, [])
 
+  /** Open Todoist OAuth flow via in-app browser and refresh integration status on success */
+  const handleConnectTodoist = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const clientId = process.env.EXPO_PUBLIC_TODOIST_CLIENT_ID
+      const redirectUri = encodeURIComponent(`${API_BASE}/api/auth/todoist/callback`)
+      const authUrl = `https://app.todoist.com/oauth/authorize?client_id=${clientId}&scope=data:read_write&state=${session.user.id}&response_type=code&redirect_uri=${redirectUri}`
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, 'aria://todoist-connected')
+      if (result.type === 'success') {
+        await loadData() // refresh integration status
+      }
+    } catch {
+      // Non-blocking
+    }
+  }, [loadData])
+
   /** Restore a hidden card back to the grid */
   const restoreCard = useCallback(async (cardId: string) => {
     const updated = hiddenCards.filter((c) => c.id !== cardId)
@@ -283,6 +306,7 @@ export default function Preferences() {
 
   const canvasIntegration = integrations.find((i) => i.platform === 'canvas')
   const googleIntegration = integrations.find((i) => i.platform === 'google')
+  const todoistIntegration = integrations.find((i) => i.platform === 'todoist')
 
   return (
     <>
@@ -420,6 +444,8 @@ export default function Preferences() {
                   alignItems: 'center',
                   paddingHorizontal: 16,
                   paddingVertical: 14,
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.cardBorder,
                 }}
               >
                 <View
@@ -443,6 +469,50 @@ export default function Preferences() {
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity onPress={() => {/* Navigate to Google OAuth */}}>
+                    <Text style={{ fontSize: 14, color: accent }}>Connect</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )
+          })()}
+
+          {/* Todoist row */}
+          {(() => {
+            const health = todoistIntegration
+              ? getHealthColor(todoistIntegration.synced_at)
+              : { dot: '#8E8E93', label: 'Not connected' }
+            const isConnected = !!todoistIntegration
+
+            return (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                }}
+              >
+                <View
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: health.dot,
+                    marginRight: 12,
+                  }}
+                />
+                <Text style={{ flex: 1, fontSize: 16, color: colors.textPrimary }}>
+                  Todoist
+                </Text>
+                <Text style={{ fontSize: 14, color: colors.textSecondary, marginRight: 12 }}>
+                  {health.label}
+                </Text>
+                {isConnected ? (
+                  <TouchableOpacity onPress={() => handleDisconnect('todoist')}>
+                    <Text style={{ fontSize: 14, color: colors.destructive }}>Disconnect</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={handleConnectTodoist}>
                     <Text style={{ fontSize: 14, color: accent }}>Connect</Text>
                   </TouchableOpacity>
                 )}
