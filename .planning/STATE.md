@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 9 context gathered
-last_updated: "2026-03-20T03:12:59.861Z"
+stopped_at: Completed 09-todoist-integration/09-03-PLAN.md
+last_updated: "2026-03-20T14:01:57.587Z"
 progress:
   total_phases: 9
   completed_phases: 6
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 19
+  completed_plans: 17
 ---
 
 ---
@@ -33,12 +33,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Students never miss a deadline or lose track of their week — Aria surfaces what matters, when it matters, over SMS.
-**Current focus:** Phase 08 — ios-app-onboarding
+**Current focus:** Phase 09 — todoist-integration
 
 ## Current Position
 
-Phase: 08 (ios-app-onboarding) — EXECUTING
-Plan: 1 of 5
+Phase: 09 (todoist-integration) — EXECUTING
+Plan: 1 of 3
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Plan: 1 of 5
 | Phase 08-ios-app-onboarding P03 | 226 | 2 tasks | 3 files |
 | Phase 08-ios-app-onboarding P04 | 25 | 2 tasks | 7 files |
 | Phase 08-ios-app-onboarding P05 | 8 | 2 tasks | 7 files |
+| Phase 09-todoist-integration P03 | 8 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -131,6 +132,8 @@ Recent decisions affecting current work:
 - [Phase 08-ios-app-onboarding]: Urgency score field absent from DeadlineCard — deferred to Phase 9 post Phase 6 canonical_events integration
 - [Phase 08-ios-app-onboarding]: ChatBar VoiceButton opens sheet on voice result but does not auto-send — ChatSheet owns send pipeline; voice in ChatSheet auto-sends directly
 - [Phase 08-ios-app-onboarding]: SafeAreaView in home/index.tsx uses edges=[top,left,right] omitting bottom — ChatBar handles its own bottom padding via useSafeAreaInsets
+- [Phase 09-03]: Todoist access_token upserted with onConflict: 'user_id,platform' — re-auth overwrites old token without creating duplicate rows
+- [Phase 09-03]: redirect_uri uses NEXT_PUBLIC_APP_URL env var — supports both dev (localhost:3000) and production Vercel URL without code change
 
 ### Pending Todos
 
@@ -144,6 +147,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T03:12:59.836Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-todoist-integration/09-CONTEXT.md
+Last session: 2026-03-20T14:01:57.582Z
+Stopped at: Completed 09-todoist-integration/09-03-PLAN.md
+Resume file: None

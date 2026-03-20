@@ -149,7 +149,7 @@ Plans:
   2. Todoist tasks appear in daily briefings alongside Canvas deadlines; P1 tasks have source_authority = 0.8 in the Priority Engine
   3. User can create, complete, and update Todoist tasks via SMS command
   4. Task overload detection: if P1 tasks + Canvas deadlines exceed a threshold, Aria warns in the morning briefing
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 Plans:
 - [ ] 09-01-PLAN.md — Todoist backend modules (fetch/parse/db/sync) + Celery tasks + Beat schedule
 - [ ] 09-02-PLAN.md — SMS CRUD via Claude intent + overload detection in briefing
@@ -170,4 +170,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 (Ph
 | 6. Google OAuth + GCal + Gmail + Alerts | 0/TBD | Not started | - |
 | 7. Syllabus Parsing + Study Gap Detection | 0/TBD | Not started | - |
 | 8. iOS App + Onboarding | 5/5 | Complete    | 2026-03-20 |
-| 9. Todoist Integration | 0/3 | Planning complete | - |
+| 9. Todoist Integration | 1/3 | In Progress|  |
