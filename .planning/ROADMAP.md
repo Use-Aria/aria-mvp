@@ -13,7 +13,7 @@ Aria is built in nine phases that follow strict dependency order. The data pipel
 - [ ] **Phase 5: Priority Engine + Canonical Timeline DB** - Unified event scoring and delivery routing — all Phase 6+ integrations write to Canonical Store; events scored and routed by priority
 - [ ] **Phase 6: Google OAuth + GCal + Gmail + Alerts + Conflict Detection** - Connect Google account, ingest calendar and email, fire deadline alerts within 15 minutes, detect conflicts
 - [ ] **Phase 7: Syllabus Parsing + Study Gap Detection** - Upload PDFs, parse with Claude Opus, extract exam topics + grade weights, run gap analysis before exams
-- [ ] **Phase 8: iOS App + Onboarding** - Full 4-zone iOS card dashboard, in-app chat, voice input, onboarding flow (Seb leads)
+- [x] **Phase 8: iOS App + Onboarding** - Full 4-zone iOS card dashboard, in-app chat, voice input, onboarding flow (Seb leads) (completed 2026-03-20)
 - [ ] **Phase 9: Todoist Integration** - Todoist OAuth, task read/write, tasks in briefings and scheduling
 
 ## Phase Details
@@ -132,7 +132,7 @@ Plans:
   4. Voice input transcribes via on-device speech recognition and routes through the same Claude pipeline as typed messages
   5. Cards can be dragged to reorder, swiped to hide, tapped to expand; accent color and dark mode configurable
   6. First briefing preview page shows what the user's first briefing will contain before it sends
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 Plans:
 - [ ] 08-01-PLAN.md — Expo SDK 55 scaffold, Supabase client + ExpoSecureStoreAdapter, theme system, root layout, Jest setup
 - [ ] 08-02-PLAN.md — Onboarding screens 1-4: Welcome, Phone, PIN verify, Canvas URL validation
@@ -165,5 +165,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 (Ph
 | 5. Priority Engine + Canonical Timeline DB | 0/2 | Planning complete | - |
 | 6. Google OAuth + GCal + Gmail + Alerts | 0/TBD | Not started | - |
 | 7. Syllabus Parsing + Study Gap Detection | 0/TBD | Not started | - |
-| 8. iOS App + Onboarding | 4/5 | In Progress|  |
+| 8. iOS App + Onboarding | 5/5 | Complete   | 2026-03-20 |
 | 9. Todoist Integration | 0/TBD | Not started | - |

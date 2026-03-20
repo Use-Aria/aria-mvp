@@ -106,16 +106,16 @@
 ### Frontend UI
 
 - [x] **UI-01**: Onboarding flow — phone number entry, Canvas iCal URL, Google OAuth connect
-- [ ] **UI-02**: Syllabus upload UI — file picker, upload progress, confirmation
-- [ ] **UI-03**: Preferences page — quiet hours, notification frequency, connected integrations
-- [ ] **UI-04**: Connection status page — shows linked Google/Canvas status with health indicators
+- [x] **UI-02**: Syllabus upload UI — file picker, upload progress, confirmation
+- [x] **UI-03**: Preferences page — quiet hours, notification frequency, connected integrations
+- [x] **UI-04**: Connection status page — shows linked Google/Canvas status with health indicators
 - [x] **UI-05**: First briefing preview — shows what user's first briefing will look like after onboarding
 
 ### iOS App
 
 - [x] **UI-06**: iOS app home screen with 4-zone layout: (1) pinned quick-access bar (To-Do, Calendar, Notifications), (2) color-coded daily load status bar, (3) scrollable widget card grid, (4) persistent chat + voice bar
-- [ ] **UI-07**: In-app chat channel connected to same Aria backend as SMS; separate conversation thread; all SMS commands work in-app
-- [ ] **UI-08**: Voice input via on-device speech recognition; transcribed to same Claude pipeline; optional text-to-speech read-back
+- [x] **UI-07**: In-app chat channel connected to same Aria backend as SMS; separate conversation thread; all SMS commands work in-app
+- [x] **UI-08**: Voice input via on-device speech recognition; transcribed to same Claude pipeline; optional text-to-speech read-back
 - [x] **UI-09**: Card customization — drag to reorder, swipe to hide, accent color, dark mode, tap to expand
 
 ---
@@ -213,13 +213,13 @@
 | AUTH-05 | Phase 8 | Complete |
 | AUTH-06 | Phase 8 | Complete |
 | UI-01 | Phase 8 | Complete |
-| UI-02 | Phase 8 | Pending |
-| UI-03 | Phase 8 | Pending |
-| UI-04 | Phase 8 | Pending |
+| UI-02 | Phase 8 | Complete |
+| UI-03 | Phase 8 | Complete |
+| UI-04 | Phase 8 | Complete |
 | UI-05 | Phase 8 | Complete |
 | UI-06 | Phase 8 | Complete |
-| UI-07 | Phase 8 | Pending |
-| UI-08 | Phase 8 | Pending |
+| UI-07 | Phase 8 | Complete |
+| UI-08 | Phase 8 | Complete |
 | UI-09 | Phase 8 | Complete |
 | TASK-01 | Phase 9 | Pending |
 | TASK-02 | Phase 9 | Pending |

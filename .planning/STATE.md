@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 08-ios-app-onboarding/08-04-PLAN.md
-last_updated: "2026-03-20T02:27:32.216Z"
+stopped_at: Completed 08-ios-app-onboarding/08-05-PLAN.md
+last_updated: "2026-03-20T02:40:39.066Z"
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 ---
@@ -75,6 +75,7 @@ Plan: 1 of 5
 | Phase 08-ios-app-onboarding P02 | 15 | 2 tasks | 7 files |
 | Phase 08-ios-app-onboarding P03 | 226 | 2 tasks | 3 files |
 | Phase 08-ios-app-onboarding P04 | 25 | 2 tasks | 7 files |
+| Phase 08-ios-app-onboarding P05 | 8 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -128,6 +129,8 @@ Recent decisions affecting current work:
 - [Phase 08-ios-app-onboarding]: Zone 4 in home/index.tsx is a 64px spacer View — Plan 05 replaces with real ChatBar component
 - [Phase 08-ios-app-onboarding]: DeadlineCard onDone/onSnooze are UI-only with TODO comments — no backend task completion or snooze routes in Phase 8
 - [Phase 08-ios-app-onboarding]: Urgency score field absent from DeadlineCard — deferred to Phase 9 post Phase 6 canonical_events integration
+- [Phase 08-ios-app-onboarding]: ChatBar VoiceButton opens sheet on voice result but does not auto-send — ChatSheet owns send pipeline; voice in ChatSheet auto-sends directly
+- [Phase 08-ios-app-onboarding]: SafeAreaView in home/index.tsx uses edges=[top,left,right] omitting bottom — ChatBar handles its own bottom padding via useSafeAreaInsets
 
 ### Pending Todos
 
@@ -141,6 +144,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T02:27:32.213Z
-Stopped at: Completed 08-ios-app-onboarding/08-04-PLAN.md
+Last session: 2026-03-20T02:40:39.063Z
+Stopped at: Completed 08-ios-app-onboarding/08-05-PLAN.md
 Resume file: None
