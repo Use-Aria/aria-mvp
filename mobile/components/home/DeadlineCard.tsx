@@ -136,9 +136,9 @@ export function DeadlineCard({ task, onDone, onSnooze, onHide, isActive, drag }:
                   {task.weight}% of grade
                 </Text>
               )}
-              {/* NOTE: Priority score display deferred to Phase 9 / post-Phase 6 integration.
-                  The /api/deadlines endpoint returns Task[] which does not include priority scores
-                  from canonical_events. Do NOT render a priority score field here. */}
+              {/* NOTE: Urgency score display is deferred to Phase 9 / post-Phase 6 integration.
+                  The /api/deadlines endpoint returns Task[] which does not include scored events
+                  from canonical_events. No score field is rendered here. */}
             </View>
 
             {/* Action buttons row */}
