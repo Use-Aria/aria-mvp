@@ -317,3 +317,164 @@ def test_handle_reply_returns_under_800_chars():
         result = handle_reply("user-123", "what's due?")
 
     assert len(result) <= 800
+
+
+# ---------------------------------------------------------------------------
+# Todoist CRUD action tests
+# ---------------------------------------------------------------------------
+
+
+def test_todoist_create_intent_calls_create_task():
+    """Mock Claude returning todoist_create with due_string -> create_task called with correct args."""
+    from ai.replies import handle_reply
+
+    intent_resp = _mock_claude_response(
+        '{"action": "todoist_create", "task_hint": "buy textbook", "due_string": "Friday", "priority_value": null}'
+    )
+    reply_resp = _mock_claude_response("Done — added 'buy textbook' to Todoist, due Friday.")
+
+    with patch("ai.replies.Anthropic") as mock_anthropic_cls, \
+         patch("ai.replies.get_deadlines_for_briefing", return_value=[]), \
+         patch("ai.replies.get_conversation_history", return_value=[]), \
+         patch("todoist.db.get_todoist_token", return_value="tok-abc"), \
+         patch("todoist.fetch.create_task", return_value={"id": "t-001", "content": "buy textbook"}) as mock_create, \
+         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+        mock_client = MagicMock()
+        mock_anthropic_cls.return_value = mock_client
+        mock_client.messages.create.side_effect = [intent_resp, reply_resp]
+
+        result = handle_reply("user-123", "add buy textbook due friday")
+
+    mock_create.assert_called_once_with("tok-abc", "buy textbook", "Friday")
+    assert "buy textbook" in result.lower() or "todoist" in result.lower() or "friday" in result.lower()
+
+
+def test_todoist_complete_intent_calls_close_task():
+    """Mock Claude returning todoist_complete -> get_active_tasks + close_task called with matching task id."""
+    from ai.replies import handle_reply
+
+    intent_resp = _mock_claude_response(
+        '{"action": "todoist_complete", "task_hint": "buy textbook", "due_string": null, "priority_value": null}'
+    )
+    reply_resp = _mock_claude_response("Marked 'buy textbook' complete in Todoist.")
+
+    active_tasks = [{"id": "t-001", "content": "Buy Textbook", "due": {"date": "2026-03-22"}}]
+
+    with patch("ai.replies.Anthropic") as mock_anthropic_cls, \
+         patch("ai.replies.get_deadlines_for_briefing", return_value=[]), \
+         patch("ai.replies.get_conversation_history", return_value=[]), \
+         patch("todoist.db.get_todoist_token", return_value="tok-abc"), \
+         patch("todoist.fetch.get_active_tasks", return_value=active_tasks), \
+         patch("todoist.fetch.close_task", return_value=True) as mock_close, \
+         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+        mock_client = MagicMock()
+        mock_anthropic_cls.return_value = mock_client
+        mock_client.messages.create.side_effect = [intent_resp, reply_resp]
+
+        handle_reply("user-123", "done with buy textbook")
+
+    mock_close.assert_called_once_with("tok-abc", "t-001")
+
+
+def test_todoist_update_due_intent_calls_update_task():
+    """Mock Claude returning todoist_update_due with new due_string -> update_task called."""
+    from ai.replies import handle_reply
+
+    intent_resp = _mock_claude_response(
+        '{"action": "todoist_update_due", "task_hint": "buy textbook", "due_string": "Monday", "priority_value": null}'
+    )
+    reply_resp = _mock_claude_response("Moved 'Buy Textbook' to Monday in Todoist.")
+
+    active_tasks = [{"id": "t-001", "content": "Buy Textbook", "due": {"date": "2026-03-22"}}]
+
+    with patch("ai.replies.Anthropic") as mock_anthropic_cls, \
+         patch("ai.replies.get_deadlines_for_briefing", return_value=[]), \
+         patch("ai.replies.get_conversation_history", return_value=[]), \
+         patch("todoist.db.get_todoist_token", return_value="tok-abc"), \
+         patch("todoist.fetch.get_active_tasks", return_value=active_tasks), \
+         patch("todoist.fetch.update_task", return_value={"id": "t-001"}) as mock_update, \
+         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+        mock_client = MagicMock()
+        mock_anthropic_cls.return_value = mock_client
+        mock_client.messages.create.side_effect = [intent_resp, reply_resp]
+
+        handle_reply("user-123", "move buy textbook to Monday")
+
+    mock_update.assert_called_once_with("tok-abc", "t-001", "Monday")
+
+
+def test_todoist_delete_intent_calls_delete_task():
+    """Mock Claude returning todoist_delete -> delete_task called with matching task id."""
+    from ai.replies import handle_reply
+
+    intent_resp = _mock_claude_response(
+        '{"action": "todoist_delete", "task_hint": "buy textbook", "due_string": null, "priority_value": null}'
+    )
+    reply_resp = _mock_claude_response("Deleted 'Buy Textbook' from Todoist.")
+
+    active_tasks = [{"id": "t-001", "content": "Buy Textbook", "due": {"date": "2026-03-22"}}]
+
+    with patch("ai.replies.Anthropic") as mock_anthropic_cls, \
+         patch("ai.replies.get_deadlines_for_briefing", return_value=[]), \
+         patch("ai.replies.get_conversation_history", return_value=[]), \
+         patch("todoist.db.get_todoist_token", return_value="tok-abc"), \
+         patch("todoist.fetch.get_active_tasks", return_value=active_tasks), \
+         patch("todoist.fetch.delete_task", return_value=True) as mock_delete, \
+         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+        mock_client = MagicMock()
+        mock_anthropic_cls.return_value = mock_client
+        mock_client.messages.create.side_effect = [intent_resp, reply_resp]
+
+        handle_reply("user-123", "delete buy textbook from my list")
+
+    mock_delete.assert_called_once_with("tok-abc", "t-001")
+
+
+def test_todoist_create_without_due_asks_for_date():
+    """When due_string is null for todoist_create, reply asks for due date without calling create_task."""
+    from ai.replies import handle_reply
+
+    intent_resp = _mock_claude_response(
+        '{"action": "todoist_create", "task_hint": "buy textbook", "due_string": null, "priority_value": null}'
+    )
+    reply_resp = _mock_claude_response("When should that be due? Give me a date like 'Friday' or 'next Tuesday'.")
+
+    with patch("ai.replies.Anthropic") as mock_anthropic_cls, \
+         patch("ai.replies.get_deadlines_for_briefing", return_value=[]), \
+         patch("ai.replies.get_conversation_history", return_value=[]), \
+         patch("todoist.db.get_todoist_token", return_value="tok-abc"), \
+         patch("todoist.fetch.create_task") as mock_create, \
+         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+        mock_client = MagicMock()
+        mock_anthropic_cls.return_value = mock_client
+        mock_client.messages.create.side_effect = [intent_resp, reply_resp]
+
+        result = handle_reply("user-123", "add buy textbook")
+
+    mock_create.assert_not_called()
+    assert "when" in result.lower()
+
+
+def test_todoist_crud_requires_connected_integration():
+    """When get_todoist_token returns None, reply contains 'connect Todoist', no API calls made."""
+    from ai.replies import handle_reply
+
+    intent_resp = _mock_claude_response(
+        '{"action": "todoist_create", "task_hint": "buy textbook", "due_string": "Friday", "priority_value": null}'
+    )
+    reply_resp = _mock_claude_response("You'll need to connect Todoist first.")
+
+    with patch("ai.replies.Anthropic") as mock_anthropic_cls, \
+         patch("ai.replies.get_deadlines_for_briefing", return_value=[]), \
+         patch("ai.replies.get_conversation_history", return_value=[]), \
+         patch("todoist.db.get_todoist_token", return_value=None), \
+         patch("todoist.fetch.create_task") as mock_create, \
+         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+        mock_client = MagicMock()
+        mock_anthropic_cls.return_value = mock_client
+        mock_client.messages.create.side_effect = [intent_resp, reply_resp]
+
+        result = handle_reply("user-123", "add buy textbook due friday")
+
+    mock_create.assert_not_called()
+    assert "connect todoist" in result.lower()

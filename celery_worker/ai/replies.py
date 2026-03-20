@@ -8,14 +8,18 @@ Uses a two-step approach:
 
 Called from process_inbound_sms Celery task — never inline in webhooks.
 """
+from __future__ import annotations
+
 import hashlib
 import json
 import logging
 import os
 import time
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from zoneinfo import ZoneInfo
 
+import requests
 from anthropic import Anthropic
 
 from ai.db import get_deadlines_for_briefing, get_conversation_history
@@ -25,9 +29,10 @@ logger = logging.getLogger(__name__)
 INTENT_SYSTEM_PROMPT = """You are Aria's intent classifier.
 Given a student's SMS, return ONLY valid JSON (no markdown, no explanation):
 {
-  "action": "query" | "mark_complete" | "snooze" | "set_priority" | "off_topic",
+  "action": "query" | "mark_complete" | "snooze" | "set_priority" | "todoist_create" | "todoist_complete" | "todoist_update_due" | "todoist_delete" | "off_topic",
   "task_hint": "<partial task name, lowercase, or null>",
-  "priority_value": "high" | "normal" | null
+  "priority_value": "high" | "normal" | null,
+  "due_string": "<natural language due date, e.g. 'Friday', 'tomorrow at 3pm', or null>"
 }
 
 Rules:
@@ -35,8 +40,14 @@ Rules:
 - "mark_complete" for done/finished/completed ("mark bio lab done", "finished econ pset")
 - "snooze" for snooze/remind me later ("snooze chem hw", "not now for bio")
 - "set_priority" for priority changes ("high priority econ pset", "urgent: calc midterm")
+- "todoist_create" for adding new personal tasks ("add buy textbook due friday", "remind me to email prof tomorrow")
+- "todoist_complete" for completing Todoist tasks ("done with buy textbook", "finished grocery run")
+- "todoist_update_due" for rescheduling Todoist tasks ("move buy textbook to Monday", "push grocery to next week")
+- "todoist_delete" for removing Todoist tasks ("delete buy textbook", "remove grocery run from my list")
 - "off_topic" for anything not deadline-related
-- task_hint: extract the course/assignment name fragment, lowercase"""
+- task_hint: extract the course/assignment name fragment, lowercase
+- due_string: extract date hint for create/update — use Todoist natural language format; null if not mentioned
+- If "todoist_create" but no due date mentioned, still classify as todoist_create with due_string=null"""
 
 REPLY_SYSTEM_PROMPT = """You are Aria, a smart personal assistant for college students.
 You're replying to a student's SMS about their deadlines.
@@ -145,6 +156,72 @@ def _apply_mutation(action: str, deadline: dict, priority_value: str | None) -> 
     return ""
 
 
+def _apply_todoist_mutation(
+    action: str, task_hint: str, due_string: Optional[str], user_id: str
+) -> str:
+    """Apply a Todoist CRUD mutation via the Todoist REST API.
+
+    Args:
+        action: One of 'todoist_create', 'todoist_complete', 'todoist_update_due', 'todoist_delete'.
+        task_hint: Task name/partial name extracted by intent classifier.
+        due_string: Natural language due date string (e.g. 'Friday', 'tomorrow'), or None.
+        user_id: UUID of the user — used to fetch the Todoist access token.
+
+    Returns:
+        Description of the action taken, for Claude to incorporate into its reply.
+    """
+    from todoist.db import get_todoist_token
+    from todoist.fetch import (
+        create_task,
+        close_task,
+        get_active_tasks,
+        update_task,
+        delete_task,
+    )
+
+    token = get_todoist_token(user_id)
+    if not token:
+        return "You'll need to connect Todoist first — head to Preferences in the app."
+
+    try:
+        if action == "todoist_create":
+            if due_string is None:
+                return "When should that be due? Give me a date like 'Friday' or 'next Tuesday'."
+            create_task(token, task_hint, due_string)
+            return f"Done — added '{task_hint}' to Todoist, due {due_string}."
+
+        # For complete/update/delete: find task by title match in active tasks
+        active_tasks = get_active_tasks(token)
+        hint_lower = task_hint.lower()
+        matched = next(
+            (t for t in active_tasks if hint_lower in t.get("content", "").lower()),
+            None,
+        )
+
+        if action == "todoist_complete":
+            if not matched:
+                return f"Couldn't find a Todoist task matching '{task_hint}'."
+            close_task(token, matched["id"])
+            return f"Marked '{matched['content']}' complete in Todoist."
+
+        elif action == "todoist_update_due":
+            if not matched:
+                return f"Couldn't find a Todoist task matching '{task_hint}'."
+            update_task(token, matched["id"], due_string)
+            return f"Moved '{matched['content']}' to {due_string} in Todoist."
+
+        elif action == "todoist_delete":
+            if not matched:
+                return f"Couldn't find a Todoist task matching '{task_hint}'."
+            delete_task(token, matched["id"])
+            return f"Deleted '{matched['content']}' from Todoist."
+
+    except requests.HTTPError:
+        return "Something went wrong updating Todoist. Try again in a bit."
+
+    return ""
+
+
 def handle_reply(user_id: str, body: str) -> str:
     """Handle an inbound SMS by extracting intent, mutating DB if needed, and generating a reply.
 
@@ -181,6 +258,7 @@ def handle_reply(user_id: str, body: str) -> str:
     action = intent.get("action", "off_topic")
     task_hint = intent.get("task_hint")
     priority_value = intent.get("priority_value")
+    due_string = intent.get("due_string")
 
     # Step 2: Apply mutation if needed
     mutation_result = ""
@@ -190,6 +268,12 @@ def handle_reply(user_id: str, body: str) -> str:
             mutation_result = _apply_mutation(action, matched, priority_value)
         else:
             mutation_result = f"Couldn't find a matching deadline for '{task_hint}'"
+
+    # Todoist mutations
+    if action in ("todoist_create", "todoist_complete", "todoist_update_due", "todoist_delete"):
+        mutation_result = _apply_todoist_mutation(
+            action, task_hint or body, due_string, user_id
+        )
 
     # Step 3: Handle off-topic directly (no second Claude call needed)
     if action == "off_topic":
