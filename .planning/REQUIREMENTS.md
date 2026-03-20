@@ -12,8 +12,8 @@
 - [ ] **AUTH-02**: User can connect Google account via OAuth 2.0 (Calendar + Gmail scopes)
 - [x] **AUTH-03**: Google OAuth tokens stored encrypted (AES-256) in Supabase with refresh rotation
 - [x] **AUTH-04**: User session persists across browser refresh
-- [ ] **AUTH-05**: User can enter Canvas iCal URL during onboarding (validated before saving)
-- [ ] **AUTH-06**: User can enter phone number during onboarding and verify via SMS PIN
+- [x] **AUTH-05**: User can enter Canvas iCal URL during onboarding (validated before saving)
+- [x] **AUTH-06**: User can enter phone number during onboarding and verify via SMS PIN
 - [x] **AUTH-07**: User receives a welcome briefing immediately after Canvas iCal URL is saved (cold-start prevention)
 
 ### Canvas Integration
@@ -105,7 +105,7 @@
 
 ### Frontend UI
 
-- [ ] **UI-01**: Onboarding flow — phone number entry, Canvas iCal URL, Google OAuth connect
+- [x] **UI-01**: Onboarding flow — phone number entry, Canvas iCal URL, Google OAuth connect
 - [ ] **UI-02**: Syllabus upload UI — file picker, upload progress, confirmation
 - [ ] **UI-03**: Preferences page — quiet hours, notification frequency, connected integrations
 - [ ] **UI-04**: Connection status page — shows linked Google/Canvas status with health indicators
@@ -210,9 +210,9 @@
 | INTEL-01 | Phase 7 | Pending |
 | AUTH-02 | Phase 8 | Pending |
 | AUTH-03 | Phase 8 | Complete |
-| AUTH-05 | Phase 8 | Pending |
-| AUTH-06 | Phase 8 | Pending |
-| UI-01 | Phase 8 | Pending |
+| AUTH-05 | Phase 8 | Complete |
+| AUTH-06 | Phase 8 | Complete |
+| UI-01 | Phase 8 | Complete |
 | UI-02 | Phase 8 | Pending |
 | UI-03 | Phase 8 | Pending |
 | UI-04 | Phase 8 | Pending |

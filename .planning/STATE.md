@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 08-ios-app-onboarding/08-01-PLAN.md
-last_updated: "2026-03-20T02:20:04.544Z"
+stopped_at: Completed 08-ios-app-onboarding/08-02-PLAN.md
+last_updated: "2026-03-20T02:27:05.228Z"
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 16
-  completed_plans: 12
+  completed_plans: 15
 ---
 
 ---
@@ -72,6 +72,8 @@ Plan: 1 of 5
 | Phase 05-priority-engine-canonical-timeline-db P01 | 2 | 2 tasks | 6 files |
 | Phase 05-priority-engine-canonical-timeline-db P02 | 6 | 2 tasks | 8 files |
 | Phase 08-ios-app-onboarding P01 | 683 | 2 tasks | 29 files |
+| Phase 08-ios-app-onboarding P02 | 15 | 2 tasks | 7 files |
+| Phase 08-ios-app-onboarding P03 | 226 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -116,6 +118,9 @@ Recent decisions affecting current work:
 - [Phase 08-ios-app-onboarding]: Excluded src/ template directory from tsconfig — SDK 55 template uses src/app but plan specifies mobile/app
 - [Phase 08-ios-app-onboarding]: Added @types/jest and types:[jest] in tsconfig — required for jest globals in mock and test files
 - [Phase 08-ios-app-onboarding]: ThemeContextType.colors typed as union (COLORS.light | COLORS.dark) — literal string types differ between light and dark palettes
+- [Phase 08-ios-app-onboarding]: CanvasUrlInput client-side regex delegates format error to canvas.tsx screen — component always calls onValidate, parent owns regex check and error state
+- [Phase 08-ios-app-onboarding]: PinInput uses individual TextInput refs per cell (not masked input) for precise focus control per iOS UX guidelines
+- [Phase 08-ios-app-onboarding]: canvas.tsx uses Promise.race with 10-second timeout for validateCanvasUrl to surface network failures as unreachable error variant
 
 ### Pending Todos
 
@@ -129,6 +134,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T02:20:04.541Z
-Stopped at: Completed 08-ios-app-onboarding/08-01-PLAN.md
+Last session: 2026-03-20T02:26:50.532Z
+Stopped at: Completed 08-ios-app-onboarding/08-02-PLAN.md
 Resume file: None
