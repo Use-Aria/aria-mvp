@@ -26,11 +26,11 @@
 
 ### Gmail Integration
 
-- [ ] **GMAI-01**: System monitors Gmail for emails from course-related senders
-- [ ] **GMAI-02**: Keyword detection identifies deadline changes, cancellations, and exam updates in emails
+- [x] **GMAI-01**: System monitors Gmail for emails from course-related senders
+- [x] **GMAI-02**: Keyword detection identifies deadline changes, cancellations, and exam updates in emails
 - [x] **GMAI-03**: Parsed Gmail signals stored in `gmail_flags` table (metadata only — subject, sender, flagged_at, summary; full email content never stored permanently)
-- [ ] **GMAI-04**: Gmail watch channel renewed automatically before 7-day expiry
-- [ ] **GMAI-05**: Gmail signals cross-referenced against Canvas state to detect contradictions
+- [x] **GMAI-04**: Gmail watch channel renewed automatically before 7-day expiry
+- [x] **GMAI-05**: Gmail signals cross-referenced against Canvas state to detect contradictions
 
 ### Google Calendar Integration
 
@@ -80,9 +80,9 @@
 
 ### Deadline Alerts
 
-- [ ] **ALRT-01**: Deadline change alert fired within 15 minutes of Canvas diff detection
-- [ ] **ALRT-02**: Gmail contradiction alert fired when professor email conflicts with Canvas deadline
-- [ ] **ALRT-03**: Alert SMS includes original deadline, new deadline, course name, and assignment title
+- [x] **ALRT-01**: Deadline change alert fired within 15 minutes of Canvas diff detection
+- [x] **ALRT-02**: Gmail contradiction alert fired when professor email conflicts with Canvas deadline
+- [x] **ALRT-03**: Alert SMS includes original deadline, new deadline, course name, and assignment title
 
 ### Intelligence
 
@@ -189,14 +189,14 @@
 | GCAL-03 | Phase 6 | Complete |
 | GCAL-04 | Phase 6 | Complete |
 | GCAL-05 | Phase 6 | Pending |
-| GMAI-01 | Phase 6 | Pending |
-| GMAI-02 | Phase 6 | Pending |
+| GMAI-01 | Phase 6 | Complete |
+| GMAI-02 | Phase 6 | Complete |
 | GMAI-03 | Phase 6 | Complete |
-| GMAI-04 | Phase 6 | Pending |
-| GMAI-05 | Phase 6 | Pending |
-| ALRT-01 | Phase 6 | Pending |
-| ALRT-02 | Phase 6 | Pending |
-| ALRT-03 | Phase 6 | Pending |
+| GMAI-04 | Phase 6 | Complete |
+| GMAI-05 | Phase 6 | Complete |
+| ALRT-01 | Phase 6 | Complete |
+| ALRT-02 | Phase 6 | Complete |
+| ALRT-03 | Phase 6 | Complete |
 | INTEL-03 | Phase 6 | Pending |
 | SMS-10 | Phase 6 | Complete |
 | SMS-11 | Phase 6 | Complete |
