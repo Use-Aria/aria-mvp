@@ -145,8 +145,64 @@ def _apply_mutation(action: str, deadline: dict, priority_value: str | None) -> 
     return ""
 
 
+_STUDY_PREF_KEYWORDS = frozenset({
+    "morning", "mornings", "afternoon", "afternoons", "evening", "evenings",
+})
+
+
+def _handle_study_preference_reply(user_id: str, body: str) -> str | None:
+    """Intercept a study preference reply and store it in preferences_json.
+
+    Called before the main intent-extraction / Claude path. Returns a
+    confirmation string if the reply is a study preference answer AND the
+    user hasn't set one yet; returns None otherwise (pass through to Claude).
+
+    The preference is normalized: "mornings" -> "morning", etc.
+
+    Args:
+        user_id: UUID of the sender.
+        body: Raw inbound SMS text.
+
+    Returns:
+        Confirmation reply string if preference was captured, else None.
+    """
+    from ai.db import _get_supabase
+
+    reply_lower = body.strip().lower()
+    if reply_lower not in _STUDY_PREF_KEYWORDS:
+        return None
+
+    client = _get_supabase()
+    user_row = (
+        client.table("users")
+        .select("preferences_json")
+        .eq("id", user_id)
+        .execute()
+        .data
+    )
+    prefs = (user_row[0].get("preferences_json") or {}) if user_row else {}
+
+    # Only capture if not already set
+    if prefs.get("study_preference"):
+        return None
+
+    # Normalize: "mornings" -> "morning", etc.
+    pref = reply_lower.rstrip("s") if reply_lower.endswith("s") else reply_lower
+    prefs["study_preference"] = pref
+    client.table("users").update({"preferences_json": prefs}).eq("id", user_id).execute()
+
+    return (
+        f"Got it -- {pref} study sessions it is! "
+        "I'll keep that in mind when suggesting study blocks."
+    )
+
+
 def handle_reply(user_id: str, body: str) -> str:
     """Handle an inbound SMS by extracting intent, mutating DB if needed, and generating a reply.
+
+    Before the main intent path, checks for a study preference reply (morning/afternoon/evening).
+    If the user is answering the study preference question for the first time, stores the
+    preference and returns a confirmation without invoking Claude.
 
     Args:
         user_id: UUID of the sender.
@@ -155,6 +211,11 @@ def handle_reply(user_id: str, body: str) -> str:
     Returns:
         Reply text string, guaranteed <= 800 characters.
     """
+    # Intercept study preference reply before Claude processing
+    study_pref_reply = _handle_study_preference_reply(user_id, body)
+    if study_pref_reply is not None:
+        return study_pref_reply
+
     client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     hashed_id = hashlib.sha256(user_id.encode()).hexdigest()[:12]
 

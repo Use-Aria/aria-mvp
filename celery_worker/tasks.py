@@ -4,6 +4,18 @@ from datetime import datetime, timezone
 
 from anthropic import RateLimitError
 
+# Forward declarations for tasks defined in Plan 03/04 (used in encrypt_and_store_tokens).
+# These will be no-ops (caught by try/except) until those plans are executed.
+try:
+    from tasks import gcal_sync_user  # type: ignore[attr-defined]
+except ImportError:
+    gcal_sync_user = None  # type: ignore[assignment]
+
+try:
+    from tasks import gmail_establish_watch_task  # type: ignore[attr-defined]
+except ImportError:
+    gmail_establish_watch_task = None  # type: ignore[assignment]
+
 
 @celery_app.task(
     name="tasks.send_priority_alert",
@@ -348,3 +360,79 @@ def welcome_briefing(self, user_id: str) -> dict:
         write_outbound_message(user_id, briefing_text, "welcome_briefing")
 
     return {"user_id": user_id, "status": "sent" if sent else "suppressed"}
+
+
+@celery_app.task(name="tasks.encrypt_and_store_tokens", priority=9)
+def encrypt_and_store_tokens(user_id: str, access_token: str, refresh_token: str) -> dict:
+    """Encrypt Google OAuth tokens and store in Supabase. Then trigger downstream setup.
+
+    Called immediately from the OAuth callback route. Tokens arrive as plaintext
+    args (from Next.js process memory / Redis transient queue) and are encrypted
+    via Fernet before ANY Supabase write. Tokens are NEVER at rest unencrypted.
+
+    After storing tokens:
+    1. Sends confirmation SMS to user.
+    2. On first Google connect (no study_preference set), asks study preference question.
+    3. Dispatches gcal_sync_user and gmail_establish_watch_task (Plans 03/04 stubs).
+
+    Args:
+        user_id: UUID of the user.
+        access_token: Plaintext Google OAuth access token.
+        refresh_token: Plaintext Google OAuth refresh token.
+
+    Returns:
+        Dict with user_id, stored=True, and study_pref_asked flag.
+    """
+    from google_auth.tokens import store_google_tokens
+    from sms.send import send_sms_safe, _get_user_sms_state
+    from ai.db import _get_supabase
+
+    # Step 1: Encrypt and store tokens (NEVER plaintext in DB)
+    store_google_tokens(user_id, access_token, refresh_token)
+
+    # Step 2: Send Google-connected confirmation SMS
+    user_state = _get_user_sms_state(user_id)
+    to_phone = user_state.get("phone", "") if user_state else ""
+
+    if to_phone:
+        send_sms_safe(
+            user_id,
+            to_phone,
+            "Google connected! I'll now include your calendar and watch for deadline emails.",
+            is_proactive=True,
+        )
+
+    # Step 3: Check if this is first Google connect (no study_preference set yet)
+    client = _get_supabase()
+    user_row = (
+        client.table("users")
+        .select("preferences_json")
+        .eq("id", user_id)
+        .execute()
+        .data
+    )
+    prefs = (user_row[0].get("preferences_json") or {}) if user_row else {}
+    study_pref_asked = False
+
+    if not prefs.get("study_preference") and to_phone:
+        send_sms_safe(
+            user_id,
+            to_phone,
+            "Quick question: when do you prefer to study -- mornings, afternoons, or evenings? "
+            "Just reply with one!",
+            is_proactive=True,
+        )
+        study_pref_asked = True
+
+    # Step 4: Dispatch downstream tasks (GCal backfill + Gmail watch)
+    # These tasks are defined in Plans 03/04; they will be no-ops if not yet registered.
+    try:
+        gcal_sync_user.delay(user_id)  # type: ignore[union-attr]
+    except Exception:
+        pass  # Task not registered yet (Plan 03)
+    try:
+        gmail_establish_watch_task.delay(user_id)  # type: ignore[union-attr]
+    except Exception:
+        pass  # Task not registered yet (Plan 04)
+
+    return {"user_id": user_id, "stored": True, "study_pref_asked": study_pref_asked}
