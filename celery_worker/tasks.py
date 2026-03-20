@@ -159,6 +159,9 @@ def canvas_sync_user(self, user_id: str, ical_url: str) -> dict:
             grade_weight=event.get("grade_weight"),
         )
 
+    # Trigger conflict detection after Canvas sync (deadline dates may have changed)
+    detect_conflicts_user.delay(user_id)
+
     # Check if this is the first sync (synced_at is NULL) before updating
     db = _get_canvas_supabase()
     integration = (
@@ -457,18 +460,20 @@ def gcal_sync_user(self, user_id: str) -> dict:
 
 @celery_app.task(name="tasks.detect_conflicts_user")
 def detect_conflicts_user(user_id: str) -> dict:
-    """Stub: conflict detection implemented in Plan 05.
+    """Detect Canvas deadline vs GCal event conflicts for a user.
 
-    This stub allows gcal_sync_user to call detect_conflicts_user.delay()
-    without error. Plan 05 will replace this with the real implementation.
+    Finds deadlines and GCal events on the same calendar day, fires deduped
+    conflict alerts via the SMS batch queue. Implemented in Plan 05.
 
     Args:
         user_id: UUID of the user.
 
     Returns:
-        Dict with user_id and stub status.
+        Dict with user_id and new_conflicts count.
     """
-    return {"user_id": user_id, "status": "stub"}
+    from gcal.conflicts import detect_conflicts_user as _detect
+    conflicts = _detect(user_id)
+    return {"user_id": user_id, "new_conflicts": len(conflicts)}
 
 
 @celery_app.task(name="tasks.renew_watch_channels")
