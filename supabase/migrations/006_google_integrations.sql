@@ -48,3 +48,11 @@ ALTER TABLE public.integrations
   ADD COLUMN IF NOT EXISTS resource_id TEXT,
   ADD COLUMN IF NOT EXISTS watch_expires_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS history_id TEXT;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Add unique constraint on calendar_events for GCal upsert idempotency
+-- Required by store_calendar_events() ON CONFLICT(user_id, google_event_id)
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE public.calendar_events
+  ADD CONSTRAINT IF NOT EXISTS calendar_events_user_event_unique
+  UNIQUE (user_id, google_event_id);
