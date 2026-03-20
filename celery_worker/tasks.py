@@ -507,7 +507,145 @@ def renew_watch_channels() -> dict:
                 "Watch renewal failed for user %s: %s", row["user_id"], e
             )
 
+    # Also renew Gmail watches for users with history_id set (indicates Gmail is active)
+    gmail_rows = (
+        client.table("integrations")
+        .select("user_id, history_id, watch_expires_at")
+        .eq("platform", "google")
+        .not_.is_("history_id", "null")
+        .lte("watch_expires_at", cutoff)
+        .execute()
+    ).data
+
+    for row in gmail_rows:
+        try:
+            from gmail.watch import renew_gmail_watch
+            renew_gmail_watch(row["user_id"])
+            renewed += 1
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                "Gmail watch renewal failed for %s: %s", row["user_id"], e
+            )
+
     return {"checked": len(rows), "renewed": renewed}
+
+
+@celery_app.task(name="tasks.gmail_process_notification")
+def gmail_process_notification(user_id: str, new_history_id: str) -> dict:
+    """Process a Gmail push notification: fetch new messages, classify, alert.
+
+    Called when /api/gmail/webhook receives a Pub/Sub push notification.
+    Fetches messages since last historyId, classifies with Claude Haiku,
+    cross-references Canvas deadlines, and fires contradiction alerts.
+
+    Args:
+        user_id: UUID of the user whose Gmail notification to process.
+        new_history_id: The new historyId from the Pub/Sub message.
+
+    Returns:
+        Dict with user_id, processed count, and alerts_fired count.
+    """
+    from gmail.fetch import fetch_new_messages, get_stored_history_id, update_history_id
+    from gmail.classify import classify_email, find_matching_deadline
+    from ai.db import _get_supabase
+    from sms.batch import enqueue_alert
+
+    stored_history_id = get_stored_history_id(user_id)
+    if not stored_history_id:
+        # No cursor yet — store new historyId and wait for next notification
+        update_history_id(user_id, new_history_id)
+        return {"user_id": user_id, "status": "initialized_history_id"}
+
+    messages = fetch_new_messages(user_id, stored_history_id)
+    # Advance cursor to new historyId after fetching
+    update_history_id(user_id, new_history_id)
+
+    if not messages:
+        return {"user_id": user_id, "processed": 0}
+
+    # Get user's Canvas deadlines for cross-reference (GMAI-05)
+    client = _get_supabase()
+    deadlines = (
+        client.table("deadlines")
+        .select("id, title, due_date, course")
+        .eq("user_id", user_id)
+        .is_("deleted_at", "null")
+        .execute()
+    ).data
+
+    processed = 0
+    alerts_fired = 0
+    for msg in messages:
+        classification = classify_email(msg["subject"], msg["snippet"])
+
+        # Store in gmail_flags table (metadata only — NEVER full body)
+        client.table("gmail_flags").insert({
+            "user_id": user_id,
+            "subject": msg["subject"],
+            "sender": msg["sender"],
+            "summary": msg["snippet"][:200],  # truncate snippet
+            "confidence": classification.get("confidence", 0.0),
+        }).execute()
+
+        # Check alert threshold: confidence >= 0.8 AND is_deadline_change (GMAI-04)
+        if classification.get("is_deadline_change") and classification.get("confidence", 0) >= 0.8:
+            # Cross-reference against Canvas deadlines (GMAI-05)
+            matched = find_matching_deadline(msg["subject"], deadlines)
+
+            if matched:
+                # ALRT-02: Contradiction alert — email signals change vs Canvas state
+                body = (
+                    f"Your professor emailed that {matched['title']} "
+                    f"may have changed, but Canvas still shows due "
+                    f"{matched['due_date'][:10]}. "
+                    f"Email subject: \"{msg['subject'][:60]}\". Heads up!"
+                )
+
+                # Ingest as gmail source event for priority scoring
+                from priority.ingest import ingest_canonical_event
+                ingest_canonical_event(
+                    user_id=user_id,
+                    source="gmail",
+                    event_type="deadline_change",
+                    title=f"Email: {msg['subject'][:80]}",
+                    due_at=matched["due_date"],
+                    course_id=matched.get("course"),
+                    grade_weight=None,
+                    skip_routing=False,
+                )
+            else:
+                # No Canvas match — still alert about potential deadline change
+                body = (
+                    f"A .edu email may signal a deadline change: "
+                    f"\"{msg['subject'][:60]}\". "
+                    f"Check your course announcements."
+                )
+
+            # Route through SMS batching queue (SMS-10/SMS-11)
+            is_first = enqueue_alert(user_id, body, priority_score=85)
+            if is_first:
+                flush_sms_batch.apply_async(args=[user_id], countdown=600)
+            alerts_fired += 1
+
+        processed += 1
+
+    return {"user_id": user_id, "processed": processed, "alerts_fired": alerts_fired}
+
+
+@celery_app.task(name="tasks.gmail_establish_watch")
+def gmail_establish_watch_task(user_id: str) -> dict:
+    """Establish Gmail watch channel for a user. Called on OAuth callback.
+
+    Args:
+        user_id: UUID of the user to establish Gmail watch for.
+
+    Returns:
+        Dict with user_id and watch success flag.
+    """
+    from gmail.watch import establish_gmail_watch
+    result = establish_gmail_watch(user_id)
+    return {"user_id": user_id, "watch": bool(result)}
 
 
 @celery_app.task(name="tasks.encrypt_and_store_tokens", priority=9)
