@@ -125,7 +125,10 @@ Plans:
   3. At T-5 days before an exam, Aria generates a study gap analysis — a prioritized list of uncovered topics ranked by exam weight
   4. A PDF is never re-parsed; `parsed_json` is reused on every subsequent briefing request
   5. Monday extended briefing includes exam topic coverage summaries from parsed syllabi
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 07-01-PLAN.md — Migration 007 + Claude Opus PDF parsing module + upload route + Celery task
+- [ ] 07-02-PLAN.md — Gap analysis (T-5 Beat task + SMS) + briefing enrichment with syllabus context
 
 ### Phase 8: iOS App + Onboarding
 **Goal**: A new user can complete onboarding and access a full-featured iOS app with card dashboard, in-app chat, and voice — Seb leads; can begin parallel with Phase 6
@@ -154,7 +157,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 (Phase 8 can begin parallel with Phase 6)
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 9 (Phase 8 can begin parallel with Phase 6)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -164,6 +167,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 (Ph
 | 4. Claude AI + Daily Briefing | 2/2 | Complete   | 2026-03-19 |
 | 5. Priority Engine + Canonical Timeline DB | 0/2 | Planning complete | - |
 | 6. Google OAuth + GCal + Gmail + Alerts | 5/5 | Complete   | 2026-03-20 |
-| 7. Syllabus Parsing + Study Gap Detection | 0/TBD | Not started | - |
+| 7. Syllabus Parsing + Study Gap Detection | 0/2 | Planning complete | - |
 | 8. iOS App + Onboarding | 0/TBD | Not started | - |
 | 9. Todoist Integration | 0/TBD | Not started | - |
