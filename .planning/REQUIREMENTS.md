@@ -101,7 +101,7 @@
 ### Task Management
 
 - [x] **TASK-01**: Todoist OAuth connection and task read/write
-- [ ] **TASK-02**: Todoist tasks normalized to Task type and included in briefings and scheduling priority
+- [x] **TASK-02**: Todoist tasks normalized to Task type and included in briefings and scheduling priority
 
 ### Frontend UI
 
@@ -222,7 +222,7 @@
 | UI-08 | Phase 8 | Complete |
 | UI-09 | Phase 8 | Complete |
 | TASK-01 | Phase 9 | Complete |
-| TASK-02 | Phase 9 | Pending |
+| TASK-02 | Phase 9 | Complete |
 
 **Coverage:**
 - v1 requirements: 68 total
