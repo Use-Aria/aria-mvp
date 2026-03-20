@@ -391,6 +391,125 @@ def welcome_briefing(self, user_id: str) -> dict:
     return {"user_id": user_id, "status": "sent" if sent else "suppressed"}
 
 
+@celery_app.task(name="tasks.gcal_sync_all")
+def gcal_sync_all():
+    """Fan-out: dispatch gcal_sync_user for every user with Google connected.
+
+    Called by Celery Beat (or manually). Reads all Google integrations and
+    dispatches one gcal_sync_user task per user.
+
+    Returns:
+        Dict with dispatched count.
+    """
+    from ai.db import _get_supabase
+
+    client = _get_supabase()
+    rows = client.table("integrations").select("user_id").eq("platform", "google").execute().data
+    for row in rows:
+        gcal_sync_user.delay(row["user_id"])
+    return {"dispatched": len(rows)}
+
+
+@celery_app.task(
+    name="tasks.gcal_sync_user",
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    max_retries=3,
+)
+def gcal_sync_user(self, user_id: str) -> dict:
+    """Fetch GCal events, store in calendar_events + canonical_events.
+
+    Called on push notification (via webhook) or periodic sync (via gcal_sync_all).
+    After storing events, triggers conflict detection for the user.
+
+    Args:
+        user_id: UUID of the user whose GCal to sync.
+
+    Returns:
+        Dict with user_id and events_synced count.
+    """
+    from gcal.fetch import fetch_gcal_events
+    from gcal.db import store_calendar_events
+    from priority.ingest import ingest_canonical_event
+
+    events = fetch_gcal_events(user_id)
+    stored = store_calendar_events(user_id, events)
+
+    # Ingest into canonical_events for priority scoring and briefing enrichment
+    for e in events:
+        ingest_canonical_event(
+            user_id=user_id,
+            source="gcal",
+            event_type=e["type"],
+            title=e["title"],
+            due_at=e["start_time"],
+            course_id=None,
+            grade_weight=None,
+            skip_routing=False,
+        )
+
+    # Trigger conflict detection after sync (stub in Plan 03, implemented in Plan 05)
+    detect_conflicts_user.delay(user_id)
+
+    return {"user_id": user_id, "events_synced": stored}
+
+
+@celery_app.task(name="tasks.detect_conflicts_user")
+def detect_conflicts_user(user_id: str) -> dict:
+    """Stub: conflict detection implemented in Plan 05.
+
+    This stub allows gcal_sync_user to call detect_conflicts_user.delay()
+    without error. Plan 05 will replace this with the real implementation.
+
+    Args:
+        user_id: UUID of the user.
+
+    Returns:
+        Dict with user_id and stub status.
+    """
+    return {"user_id": user_id, "status": "stub"}
+
+
+@celery_app.task(name="tasks.renew_watch_channels")
+def renew_watch_channels() -> dict:
+    """Check all Google integrations for expiring watch channels and renew them.
+
+    Run every 6 hours via Celery Beat. Renews any channel expiring within
+    the next 48 hours (2x the Beat interval for safety margin).
+
+    Returns:
+        Dict with checked count and renewed count.
+    """
+    from ai.db import _get_supabase
+    from datetime import datetime, timezone, timedelta
+
+    client = _get_supabase()
+    cutoff = (datetime.now(timezone.utc) + timedelta(hours=48)).isoformat()
+    rows = (
+        client.table("integrations")
+        .select("user_id, channel_id, watch_expires_at")
+        .eq("platform", "google")
+        .not_.is_("channel_id", "null")
+        .lte("watch_expires_at", cutoff)
+        .execute()
+    ).data
+
+    renewed = 0
+    for row in rows:
+        try:
+            from gcal.watch import renew_watch
+            renew_watch(row["user_id"])
+            renewed += 1
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                "Watch renewal failed for user %s: %s", row["user_id"], e
+            )
+
+    return {"checked": len(rows), "renewed": renewed}
+
+
 @celery_app.task(name="tasks.encrypt_and_store_tokens", priority=9)
 def encrypt_and_store_tokens(user_id: str, access_token: str, refresh_token: str) -> dict:
     """Encrypt Google OAuth tokens and store in Supabase. Then trigger downstream setup.
