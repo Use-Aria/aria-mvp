@@ -107,7 +107,13 @@ Plans:
   5. Multiple alerts within 10 minutes are batched into a single SMS; no more than 3 texts in any 10-minute window
   6. When a Canvas deadline overlaps an existing GCal commitment, Aria flags the conflict and offers resolution via SMS
   7. GCal push channels and Gmail watch channels are renewed automatically before 7-day expiry
-**Plans**: TBD
+**Plans:** 5 plans
+Plans:
+- [ ] 06-01-PLAN.md — Migration 006 + token encryption + Google OAuth flow (initiation + callback)
+- [ ] 06-02-PLAN.md — SMS batching layer (Redis hold queue + flush task + send_priority_alert integration)
+- [ ] 06-03-PLAN.md — GCal sync pipeline (auth, fetch, DB, push webhook, watch lifecycle, Beat renewal)
+- [ ] 06-04-PLAN.md — Gmail pipeline (auth, fetch, Haiku classify, fuzzy cross-reference, Pub/Sub webhook, alerts)
+- [ ] 06-05-PLAN.md — Conflict detection + study block write-back + Monday briefing enrichment
 
 ### Phase 7: Syllabus Parsing + Study Gap Detection
 **Goal**: Users can upload course syllabi and Aria extracts exam topics, grade weights, and coverage — briefings become grade-aware and T-5 gap analysis becomes functional
@@ -157,7 +163,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 (Ph
 | 3. Twilio SMS + TCPA Compliance | 3/3 | Complete | 2026-03-19 |
 | 4. Claude AI + Daily Briefing | 2/2 | Complete   | 2026-03-19 |
 | 5. Priority Engine + Canonical Timeline DB | 0/2 | Planning complete | - |
-| 6. Google OAuth + GCal + Gmail + Alerts | 0/TBD | Not started | - |
+| 6. Google OAuth + GCal + Gmail + Alerts | 0/5 | Planning complete | - |
 | 7. Syllabus Parsing + Study Gap Detection | 0/TBD | Not started | - |
 | 8. iOS App + Onboarding | 0/TBD | Not started | - |
 | 9. Todoist Integration | 0/TBD | Not started | - |
