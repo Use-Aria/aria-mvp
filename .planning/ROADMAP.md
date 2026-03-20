@@ -165,5 +165,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 9 (Ph
 | 5. Priority Engine + Canonical Timeline DB | 0/2 | Planning complete | - |
 | 6. Google OAuth + GCal + Gmail + Alerts | 0/TBD | Not started | - |
 | 7. Syllabus Parsing + Study Gap Detection | 0/TBD | Not started | - |
-| 8. iOS App + Onboarding | 5/5 | Complete   | 2026-03-20 |
+| 8. iOS App + Onboarding | 5/5 | Complete    | 2026-03-20 |
 | 9. Todoist Integration | 0/TBD | Not started | - |
