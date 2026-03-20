@@ -42,7 +42,7 @@ Declared values (multiples of 4, logical pixels / iOS points):
 |-------|-------|-------|
 | xs | 4px | Icon gaps, inline icon-to-label padding |
 | sm | 8px | Chip internal padding, tag spacing |
-| md | 16px | Default horizontal screen padding, card internal padding |
+| md | 16px | Default horizontal screen padding, card internal padding, inter-card gap |
 | lg | 24px | Section vertical spacing, card grid gap |
 | xl | 32px | Onboarding screen vertical rhythm between blocks |
 | 2xl | 48px | Onboarding screen top safe-area clearance |
@@ -66,13 +66,13 @@ All sizes in logical pixels (iOS points). SF Pro used implicitly — no explicit
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
-| Display | 28px | 700 (Bold) | 1.2 | Onboarding welcome headline, briefing preview title |
+| Display | 28px | 600 (Semibold) | 1.2 | Onboarding welcome headline, briefing preview title |
 | Heading | 20px | 600 (Semibold) | 1.2 | Card expanded title, screen section headers, TCPA headline |
 | Body | 16px | 400 (Regular) | 1.5 | Card body copy, chat message text, onboarding instructions, preferences labels |
 | Label | 14px | 400 (Regular) | 1.3 | Card metadata (due date, course, weight), placeholder card CTA text, load bar label, PIN hint text |
 
-**Weights declared:** Regular (400) and Semibold/Bold (600/700 — Bold reserved for Display only).
-**NativeWind classes:** `text-[28px] font-bold`, `text-[20px] font-semibold`, `text-base font-normal`, `text-sm font-normal`
+**Weights declared:** Regular (400) and Semibold (600) — exactly 2 weights. Bold (700) is not used.
+**NativeWind classes:** `text-[28px] font-semibold`, `text-[20px] font-semibold`, `text-base font-normal`, `text-sm font-normal`
 
 **Source:** iOS HIG type scale defaults; no web typography exists to inherit from
 
@@ -184,9 +184,15 @@ Accent applies via a runtime theme context. `lib/theme.ts` exports `ACCENT_COLOR
 
 ### 4-Zone Home Screen
 
-- **Zone 1 — QuickAccessBar:** Three icons: To-Do (checkmark.circle), Calendar (calendar), Notifications (bell). Tap navigates to corresponding detail stack screen. Icon size 24px. Touch target 44px × 44px.
+**Primary focal point:** Zone 2 (LoadStatusBar). Its full-width color fill (green / yellow / red) is the first element communicating the day's urgency. All other zones are subordinate to this signal.
+
+- **Zone 1 — QuickAccessBar:** Three icons with declared accessibilityLabel values:
+  - To-Do icon (checkmark.circle): `accessibilityLabel="To-Do"`
+  - Calendar icon (calendar): `accessibilityLabel="Calendar"`
+  - Notifications icon (bell): `accessibilityLabel="Notifications"`
+  - Icon size 24px. Touch target 44px × 44px. Tap navigates to corresponding detail stack screen.
 - **Zone 2 — LoadStatusBar:** Full-width color fill bar. Tap toggles an inline expanded breakdown view (slides down, pushes Zone 3). Breakdown shows: deadline count, course list, heaviest weight item.
-- **Zone 3 — Card Grid:** `DraggableFlatList` with 16px horizontal padding, 12px inter-card gap.
+- **Zone 3 — Card Grid:** `DraggableFlatList` with 16px horizontal padding, 16px inter-card gap.
   - **Tap card:** Expands inline. Three action buttons revealed: "Done" (checkmark, accent), "Snooze" (clock, neutral), "More" (ellipsis, neutral). Tap again to collapse.
   - **Long-press card:** Enters drag mode. Card lifts (shadow + 4px scale up). Drag handle appears on right. Haptic feedback on lift and drop.
   - **Swipe left card:** Reveals "Hide" action (red background, white label). Swipe to 50% threshold → auto-complete hide. Removed from grid immediately; accessible in Preferences to restore.
@@ -254,7 +260,7 @@ Accent applies via a runtime theme context. `lib/theme.ts` exports `ACCENT_COLOR
 | Error — network generic | "Something went wrong. Check your connection and try again." |
 | Error — mic permission denied | "Microphone access required. Enable in Settings." |
 | Destructive action — Hide card | No confirmation dialog. Immediate. Reversible via Preferences → Hidden Cards → "Show". |
-| Destructive action — Disconnect integration | "Disconnect {Google / Canvas}?" → "This will stop syncing {your calendar / your deadlines}." → Buttons: "Disconnect" (destructive red) / "Cancel" |
+| Destructive action — Disconnect integration | "Disconnect {Google / Canvas}?" → "This will stop syncing {your calendar / your deadlines}." → Buttons: "Disconnect" (destructive red) / "Keep {Google / Canvas}" (safe dismiss) |
 
 **Source:** CONTEXT.md §Onboarding Flow, §TCPA consent screen, §Card Behavior, §Specific Ideas; phase requirements AUTH-05, AUTH-06; iOS HIG destructive confirmation pattern
 
@@ -325,3 +331,8 @@ Native npm packages (react-native-draggable-flatlist, @gorhom/bottom-sheet, etc.
 | iOS system color tokens | iOS HIG defaults |
 | Spacing scale (multiples of 4) | GSD standard + iOS HIG |
 | 44px minimum touch targets | iOS HIG |
+| Typography weights collapsed to 2 (400, 600) | checker BLOCK 2 — 2026-03-19 |
+| Inter-card gap changed from 12px to 16px | checker BLOCK 3 — 2026-03-19 |
+| Destructive dismiss label: "Keep {Google / Canvas}" | checker BLOCK 1 — 2026-03-19 |
+| Zone 2 declared as primary focal point | checker recommendation — 2026-03-19 |
+| QuickAccessBar accessibilityLabel declarations | checker recommendation — 2026-03-19 |
