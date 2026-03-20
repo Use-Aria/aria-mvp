@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 09-todoist-integration/09-01-PLAN.md
-last_updated: "2026-03-20T14:11:55.453Z"
+stopped_at: Completed 09-todoist-integration/09-02-PLAN.md
+last_updated: "2026-03-20T14:32:35.315Z"
 progress:
   total_phases: 9
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 19
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 ---
@@ -78,6 +78,7 @@ Plan: 1 of 3
 | Phase 08-ios-app-onboarding P05 | 8 | 2 tasks | 7 files |
 | Phase 09-todoist-integration P03 | 8 | 1 tasks | 2 files |
 | Phase 09-todoist-integration P01 | 12 | 2 tasks | 12 files |
+| Phase 09-todoist-integration P02 | 18 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -138,6 +139,8 @@ Recent decisions affecting current work:
 - [Phase 09-todoist-integration]: todoist/db.py wraps ai.db._get_supabase via local proxy to avoid module-level import failure in test environments
 - [Phase 09-todoist-integration]: todoist_sync_user uses autoretry_for=(Exception,) — 403 is caught in sync_todoist_user and returns gracefully, preventing infinite retry on revoked tokens
 - [Phase 09-todoist-integration]: test_sync.py injects stub priority.ingest via sys.modules — priority/ingest.py uses str|None (Python 3.10+) which fails at import time on system Python 3.9 test runner
+- [Phase 09-todoist-integration]: Lazy imports in _apply_todoist_mutation preserve todoist.db/fetch patch targets for unit tests
+- [Phase 09-todoist-integration]: from __future__ import annotations added to replies.py and briefing.py for Python 3.9 test runner compatibility
 
 ### Pending Todos
 
@@ -151,6 +154,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T14:11:55.449Z
-Stopped at: Completed 09-todoist-integration/09-01-PLAN.md
+Last session: 2026-03-20T14:32:35.311Z
+Stopped at: Completed 09-todoist-integration/09-02-PLAN.md
 Resume file: None
