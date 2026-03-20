@@ -19,16 +19,16 @@ created: 2026-03-20
 |----------|-------|
 | **Framework** | pytest 8.x |
 | **Config file** | `celery_worker/pytest.ini` (or `pyproject.toml`) |
-| **Quick run command** | `python -m pytest celery_worker/tests/syllabus/ -q --tb=short` |
-| **Full suite command** | `python -m pytest celery_worker/tests/ -q --tb=short` |
+| **Quick run command** | `cd celery_worker && python -m pytest tests/ai/test_syllabus.py tests/ai/test_briefing_syllabus.py -q --tb=short` |
+| **Full suite command** | `cd celery_worker && python -m pytest tests/ -q --tb=short` |
 | **Estimated runtime** | ~10 seconds |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `python -m pytest celery_worker/tests/syllabus/ -q --tb=short`
-- **After every plan wave:** Run `python -m pytest celery_worker/tests/ -q --tb=short`
+- **After every task commit:** Run `cd celery_worker && python -m pytest tests/ai/test_syllabus.py -q --tb=short`
+- **After every plan wave:** Run `cd celery_worker && python -m pytest tests/ -q --tb=short`
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** ~10 seconds
 
@@ -38,10 +38,10 @@ created: 2026-03-20
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 07-01-01 | 01 | 1 | AI-01, AI-02, AI-03 | unit | `python -m pytest celery_worker/tests/syllabus/test_parse.py -q` | ❌ W0 | ⬜ pending |
-| 07-01-02 | 01 | 1 | AI-01, AI-02, AI-03 | unit | `python -m pytest celery_worker/tests/syllabus/test_task.py -q` | ❌ W0 | ⬜ pending |
-| 07-02-01 | 02 | 2 | AI-10, INTEL-01 | unit | `python -m pytest celery_worker/tests/syllabus/test_gap.py -q` | ❌ W0 | ⬜ pending |
-| 07-02-02 | 02 | 2 | AI-10, INTEL-01 | unit | `python -m pytest celery_worker/tests/ai/test_briefing_syllabus.py -q` | ❌ W0 | ⬜ pending |
+| 07-01-01 | 01 | 1 | AI-01, AI-02, AI-03 | unit | `cd celery_worker && python -m pytest tests/ai/test_syllabus.py -q` | Yes (created in task) | ⬜ pending |
+| 07-01-02 | 01 | 1 | AI-01, AI-02, AI-03 | unit + structural grep | `cd celery_worker && python -m pytest tests/ai/test_syllabus.py -q && grep -q "export async function POST" ../src/app/api/upload/syllabus/route.ts` | Yes (created in task) | ⬜ pending |
+| 07-02-01 | 02 | 2 | AI-10, INTEL-01 | unit | `cd celery_worker && python -m pytest tests/ai/test_syllabus.py -q` | Yes (extended in task) | ⬜ pending |
+| 07-02-02 | 02 | 2 | AI-10, INTEL-01 | unit | `cd celery_worker && python -m pytest tests/ai/test_briefing_syllabus.py -q` | Yes (created in task) | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -49,11 +49,10 @@ created: 2026-03-20
 
 ## Wave 0 Requirements
 
-- [ ] `celery_worker/tests/syllabus/__init__.py` — test package init
-- [ ] `celery_worker/tests/syllabus/test_parse.py` — stubs for AI-01, AI-02, AI-03 (parse_syllabus, store_syllabus)
-- [ ] `celery_worker/tests/syllabus/test_task.py` — stubs for parse_syllabus_task Celery task
-- [ ] `celery_worker/tests/syllabus/test_gap.py` — stubs for AI-10, INTEL-01 (run_gap_analysis, find_exam_topics)
-- [ ] `celery_worker/tests/ai/test_briefing_syllabus.py` — stubs for syllabus_context param in generate_briefing
+Wave 0 test scaffolds are NOT needed — both plans use TDD (tests are written as the first step of each task, not in a separate Wave 0 phase). Test files created by plans:
+
+- `celery_worker/tests/ai/test_syllabus.py` — created in Plan 07-01 Task 1, extended in Plan 07-02 Task 1
+- `celery_worker/tests/ai/test_briefing_syllabus.py` — created in Plan 07-02 Task 2
 
 *Existing infrastructure (pytest, fakeredis, unittest.mock) covers all phase requirements — no new framework installs.*
 
