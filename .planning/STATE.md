@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 09-todoist-integration/09-03-PLAN.md
-last_updated: "2026-03-20T14:01:57.587Z"
+stopped_at: Completed 09-todoist-integration/09-01-PLAN.md
+last_updated: "2026-03-20T14:11:55.453Z"
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 19
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 ---
@@ -77,6 +77,7 @@ Plan: 1 of 3
 | Phase 08-ios-app-onboarding P04 | 25 | 2 tasks | 7 files |
 | Phase 08-ios-app-onboarding P05 | 8 | 2 tasks | 7 files |
 | Phase 09-todoist-integration P03 | 8 | 1 tasks | 2 files |
+| Phase 09-todoist-integration P01 | 12 | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -134,6 +135,9 @@ Recent decisions affecting current work:
 - [Phase 08-ios-app-onboarding]: SafeAreaView in home/index.tsx uses edges=[top,left,right] omitting bottom — ChatBar handles its own bottom padding via useSafeAreaInsets
 - [Phase 09-03]: Todoist access_token upserted with onConflict: 'user_id,platform' — re-auth overwrites old token without creating duplicate rows
 - [Phase 09-03]: redirect_uri uses NEXT_PUBLIC_APP_URL env var — supports both dev (localhost:3000) and production Vercel URL without code change
+- [Phase 09-todoist-integration]: todoist/db.py wraps ai.db._get_supabase via local proxy to avoid module-level import failure in test environments
+- [Phase 09-todoist-integration]: todoist_sync_user uses autoretry_for=(Exception,) — 403 is caught in sync_todoist_user and returns gracefully, preventing infinite retry on revoked tokens
+- [Phase 09-todoist-integration]: test_sync.py injects stub priority.ingest via sys.modules — priority/ingest.py uses str|None (Python 3.10+) which fails at import time on system Python 3.9 test runner
 
 ### Pending Todos
 
@@ -147,6 +151,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T14:01:57.582Z
-Stopped at: Completed 09-todoist-integration/09-03-PLAN.md
+Last session: 2026-03-20T14:11:55.449Z
+Stopped at: Completed 09-todoist-integration/09-01-PLAN.md
 Resume file: None
