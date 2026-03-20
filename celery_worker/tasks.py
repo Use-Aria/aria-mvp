@@ -17,6 +17,26 @@ except ImportError:
     gmail_establish_watch_task = None  # type: ignore[assignment]
 
 
+@celery_app.task(name="tasks.flush_sms_batch")
+def flush_sms_batch(user_id: str) -> dict:
+    """Flush the SMS batch queue for a user after the 10-minute hold window.
+
+    Called via countdown from send_priority_alert when the first alert is enqueued.
+    Pops all queued alerts, sorts by priority descending, caps at 3 (SMS-11),
+    and sends one combined SMS via send_sms_alert().
+
+    Args:
+        user_id: UUID of the user whose batch to flush.
+
+    Returns:
+        Dict with user_id, sent (bool), and body_len (int).
+    """
+    from sms.batch import flush_batch
+
+    body = flush_batch(user_id)
+    return {"user_id": user_id, "sent": body is not None, "body_len": len(body) if body else 0}
+
+
 @celery_app.task(
     name="tasks.send_priority_alert",
     bind=True,
@@ -25,13 +45,18 @@ except ImportError:
     max_retries=3,
 )
 def send_priority_alert(self, user_id: str, event_id: str) -> dict:
-    """Send immediate SMS alert for a high-priority canonical event.
+    """Enqueue a high-priority canonical event into the SMS batch queue.
 
     Fetches the event from canonical_events, builds alert message body,
-    sends via send_sms_alert(), and updates delivery_status to 'sent'.
+    and enqueues via enqueue_alert(). If this is the first alert in the
+    10-minute window (is_first=True), schedules flush_sms_batch after 600s.
+
+    The canonical event is marked as 'sent' immediately (not at flush time)
+    to prevent re-dispatch from the priority router.
     """
     from ai.db import _get_supabase
-    from sms.send import send_sms_alert as _send_alert, _get_user_sms_state
+    from sms.send import _get_user_sms_state
+    from sms.batch import enqueue_alert
 
     client = _get_supabase()
     event = (
@@ -53,17 +78,21 @@ def send_priority_alert(self, user_id: str, event_id: str) -> dict:
     due = event["due_at"]
     body = f"URGENT: {title} ({course}) is due soon — {due}. Priority score: {event['priority_score']}/100."
 
-    sent = _send_alert(user_id, to_phone, body)
+    # Route through batch queue (SMS-10): collect all alerts in 10-min window
+    is_first = enqueue_alert(user_id, body, event.get("priority_score", 80))
+    if is_first:
+        # Schedule batch flush after BATCH_TTL (600s) — only on first enqueue
+        flush_sms_batch.apply_async(args=[user_id], countdown=600)
 
-    if sent:
-        from ai.db import write_outbound_message
-        write_outbound_message(user_id, body, "priority_alert")
-        # Mark as sent
-        client.table("canonical_events").update(
-            {"delivery_status": "sent"}
-        ).eq("id", event_id).execute()
+    # Mark event as 'sent' immediately to prevent re-dispatch by priority router.
+    # The actual SMS delivery happens at flush_sms_batch time.
+    from ai.db import write_outbound_message
+    write_outbound_message(user_id, body, "priority_alert")
+    client.table("canonical_events").update(
+        {"delivery_status": "sent"}
+    ).eq("id", event_id).execute()
 
-    return {"user_id": user_id, "event_id": event_id, "status": "sent" if sent else "suppressed"}
+    return {"user_id": user_id, "event_id": event_id, "status": "queued"}
 
 
 @celery_app.task(name="tasks.ping")
