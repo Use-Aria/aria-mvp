@@ -12,7 +12,7 @@ Aria is built in nine phases that follow strict dependency order. The data pipel
 - [x] **Phase 4: Claude AI + Daily Briefing** - Wire Canvas data through Claude Sonnet for daily SMS briefings, Monday extended briefing, conversational replies, task management, and exam countdown (completed 2026-03-19)
 - [ ] **Phase 5: Priority Engine + Canonical Timeline DB** - Unified event scoring and delivery routing — all Phase 6+ integrations write to Canonical Store; events scored and routed by priority
 - [x] **Phase 6: Google OAuth + GCal + Gmail + Alerts + Conflict Detection** - Connect Google account, ingest calendar and email, fire deadline alerts within 15 minutes, detect conflicts (completed 2026-03-20)
-- [ ] **Phase 7: Syllabus Parsing + Study Gap Detection** - Upload PDFs, parse with Claude Opus, extract exam topics + grade weights, run gap analysis before exams
+- [x] **Phase 7: Syllabus Parsing + Study Gap Detection** - Upload PDFs, parse with Claude Opus, extract exam topics + grade weights, run gap analysis before exams (completed 2026-03-21)
 - [ ] **Phase 8: iOS App + Onboarding** - Full 4-zone iOS card dashboard, in-app chat, voice input, onboarding flow (Seb leads)
 - [ ] **Phase 9: Todoist Integration** - Todoist OAuth, task read/write, tasks in briefings and scheduling
 
@@ -125,7 +125,7 @@ Plans:
   3. At T-5 days before an exam, Aria generates a study gap analysis — a prioritized list of uncovered topics ranked by exam weight
   4. A PDF is never re-parsed; `parsed_json` is reused on every subsequent briefing request
   5. Monday extended briefing includes exam topic coverage summaries from parsed syllabi
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 07-01-PLAN.md — Migration 007 + Claude Opus PDF parsing module + upload route + Celery task
 - [ ] 07-02-PLAN.md — Gap analysis (T-5 Beat task + SMS) + briefing enrichment with syllabus context
@@ -167,6 +167,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 9 (Phase 8 c
 | 4. Claude AI + Daily Briefing | 2/2 | Complete   | 2026-03-19 |
 | 5. Priority Engine + Canonical Timeline DB | 0/2 | Planning complete | - |
 | 6. Google OAuth + GCal + Gmail + Alerts | 5/5 | Complete   | 2026-03-20 |
-| 7. Syllabus Parsing + Study Gap Detection | 1/2 | In Progress|  |
+| 7. Syllabus Parsing + Study Gap Detection | 2/2 | Complete   | 2026-03-21 |
 | 8. iOS App + Onboarding | 0/TBD | Not started | - |
 | 9. Todoist Integration | 0/TBD | Not started | - |
