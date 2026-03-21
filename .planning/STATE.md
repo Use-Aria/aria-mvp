@@ -33,7 +33,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Students don't have a productivity problem — they have a fragmentation problem. Aria is the first layer that sees everything simultaneously and acts on it proactively.
-**Current focus:** v1.0 milestone archived — planning next milestone
+**Current focus:** v1.1 App Store Launch — Phase 10 (iOS Build Configuration) in progress
 
 ## Current Position
 

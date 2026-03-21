@@ -8,8 +8,16 @@
     "scheme": "aria",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.aria.mobile"
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "com.aria.mobile",
+      "buildNumber": "1",
+      "appleTeamId": "XXXXXXXXXX",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Aria uses your microphone to accept voice commands.",
+        "NSSpeechRecognitionUsageDescription": "Aria transcribes your voice to send messages to your assistant.",
+        "NSPhotoLibraryUsageDescription": "Aria accesses your files to upload course syllabi.",
+        "UIBackgroundModes": ["fetch", "remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {

@@ -27,7 +27,10 @@ Students don't have a productivity problem — they have a fragmentation problem
 
 ### Active
 
-_(v1.0 complete — see /gsd:new-milestone for v1.1 requirements)_
+- [ ] iOS build configuration — `eas.json`, privacy strings, Apple credentials, TestFlight build
+- [ ] Backend deployment — Vercel (Next.js API) + Railway (Celery worker + Beat), all env vars configured
+- [ ] Legal & compliance — Privacy Policy + Terms of Service published at public URLs
+- [ ] App Store listing — description, screenshots, App Store Connect submission
 
 ### Out of Scope (v1)
 
@@ -89,4 +92,4 @@ _(v1.0 complete — see /gsd:new-milestone for v1.1 requirements)_
 | Overload detection in briefing | P1 Todoist tasks + Canvas deadlines threshold triggers morning warning — no separate alert needed | Validated Phase 9 |
 
 ---
-*Last updated: 2026-03-21 after v1.0 milestone — all 9 phases complete, 68/68 requirements shipped.*
+*Last updated: 2026-03-21 — v1.1 App Store Launch milestone started (Phases 10–12).*
