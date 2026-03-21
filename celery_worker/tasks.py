@@ -95,6 +95,76 @@ def send_priority_alert(self, user_id: str, event_id: str) -> dict:
     return {"user_id": user_id, "event_id": event_id, "status": "queued"}
 
 
+@celery_app.task(
+    name="tasks.parse_syllabus_task",
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=2,
+    max_retries=3,
+)
+def parse_syllabus_task(self, user_id: str, pdf_b64: str, course_name: str) -> dict:
+    """Parse syllabus PDF bytes via Claude Opus. Upsert result into syllabi table.
+
+    Skips re-parsing if parsed_json already exists for (user_id, course_name).
+
+    Args:
+        user_id: UUID of the user who uploaded the syllabus.
+        pdf_b64: Base64-encoded PDF bytes.
+        course_name: Course name from the upload form.
+
+    Returns:
+        Dict with user_id, course_name, and parsed (bool).
+    """
+    import base64
+    from ai.syllabus import check_existing_syllabus, parse_syllabus_pdf, upsert_syllabus
+
+    # Never re-parse: check if parsed_json already exists for this (user_id, course_name)
+    existing = check_existing_syllabus(user_id, course_name)
+    if existing is not None:
+        from sms.send import _get_user_sms_state, send_sms_safe
+        user = _get_user_sms_state(user_id)
+        if user and user.get("phone"):
+            send_sms_safe(
+                user_id,
+                user["phone"],
+                f"I already have your {course_name} syllabus on file. No need to re-upload!",
+                is_proactive=True,
+            )
+        return {"user_id": user_id, "course_name": course_name, "parsed": True, "skipped": True}
+
+    pdf_bytes = base64.b64decode(pdf_b64)
+    parsed = parse_syllabus_pdf(pdf_bytes, course_hint=course_name)
+
+    if parsed:
+        # Use course_name from parsed result if available, else fall back to user-provided
+        effective_course = parsed.get("course_name") or course_name
+        upsert_syllabus(user_id, effective_course, parsed)
+        # Send confirmation SMS
+        from sms.send import _get_user_sms_state, send_sms_safe
+        user = _get_user_sms_state(user_id)
+        if user and user.get("phone"):
+            send_sms_safe(
+                user_id,
+                user["phone"],
+                f"Got it! I've parsed your {effective_course} syllabus. "
+                f"Make sure this course name matches your Canvas course for gap alerts to work.",
+                is_proactive=True,
+            )
+    else:
+        # Parsing failed -- notify user
+        from sms.send import _get_user_sms_state, send_sms_safe
+        user = _get_user_sms_state(user_id)
+        if user and user.get("phone"):
+            send_sms_safe(
+                user_id,
+                user["phone"],
+                "I had trouble reading that syllabus. Try uploading a text-based PDF if you have one.",
+                is_proactive=True,
+            )
+
+    return {"user_id": user_id, "course_name": course_name, "parsed": bool(parsed)}
+
+
 @celery_app.task(name="tasks.ping")
 def ping():
     """Smoke-test task: logs timestamp to console. DB write added in Phase 2 when real users exist."""
