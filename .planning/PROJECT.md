@@ -21,13 +21,13 @@ Students don't have a productivity problem — they have a fragmentation problem
 - [x] Claude AI briefings — daily morning SMS, Monday extended briefing, conversational replies, task management, exam countdown (Validated in Phase 4: claude-ai-daily-briefing)
 - [x] Priority Engine — canonical event store, priority scoring formula, delivery router (Validated in Phase 5: priority-engine-canonical-timeline-db)
 - [x] Google Calendar + Gmail — OAuth, Fernet-encrypted tokens, real-time GCal sync, Gmail push pipeline, conflict detection, study block writeback, Monday briefing enrichment (Validated in Phase 6: google-oauth-gcal-gmail-alerts-conflict-detection)
+- [x] Syllabus parsing — Claude Opus PDF parsing, grade weights + topics extracted, T-5 study gap analysis, briefing enrichment (Validated in Phase 7: syllabus-parsing-study-gap-detection)
+- [x] iOS app — Expo SDK 55, 4-zone card dashboard, in-app chat + voice, onboarding flow, Preferences (Validated in Phase 8: ios-app-onboarding)
+- [x] Todoist integration — OAuth, task read/write, tasks in briefings and priority scoring, overload detection (Validated in Phase 9: todoist-integration)
 
 ### Active
 
-- [ ] Syllabus parsing — Claude Opus extracts grade weights, topics; study gap analysis before exams
-- [ ] iOS app — 4-zone card dashboard, in-app chat, voice input, card customization (Seb)
-- [ ] Onboarding — phone capture, Canvas URL, Google OAuth, SMS verification, first briefing preview
-- [x] Todoist integration — OAuth, task read/write, tasks in briefings and priority scoring (Validated in Phase 9: todoist-integration)
+_(v1.0 complete — see /gsd:new-milestone for v1.1 requirements)_
 
 ### Out of Scope (v1)
 
@@ -81,6 +81,12 @@ Students don't have a productivity problem — they have a fragmentation problem
 | X-Goog-Channel-Token = user_id | Stateless push routing for GCal webhooks — no DB lookup on notification receipt | Validated Phase 6 |
 | rapidfuzz threshold=70 for Gmail-Canvas matching | Allows partial title matches (course code prefixes) while rejecting unrelated subjects | Validated Phase 6 |
 | GCal context enrichment gated by is_monday | Avoids cluttering daily briefings; study windows computed deterministically, no extra LLM call | Validated Phase 6 |
+| pdfplumber for syllabus parsing | Pure Python, no external services, reliable table + text extraction | Validated Phase 7 |
+| Syllabus re-parse prevention | `parsed_json` reused if non-null; never re-sends PDF to Claude Opus — cost control | Validated Phase 7 |
+| Expo SDK 55 + Expo Router | File-based routing, typed routes, React Compiler experiment enabled | Validated Phase 8 |
+| Two-tap voice model | First tap starts listening (with animated pulse); second tap stops and sends — avoids accidental sends | Validated Phase 8 |
+| OAuth via WebBrowser.openAuthSessionAsync | Expo-native OAuth deep-link pattern; `aria://` scheme as return URL | Validated Phase 9 |
+| Overload detection in briefing | P1 Todoist tasks + Canvas deadlines threshold triggers morning warning — no separate alert needed | Validated Phase 9 |
 
 ---
-*Last updated: 2026-03-20 — Phase 6 complete: Google OAuth + GCal sync + Gmail pipeline + conflict detection shipped. 220 tests passing.*
+*Last updated: 2026-03-21 after v1.0 milestone — all 9 phases complete, 68/68 requirements shipped.*
