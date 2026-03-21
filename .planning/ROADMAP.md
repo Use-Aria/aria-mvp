@@ -13,8 +13,8 @@ Aria is built in nine phases that follow strict dependency order. The data pipel
 - [ ] **Phase 5: Priority Engine + Canonical Timeline DB** - Unified event scoring and delivery routing — all Phase 6+ integrations write to Canonical Store; events scored and routed by priority
 - [x] **Phase 6: Google OAuth + GCal + Gmail + Alerts + Conflict Detection** - Connect Google account, ingest calendar and email, fire deadline alerts within 15 minutes, detect conflicts (completed 2026-03-20)
 - [x] **Phase 7: Syllabus Parsing + Study Gap Detection** - Upload PDFs, parse with Claude Opus, extract exam topics + grade weights, run gap analysis before exams (completed 2026-03-21)
-- [ ] **Phase 8: iOS App + Onboarding** - Full 4-zone iOS card dashboard, in-app chat, voice input, onboarding flow (Seb leads)
-- [ ] **Phase 9: Todoist Integration** - Todoist OAuth, task read/write, tasks in briefings and scheduling
+- [x] **Phase 8: iOS App + Onboarding** - Full 4-zone iOS card dashboard, in-app chat, voice input, onboarding flow (Seb leads) (completed 2026-03-20)
+- [x] **Phase 9: Todoist Integration** - Todoist OAuth, task read/write, tasks in briefings and scheduling (completed 2026-03-20)
 
 ## Phase Details
 
@@ -141,7 +141,13 @@ Plans:
   4. Voice input transcribes via on-device speech recognition and routes through the same Claude pipeline as typed messages
   5. Cards can be dragged to reorder, swiped to hide, tapped to expand; accent color and dark mode configurable
   6. First briefing preview page shows what the user's first briefing will contain before it sends
-**Plans**: TBD
+**Plans:** 5/5 plans complete
+Plans:
+- [ ] 08-01-PLAN.md — Expo SDK 55 scaffold, Supabase client + ExpoSecureStoreAdapter, theme system, root layout, Jest setup
+- [ ] 08-02-PLAN.md — Onboarding screens 1-4: Welcome, Phone, PIN verify, Canvas URL validation
+- [ ] 08-03-PLAN.md — Onboarding screens 5-7: Google OAuth with nonce, TCPA consent, briefing preview
+- [ ] 08-04-PLAN.md — 4-zone home screen: QuickAccessBar, LoadStatusBar, CardGrid with drag/swipe/expand
+- [ ] 08-05-PLAN.md — In-app chat + voice input + Preferences page (accent, integrations, syllabus upload)
 
 ### Phase 9: Todoist Integration
 **Goal**: Students can connect Todoist and have personal tasks incorporated into briefings, priority scoring, and scheduling recommendations
@@ -152,7 +158,11 @@ Plans:
   2. Todoist tasks appear in daily briefings alongside Canvas deadlines; P1 tasks have source_authority = 0.8 in the Priority Engine
   3. User can create, complete, and update Todoist tasks via SMS command
   4. Task overload detection: if P1 tasks + Canvas deadlines exceed a threshold, Aria warns in the morning briefing
-**Plans**: TBD
+**Plans:** 3/3 plans complete
+Plans:
+- [ ] 09-01-PLAN.md — Todoist backend modules (fetch/parse/db/sync) + Celery tasks + Beat schedule
+- [ ] 09-02-PLAN.md — SMS CRUD via Claude intent + overload detection in briefing
+- [ ] 09-03-PLAN.md — OAuth callback route + iOS Preferences Todoist button
 
 ## Progress
 
@@ -168,5 +178,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 9 (Phase 8 c
 | 5. Priority Engine + Canonical Timeline DB | 0/2 | Planning complete | - |
 | 6. Google OAuth + GCal + Gmail + Alerts | 5/5 | Complete   | 2026-03-20 |
 | 7. Syllabus Parsing + Study Gap Detection | 2/2 | Complete   | 2026-03-21 |
-| 8. iOS App + Onboarding | 0/TBD | Not started | - |
-| 9. Todoist Integration | 0/TBD | Not started | - |
+| 8. iOS App + Onboarding | 5/5 | Complete    | 2026-03-20 |
+| 9. Todoist Integration | 3/3 | Complete   | 2026-03-20 |

@@ -48,25 +48,26 @@ def test_briefing_includes_syllabus_context():
         "coverage_summaries": [],
     }
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
-        mock_client = MagicMock()
-        mock_anthropic_cls.return_value = mock_client
-        mock_client.messages.create.return_value = mock_resp
+    with patch("ai.briefing._count_items_due_today", return_value=(0, [])):
+        with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+            mock_client = MagicMock()
+            mock_anthropic_cls.return_value = mock_client
+            mock_client.messages.create.return_value = mock_resp
 
-        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-            generate_briefing(
-                "user-123",
-                [],
-                is_monday=False,
-                syllabus_context=syllabus_context,
-            )
+            with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+                generate_briefing(
+                    "user-123",
+                    [],
+                    is_monday=False,
+                    syllabus_context=syllabus_context,
+                )
 
-        call_kwargs = mock_client.messages.create.call_args.kwargs
-        context_text = call_kwargs["messages"][0]["content"]
+            call_kwargs = mock_client.messages.create.call_args.kwargs
+            context_text = call_kwargs["messages"][0]["content"]
 
-        assert "EXAM TOPIC HINTS" in context_text
-        assert "BIOL 201" in context_text
-        assert "Krebs cycle" in context_text
+            assert "EXAM TOPIC HINTS" in context_text
+            assert "BIOL 201" in context_text
+            assert "Krebs cycle" in context_text
 
 
 def test_briefing_no_syllabus_context_unchanged():
@@ -75,26 +76,27 @@ def test_briefing_no_syllabus_context_unchanged():
 
     mock_resp = _mock_anthropic_response("Looking good!")
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
-        mock_client = MagicMock()
-        mock_anthropic_cls.return_value = mock_client
-        mock_client.messages.create.return_value = mock_resp
+    with patch("ai.briefing._count_items_due_today", return_value=(0, [])):
+        with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+            mock_client = MagicMock()
+            mock_anthropic_cls.return_value = mock_client
+            mock_client.messages.create.return_value = mock_resp
 
-        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-            result = generate_briefing(
-                "user-123",
-                [],
-                is_monday=True,
-                syllabus_context=None,
-            )
+            with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+                result = generate_briefing(
+                    "user-123",
+                    [],
+                    is_monday=True,
+                    syllabus_context=None,
+                )
 
-        call_kwargs = mock_client.messages.create.call_args.kwargs
-        context_text = call_kwargs["messages"][0]["content"]
+            call_kwargs = mock_client.messages.create.call_args.kwargs
+            context_text = call_kwargs["messages"][0]["content"]
 
-        # No syllabus sections should appear when context is None
-        assert "EXAM TOPIC HINTS" not in context_text
-        assert "EXAM TOPIC COVERAGE" not in context_text
-        assert result == "Looking good!"
+            # No syllabus sections should appear when context is None
+            assert "EXAM TOPIC HINTS" not in context_text
+            assert "EXAM TOPIC COVERAGE" not in context_text
+            assert result == "Looking good!"
 
 
 def test_briefing_monday_includes_coverage_summaries():
@@ -108,25 +110,26 @@ def test_briefing_monday_includes_coverage_summaries():
         "coverage_summaries": ["BIOL 201 Midterm: covers Krebs cycle, glycolysis, ATP synthesis"],
     }
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
-        mock_client = MagicMock()
-        mock_anthropic_cls.return_value = mock_client
-        mock_client.messages.create.return_value = mock_resp
+    with patch("ai.briefing._count_items_due_today", return_value=(0, [])):
+        with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+            mock_client = MagicMock()
+            mock_anthropic_cls.return_value = mock_client
+            mock_client.messages.create.return_value = mock_resp
 
-        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-            generate_briefing(
-                "user-123",
-                [],
-                is_monday=True,
-                syllabus_context=syllabus_context,
-            )
+            with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+                generate_briefing(
+                    "user-123",
+                    [],
+                    is_monday=True,
+                    syllabus_context=syllabus_context,
+                )
 
-        call_kwargs = mock_client.messages.create.call_args.kwargs
-        context_text = call_kwargs["messages"][0]["content"]
+            call_kwargs = mock_client.messages.create.call_args.kwargs
+            context_text = call_kwargs["messages"][0]["content"]
 
-        assert "EXAM TOPIC HINTS" in context_text
-        assert "EXAM TOPIC COVERAGE" in context_text
-        assert "Krebs cycle" in context_text
+            assert "EXAM TOPIC HINTS" in context_text
+            assert "EXAM TOPIC COVERAGE" in context_text
+            assert "Krebs cycle" in context_text
 
 
 def test_briefing_non_monday_skips_coverage_summaries():
@@ -140,25 +143,26 @@ def test_briefing_non_monday_skips_coverage_summaries():
         "coverage_summaries": ["BIOL 201 Midterm: covers Krebs cycle, glycolysis"],
     }
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
-        mock_client = MagicMock()
-        mock_anthropic_cls.return_value = mock_client
-        mock_client.messages.create.return_value = mock_resp
+    with patch("ai.briefing._count_items_due_today", return_value=(0, [])):
+        with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+            mock_client = MagicMock()
+            mock_anthropic_cls.return_value = mock_client
+            mock_client.messages.create.return_value = mock_resp
 
-        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-            generate_briefing(
-                "user-123",
-                [],
-                is_monday=False,
-                syllabus_context=syllabus_context,
-            )
+            with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+                generate_briefing(
+                    "user-123",
+                    [],
+                    is_monday=False,
+                    syllabus_context=syllabus_context,
+                )
 
-        call_kwargs = mock_client.messages.create.call_args.kwargs
-        context_text = call_kwargs["messages"][0]["content"]
+            call_kwargs = mock_client.messages.create.call_args.kwargs
+            context_text = call_kwargs["messages"][0]["content"]
 
-        # Hints included but NOT coverage summaries on non-Monday
-        assert "EXAM TOPIC HINTS" in context_text
-        assert "EXAM TOPIC COVERAGE" not in context_text
+            # Hints included but NOT coverage summaries on non-Monday
+            assert "EXAM TOPIC HINTS" in context_text
+            assert "EXAM TOPIC COVERAGE" not in context_text
 
 
 # ---------------------------------------------------------------------------

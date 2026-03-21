@@ -182,24 +182,25 @@ def test_generate_briefing_includes_conflicts_in_prompt():
         "study_windows": ["Wednesday 6pm-10pm free (4h)"],
     }
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
-        mock_client = MagicMock()
-        mock_anthropic_cls.return_value = mock_client
-        mock_client.messages.create.return_value = mock_resp
+    with patch("ai.briefing._count_items_due_today", return_value=(0, [])):
+        with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+            mock_client = MagicMock()
+            mock_anthropic_cls.return_value = mock_client
+            mock_client.messages.create.return_value = mock_resp
 
-        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-            generate_briefing(
-                "user-123",
-                [],
-                is_monday=True,
-                gcal_context=gcal_context,
-            )
+            with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+                generate_briefing(
+                    "user-123",
+                    [],
+                    is_monday=True,
+                    gcal_context=gcal_context,
+                )
 
-        call_kwargs = mock_client.messages.create.call_args.kwargs
-        context_text = call_kwargs["messages"][0]["content"]
+            call_kwargs = mock_client.messages.create.call_args.kwargs
+            context_text = call_kwargs["messages"][0]["content"]
 
-        assert "SCHEDULING CONFLICTS THIS WEEK" in context_text
-        assert "Bio Lab Report" in context_text
+            assert "SCHEDULING CONFLICTS THIS WEEK" in context_text
+            assert "Bio Lab Report" in context_text
 
 
 def test_generate_briefing_includes_study_windows_in_prompt():
@@ -213,24 +214,25 @@ def test_generate_briefing_includes_study_windows_in_prompt():
         "study_windows": ["Monday 6pm-10pm free (4h)", "Tuesday 7am-12pm free (5h)"],
     }
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
-        mock_client = MagicMock()
-        mock_anthropic_cls.return_value = mock_client
-        mock_client.messages.create.return_value = mock_resp
+    with patch("ai.briefing._count_items_due_today", return_value=(0, [])):
+        with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+            mock_client = MagicMock()
+            mock_anthropic_cls.return_value = mock_client
+            mock_client.messages.create.return_value = mock_resp
 
-        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-            generate_briefing(
-                "user-123",
-                [],
-                is_monday=True,
-                gcal_context=gcal_context,
-            )
+            with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+                generate_briefing(
+                    "user-123",
+                    [],
+                    is_monday=True,
+                    gcal_context=gcal_context,
+                )
 
-        call_kwargs = mock_client.messages.create.call_args.kwargs
-        context_text = call_kwargs["messages"][0]["content"]
+            call_kwargs = mock_client.messages.create.call_args.kwargs
+            context_text = call_kwargs["messages"][0]["content"]
 
-        assert "BEST AVAILABLE STUDY WINDOWS" in context_text
-        assert "Monday 6pm-10pm free" in context_text
+            assert "BEST AVAILABLE STUDY WINDOWS" in context_text
+            assert "Monday 6pm-10pm free" in context_text
 
 
 def test_generate_briefing_skips_gcal_context_on_non_monday():
@@ -244,25 +246,26 @@ def test_generate_briefing_skips_gcal_context_on_non_monday():
         "study_windows": ["Tonight 6pm-10pm free"],
     }
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
-        mock_client = MagicMock()
-        mock_anthropic_cls.return_value = mock_client
-        mock_client.messages.create.return_value = mock_resp
+    with patch("ai.briefing._count_items_due_today", return_value=(0, [])):
+        with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+            mock_client = MagicMock()
+            mock_anthropic_cls.return_value = mock_client
+            mock_client.messages.create.return_value = mock_resp
 
-        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-            generate_briefing(
-                "user-123",
-                [],
-                is_monday=False,
-                gcal_context=gcal_context,
-            )
+            with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+                generate_briefing(
+                    "user-123",
+                    [],
+                    is_monday=False,
+                    gcal_context=gcal_context,
+                )
 
-        call_kwargs = mock_client.messages.create.call_args.kwargs
-        context_text = call_kwargs["messages"][0]["content"]
+            call_kwargs = mock_client.messages.create.call_args.kwargs
+            context_text = call_kwargs["messages"][0]["content"]
 
-        # Should NOT include conflict/study window sections on non-Monday
-        assert "SCHEDULING CONFLICTS THIS WEEK" not in context_text
-        assert "BEST AVAILABLE STUDY WINDOWS" not in context_text
+            # Should NOT include conflict/study window sections on non-Monday
+            assert "SCHEDULING CONFLICTS THIS WEEK" not in context_text
+            assert "BEST AVAILABLE STUDY WINDOWS" not in context_text
 
 
 def test_generate_briefing_works_without_gcal_context():
@@ -271,12 +274,13 @@ def test_generate_briefing_works_without_gcal_context():
 
     mock_resp = _mock_anthropic_response("Looking good!")
 
-    with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
-        mock_client = MagicMock()
-        mock_anthropic_cls.return_value = mock_client
-        mock_client.messages.create.return_value = mock_resp
+    with patch("ai.briefing._count_items_due_today", return_value=(0, [])):
+        with patch("ai.briefing.Anthropic") as mock_anthropic_cls:
+            mock_client = MagicMock()
+            mock_anthropic_cls.return_value = mock_client
+            mock_client.messages.create.return_value = mock_resp
 
-        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-            result = generate_briefing("user-123", [], is_monday=True, gcal_context=None)
+            with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+                result = generate_briefing("user-123", [], is_monday=True, gcal_context=None)
 
     assert result == "Looking good!"

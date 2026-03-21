@@ -27,7 +27,7 @@ Students don't have a productivity problem — they have a fragmentation problem
 - [ ] Syllabus parsing — Claude Opus extracts grade weights, topics; study gap analysis before exams
 - [ ] iOS app — 4-zone card dashboard, in-app chat, voice input, card customization (Seb)
 - [ ] Onboarding — phone capture, Canvas URL, Google OAuth, SMS verification, first briefing preview
-- [ ] Todoist integration — OAuth, task read/write, tasks in briefings and priority scoring
+- [x] Todoist integration — OAuth, task read/write, tasks in briefings and priority scoring (Validated in Phase 9: todoist-integration)
 
 ### Out of Scope (v1)
 

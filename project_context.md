@@ -25,20 +25,13 @@ Syncs Canvas deadlines, Gmail, and Google Calendar. Sends a daily 8am briefing +
 | Requirements (68 reqs) | ✅ Done | `.planning/REQUIREMENTS.md` |
 | Roadmap (9 phases) | ✅ Done | `.planning/ROADMAP.md` |
 | Work coordination | ✅ Done | `WORK.md` |
-| Phase 1–5 artifacts | ✅ Done | `.planning/phases/01–05/` |
-| Phase 6 context | ✅ Done | `.planning/phases/06-google-oauth-gcal-gmail-alerts-conflict-detection/06-CONTEXT.md` |
-| Phase 6 research | ✅ Done | `.planning/phases/06-.../06-RESEARCH.md` |
-| Phase 6 plans (5) | ✅ Done | `06-01-PLAN.md` through `06-05-PLAN.md` |
-| Phase 6 summaries (5) | ✅ Done | `06-01-SUMMARY.md` through `06-05-SUMMARY.md` |
-| Phase 6 validation | ✅ Done | `06-VALIDATION.md` |
-| Phase 6 verification | ✅ Done | `06-VERIFICATION.md` — 19/19 must-haves passed |
-| Phase 7 context | ✅ Done | `.planning/phases/07-syllabus-parsing-study-gap-detection/07-CONTEXT.md` |
-| Phase 7 research | ✅ Done | `.planning/phases/07-.../07-RESEARCH.md` |
-| Phase 7 validation | ✅ Done | `.planning/phases/07-.../07-VALIDATION.md` |
-| Phase 7 plans (2) | ✅ Done | `07-01-PLAN.md`, `07-02-PLAN.md` |
+| Phase 1–9 artifacts | ✅ Done | `.planning/phases/01–09/` |
+| Phase 7 summaries (2) | ✅ Done | `07-01-SUMMARY.md`, `07-02-SUMMARY.md` |
+| Phase 7 verification | ✅ Done | `07-VERIFICATION.md` — 11/11 must-haves passed |
+| Phase 8 artifacts | ✅ Done (Seb) | `.planning/phases/08-ios-app-onboarding/` |
+| Phase 9 artifacts | ✅ Done (Seb) | `.planning/phases/09-todoist-integration/` |
 
-**Active phase:** None — Phase 6 complete, Phase 7 planned but NOT YET EXECUTED
-**Next action:** `/gsd:execute-phase 7` (`/clear` first)
+**Active phase:** None — all 9 phases complete, v1.0 milestone done
 
 ---
 

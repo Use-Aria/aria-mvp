@@ -9,11 +9,11 @@
 ### Authentication & Onboarding
 
 - [x] **AUTH-01**: User can create an account with email and password via Supabase Auth
-- [ ] **AUTH-02**: User can connect Google account via OAuth 2.0 (Calendar + Gmail scopes)
-- [ ] **AUTH-03**: Google OAuth tokens stored encrypted (AES-256) in Supabase with refresh rotation
+- [x] **AUTH-02**: User can connect Google account via OAuth 2.0 (Calendar + Gmail scopes)
+- [x] **AUTH-03**: Google OAuth tokens stored encrypted (AES-256) in Supabase with refresh rotation
 - [x] **AUTH-04**: User session persists across browser refresh
-- [ ] **AUTH-05**: User can enter Canvas iCal URL during onboarding (validated before saving)
-- [ ] **AUTH-06**: User can enter phone number during onboarding and verify via SMS PIN
+- [x] **AUTH-05**: User can enter Canvas iCal URL during onboarding (validated before saving)
+- [x] **AUTH-06**: User can enter phone number during onboarding and verify via SMS PIN
 - [x] **AUTH-07**: User receives a welcome briefing immediately after Canvas iCal URL is saved (cold-start prevention)
 
 ### Canvas Integration
@@ -100,23 +100,23 @@
 
 ### Task Management
 
-- [ ] **TASK-01**: Todoist OAuth connection and task read/write
-- [ ] **TASK-02**: Todoist tasks normalized to Task type and included in briefings and scheduling priority
+- [x] **TASK-01**: Todoist OAuth connection and task read/write
+- [x] **TASK-02**: Todoist tasks normalized to Task type and included in briefings and scheduling priority
 
 ### Frontend UI
 
-- [ ] **UI-01**: Onboarding flow — phone number entry, Canvas iCal URL, Google OAuth connect
-- [ ] **UI-02**: Syllabus upload UI — file picker, upload progress, confirmation
-- [ ] **UI-03**: Preferences page — quiet hours, notification frequency, connected integrations
-- [ ] **UI-04**: Connection status page — shows linked Google/Canvas status with health indicators
-- [ ] **UI-05**: First briefing preview — shows what user's first briefing will look like after onboarding
+- [x] **UI-01**: Onboarding flow — phone number entry, Canvas iCal URL, Google OAuth connect
+- [x] **UI-02**: Syllabus upload UI — file picker, upload progress, confirmation
+- [x] **UI-03**: Preferences page — quiet hours, notification frequency, connected integrations
+- [x] **UI-04**: Connection status page — shows linked Google/Canvas status with health indicators
+- [x] **UI-05**: First briefing preview — shows what user's first briefing will look like after onboarding
 
 ### iOS App
 
-- [ ] **UI-06**: iOS app home screen with 4-zone layout: (1) pinned quick-access bar (To-Do, Calendar, Notifications), (2) color-coded daily load status bar, (3) scrollable widget card grid, (4) persistent chat + voice bar
-- [ ] **UI-07**: In-app chat channel connected to same Aria backend as SMS; separate conversation thread; all SMS commands work in-app
-- [ ] **UI-08**: Voice input via on-device speech recognition; transcribed to same Claude pipeline; optional text-to-speech read-back
-- [ ] **UI-09**: Card customization — drag to reorder, swipe to hide, accent color, dark mode, tap to expand
+- [x] **UI-06**: iOS app home screen with 4-zone layout: (1) pinned quick-access bar (To-Do, Calendar, Notifications), (2) color-coded daily load status bar, (3) scrollable widget card grid, (4) persistent chat + voice bar
+- [x] **UI-07**: In-app chat channel connected to same Aria backend as SMS; separate conversation thread; all SMS commands work in-app
+- [x] **UI-08**: Voice input via on-device speech recognition; transcribed to same Claude pipeline; optional text-to-speech read-back
+- [x] **UI-09**: Card customization — drag to reorder, swipe to hide, accent color, dark mode, tap to expand
 
 ---
 
@@ -208,21 +208,21 @@
 | AI-03 | Phase 7 | Complete |
 | AI-10 | Phase 7 | Complete |
 | INTEL-01 | Phase 7 | Complete |
-| AUTH-02 | Phase 8 | Pending |
-| AUTH-03 | Phase 8 | Pending |
-| AUTH-05 | Phase 8 | Pending |
-| AUTH-06 | Phase 8 | Pending |
-| UI-01 | Phase 8 | Pending |
-| UI-02 | Phase 8 | Pending |
-| UI-03 | Phase 8 | Pending |
-| UI-04 | Phase 8 | Pending |
-| UI-05 | Phase 8 | Pending |
-| UI-06 | Phase 8 | Pending |
-| UI-07 | Phase 8 | Pending |
-| UI-08 | Phase 8 | Pending |
-| UI-09 | Phase 8 | Pending |
-| TASK-01 | Phase 9 | Pending |
-| TASK-02 | Phase 9 | Pending |
+| AUTH-02 | Phase 8 | Complete |
+| AUTH-03 | Phase 8 | Complete |
+| AUTH-05 | Phase 8 | Complete |
+| AUTH-06 | Phase 8 | Complete |
+| UI-01 | Phase 8 | Complete |
+| UI-02 | Phase 8 | Complete |
+| UI-03 | Phase 8 | Complete |
+| UI-04 | Phase 8 | Complete |
+| UI-05 | Phase 8 | Complete |
+| UI-06 | Phase 8 | Complete |
+| UI-07 | Phase 8 | Complete |
+| UI-08 | Phase 8 | Complete |
+| UI-09 | Phase 8 | Complete |
+| TASK-01 | Phase 9 | Complete |
+| TASK-02 | Phase 9 | Complete |
 
 **Coverage:**
 - v1 requirements: 68 total

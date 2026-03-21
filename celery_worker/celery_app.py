@@ -34,5 +34,9 @@ celery_app.conf.update(
             "task": "tasks.gap_analysis_all_users",
             "schedule": crontab(hour=3, minute=0),  # 03:00 UTC daily -- avoids briefing window
         },
+        "todoist-sync-all-users": {
+            "task": "tasks.todoist_sync_all",
+            "schedule": 7200.0,  # every 2 hours
+        },
     },
 )

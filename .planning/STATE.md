@@ -7,9 +7,9 @@ stopped_at: Completed 07-syllabus-parsing-study-gap-detection/07-02-PLAN.md
 last_updated: "2026-03-21T02:43:11.827Z"
 progress:
   total_phases: 9
-  completed_phases: 7
-  total_plans: 18
-  completed_plans: 18
+  completed_phases: 9
+  total_plans: 21
+  completed_plans: 21
 ---
 
 ---
@@ -33,12 +33,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Students never miss a deadline or lose track of their week — Aria surfaces what matters, when it matters, over SMS.
-**Current focus:** Phase 07 — syllabus-parsing-study-gap-detection
+**Current focus:** All phases complete — v1.0 milestone done
 
 ## Current Position
 
-Phase: 07 (syllabus-parsing-study-gap-detection) — EXECUTING
-Plan: 1 of 2
+Phase: 09 (todoist-integration) — COMPLETE
+All 9 phases complete
 
 ## Performance Metrics
 
@@ -78,6 +78,14 @@ Plan: 1 of 2
 | Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P05 | 10 | 2 tasks | 10 files |
 | Phase 07-syllabus-parsing-study-gap-detection P01 | 3 | 2 tasks | 6 files |
 | Phase 07 P02 | 4 | 2 tasks | 6 files |
+| Phase 08-ios-app-onboarding P01 | 683 | 2 tasks | 29 files |
+| Phase 08-ios-app-onboarding P02 | 15 | 2 tasks | 7 files |
+| Phase 08-ios-app-onboarding P03 | 226 | 2 tasks | 3 files |
+| Phase 08-ios-app-onboarding P04 | 25 | 2 tasks | 7 files |
+| Phase 08-ios-app-onboarding P05 | 8 | 2 tasks | 7 files |
+| Phase 09-todoist-integration P03 | 8 | 1 tasks | 2 files |
+| Phase 09-todoist-integration P01 | 12 | 2 tasks | 12 files |
+| Phase 09-todoist-integration P02 | 18 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -137,6 +145,27 @@ Recent decisions affecting current work:
 - [Phase 07-01]: PDF bytes are never persisted — only base64 string passes through transient Redis queue
 - [Phase 07-02]: get_syllabus_context fetches all user syllabi in one query then does Python-side partial matching — avoids N Supabase calls per deadline loop
 - [Phase 07-02]: gap_analysis_all_users targets full UTC calendar day range for T-5 detection — robust for all-day events stored as 23:59:59Z
+- [Phase 08-ios-app-onboarding]: Excluded src/ template directory from tsconfig — SDK 55 template uses src/app but plan specifies mobile/app
+- [Phase 08-ios-app-onboarding]: Added @types/jest and types:[jest] in tsconfig — required for jest globals in mock and test files
+- [Phase 08-ios-app-onboarding]: ThemeContextType.colors typed as union (COLORS.light | COLORS.dark) — literal string types differ between light and dark palettes
+- [Phase 08-ios-app-onboarding]: CanvasUrlInput client-side regex delegates format error to canvas.tsx screen — component always calls onValidate, parent owns regex check and error state
+- [Phase 08-ios-app-onboarding]: PinInput uses individual TextInput refs per cell (not masked input) for precise focus control per iOS UX guidelines
+- [Phase 08-ios-app-onboarding]: canvas.tsx uses Promise.race with 10-second timeout for validateCanvasUrl to surface network failures as unreachable error variant
+- [Phase 08-ios-app-onboarding]: Google provider_token NOT stored client-side — ExpoSecureStore 2KB limit causes silent failures; backend stores via Supabase auth webhook
+- [Phase 08-ios-app-onboarding]: TCPA has_alert_consent written as explicit false (not omitted) when OFF — Phase 5 send_sms_alert reads this field to distinguish declined from unset
+- [Phase 08-ios-app-onboarding]: router.replace (not push) on Enter Aria — removes onboarding stack so user cannot swipe back after completing onboarding
+- [Phase 08-ios-app-onboarding]: Zone 4 in home/index.tsx is a 64px spacer View — Plan 05 replaces with real ChatBar component
+- [Phase 08-ios-app-onboarding]: DeadlineCard onDone/onSnooze are UI-only with TODO comments — no backend task completion or snooze routes in Phase 8
+- [Phase 08-ios-app-onboarding]: Urgency score field absent from DeadlineCard — deferred to Phase 9 post Phase 6 canonical_events integration
+- [Phase 08-ios-app-onboarding]: ChatBar VoiceButton opens sheet on voice result but does not auto-send — ChatSheet owns send pipeline; voice in ChatSheet auto-sends directly
+- [Phase 08-ios-app-onboarding]: SafeAreaView in home/index.tsx uses edges=[top,left,right] omitting bottom — ChatBar handles its own bottom padding via useSafeAreaInsets
+- [Phase 09-03]: Todoist access_token upserted with onConflict: 'user_id,platform' — re-auth overwrites old token without creating duplicate rows
+- [Phase 09-03]: redirect_uri uses NEXT_PUBLIC_APP_URL env var — supports both dev (localhost:3000) and production Vercel URL without code change
+- [Phase 09-todoist-integration]: todoist/db.py wraps ai.db._get_supabase via local proxy to avoid module-level import failure in test environments
+- [Phase 09-todoist-integration]: todoist_sync_user uses autoretry_for=(Exception,) — 403 is caught in sync_todoist_user and returns gracefully, preventing infinite retry on revoked tokens
+- [Phase 09-todoist-integration]: test_sync.py injects stub priority.ingest via sys.modules — priority/ingest.py uses str|None (Python 3.10+) which fails at import time on system Python 3.9 test runner
+- [Phase 09-todoist-integration]: Lazy imports in _apply_todoist_mutation preserve todoist.db/fetch patch targets for unit tests
+- [Phase 09-todoist-integration]: from __future__ import annotations added to replies.py and briefing.py for Python 3.9 test runner compatibility
 
 ### Pending Todos
 
