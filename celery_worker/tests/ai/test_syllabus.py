@@ -236,3 +236,195 @@ def test_check_existing_syllabus_returns_none_when_no_row():
         result = check_existing_syllabus("user-123", "CPSC 223")
 
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# get_gap_topics tests
+# ---------------------------------------------------------------------------
+
+
+def _make_syllabi_supabase_mock(parsed_json_data):
+    """Build a mock Supabase client for syllabi queries (get_gap_topics / get_syllabus_context)."""
+    mock_supabase = MagicMock()
+    chain = MagicMock()
+    chain.data = parsed_json_data
+    chain.execute.return_value = chain
+    chain.select.return_value = chain
+    chain.eq.return_value = chain
+    chain.ilike.return_value = chain
+    chain.limit.return_value = chain
+    chain.not_ = MagicMock()
+    chain.not_.is_.return_value = chain
+    mock_supabase.table.return_value = chain
+    return mock_supabase
+
+
+def test_get_gap_topics_returns_top3_topics_for_upcoming_exam():
+    """get_gap_topics returns up to 3 topics (sorted by weight_pct desc) when syllabus exists."""
+    from ai.syllabus import get_gap_topics
+
+    parsed_json = {
+        "course_name": "BIOL 201",
+        "exams": [
+            {
+                "title": "Midterm",
+                "date_str": "March 15",
+                "topics": ["Krebs cycle", "glycolysis", "ATP synthesis", "electron transport"],
+                "weight_pct": 25,
+            }
+        ],
+        "assignments": [],
+        "total_tracked_weight_pct": 25,
+    }
+
+    mock_supabase = _make_syllabi_supabase_mock([{"parsed_json": parsed_json}])
+
+    with patch("ai.db._get_supabase", return_value=mock_supabase):
+        result = get_gap_topics("user-123", "BIOL 201")
+
+    assert len(result) == 3
+    assert all("topic" in t for t in result)
+    assert result[0]["topic"] == "Krebs cycle"
+
+
+def test_get_gap_topics_returns_empty_when_no_syllabus():
+    """get_gap_topics returns [] when no syllabus exists for the course (graceful degradation)."""
+    from ai.syllabus import get_gap_topics
+
+    mock_supabase = _make_syllabi_supabase_mock([])
+
+    with patch("ai.db._get_supabase", return_value=mock_supabase):
+        result = get_gap_topics("user-123", "MATH 101")
+
+    assert result == []
+
+
+def test_get_gap_topics_uses_ilike_for_course_matching():
+    """get_gap_topics uses ILIKE (case-insensitive) query against syllabi.course_name."""
+    from ai.syllabus import get_gap_topics
+
+    mock_supabase = MagicMock()
+    chain = MagicMock()
+    chain.data = []
+    chain.execute.return_value = chain
+    chain.select.return_value = chain
+    chain.eq.return_value = chain
+    chain.ilike.return_value = chain
+    chain.limit.return_value = chain
+    mock_supabase.table.return_value = chain
+
+    with patch("ai.db._get_supabase", return_value=mock_supabase):
+        get_gap_topics("user-123", "biol 201")
+
+    # Verify ilike was called (case-insensitive course matching)
+    assert chain.ilike.called
+
+
+# ---------------------------------------------------------------------------
+# build_gap_alert_body tests
+# ---------------------------------------------------------------------------
+
+
+def test_gap_alert_body_format():
+    """build_gap_alert_body produces SMS with course, exam title, days_until, and topics."""
+    from ai.syllabus import build_gap_alert_body
+
+    topics = [
+        {"topic": "Krebs cycle", "weight_pct": 25},
+        {"topic": "glycolysis", "weight_pct": 25},
+        {"topic": "ATP synthesis", "weight_pct": 25},
+    ]
+    body = build_gap_alert_body("BIOL 201", 5, "Midterm", topics)
+
+    assert "BIOL 201" in body
+    assert "Midterm" in body
+    assert "5" in body
+    assert "Krebs cycle" in body
+    assert len(body) <= 800
+
+
+def test_gap_alert_body_truncates_to_800_chars():
+    """build_gap_alert_body truncates to 800 chars with '...' when body exceeds limit."""
+    from ai.syllabus import build_gap_alert_body
+
+    # Use a very long course name and topics to exceed 800 chars
+    long_course = "A" * 400
+    topics = [
+        {"topic": "T" * 200, "weight_pct": 25},
+        {"topic": "U" * 200, "weight_pct": 25},
+        {"topic": "V" * 200, "weight_pct": 25},
+    ]
+    body = build_gap_alert_body(long_course, 5, "Final Exam", topics)
+
+    assert len(body) == 800
+    assert body.endswith("...")
+
+
+# ---------------------------------------------------------------------------
+# gap_analysis_all_users + run_gap_analysis_task tests
+# ---------------------------------------------------------------------------
+
+
+def test_gap_analysis_all_users_dispatches_per_exam():
+    """gap_analysis_all_users queries canonical_events for T-5 exams and dispatches run_gap_analysis_task per match."""
+    from celery_app import celery_app
+
+    exam_rows = [
+        {"id": "evt-001", "user_id": "user-001", "title": "Midterm", "course_id": "BIOL 201", "due_at": "2026-03-26T23:59:59+00:00"},
+        {"id": "evt-002", "user_id": "user-002", "title": "Final", "course_id": "CPSC 223", "due_at": "2026-03-26T23:59:59+00:00"},
+    ]
+
+    mock_supabase = MagicMock()
+    chain = MagicMock()
+    chain.data = exam_rows
+    chain.execute.return_value = chain
+    chain.select.return_value = chain
+    chain.eq.return_value = chain
+    chain.gte.return_value = chain
+    chain.lte.return_value = chain
+    mock_supabase.table.return_value = chain
+
+    with patch("ai.db._get_supabase", return_value=mock_supabase):
+        with patch("tasks.run_gap_analysis_task") as mock_task:
+            mock_task.delay = MagicMock()
+            from tasks import gap_analysis_all_users
+            result = gap_analysis_all_users()
+
+    assert result["status"] == "ok"
+    assert result["dispatched"] == 2
+    assert mock_task.delay.call_count == 2
+
+
+def test_gap_analysis_skips_no_syllabus():
+    """run_gap_analysis_task skips silently (no SMS) when get_gap_topics returns empty list."""
+    with patch("ai.syllabus.get_gap_topics", return_value=[]):
+        with patch("sms.batch.enqueue_alert") as mock_enqueue:
+            from tasks import run_gap_analysis_task
+            # Use apply() to run synchronously without Celery
+            result = run_gap_analysis_task.apply(
+                args=["user-123", "evt-001", "MATH 101", "Final"]
+            ).get()
+
+    assert result["status"] == "skipped"
+    mock_enqueue.assert_not_called()
+
+
+def test_gap_analysis_enqueues_alert_with_priority_75():
+    """run_gap_analysis_task calls enqueue_alert with priority_score=75 when topics exist."""
+    topics = [{"topic": "Krebs cycle", "weight_pct": 25}]
+
+    with patch("ai.syllabus.get_gap_topics", return_value=topics):
+        with patch("ai.syllabus.build_gap_alert_body", return_value="Gap alert body text"):
+            with patch("sms.batch.enqueue_alert", return_value=False) as mock_enqueue:
+                with patch("tasks.flush_sms_batch") as mock_flush:
+                    mock_flush.apply_async = MagicMock()
+                    from tasks import run_gap_analysis_task
+                    result = run_gap_analysis_task.apply(
+                        args=["user-123", "evt-001", "BIOL 201", "Midterm"]
+                    ).get()
+
+    assert result["status"] == "queued"
+    mock_enqueue.assert_called_once()
+    call_kwargs = mock_enqueue.call_args
+    # Check priority_score=75
+    assert call_kwargs.kwargs.get("priority_score") == 75 or call_kwargs.args[2] == 75

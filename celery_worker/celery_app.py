@@ -30,5 +30,9 @@ celery_app.conf.update(
             "task": "tasks.renew_watch_channels",
             "schedule": crontab(hour="*/6", minute=0),  # every 6 hours
         },
+        "gap-analysis-daily": {
+            "task": "tasks.gap_analysis_all_users",
+            "schedule": crontab(hour=3, minute=0),  # 03:00 UTC daily -- avoids briefing window
+        },
     },
 )

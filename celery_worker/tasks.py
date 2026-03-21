@@ -165,6 +165,81 @@ def parse_syllabus_task(self, user_id: str, pdf_b64: str, course_name: str) -> d
     return {"user_id": user_id, "course_name": course_name, "parsed": bool(parsed)}
 
 
+@celery_app.task(name="tasks.gap_analysis_all_users")
+def gap_analysis_all_users() -> dict:
+    """Daily fan-out: find all T-5 exams across all users, dispatch gap analysis.
+
+    Queries canonical_events for exams due in exactly 5 days (UTC calendar day).
+    Dispatches run_gap_analysis_task per matching (user, exam) pair.
+
+    Returns:
+        Dict with status and dispatched count.
+    """
+    from ai.db import _get_supabase
+    from datetime import datetime, timezone, timedelta
+
+    client = _get_supabase()
+    now = datetime.now(timezone.utc)
+    # T-5: exams due in exactly 5 days (date range: 5 days from now, same calendar day)
+    target_start = (now + timedelta(days=5)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    target_end = (now + timedelta(days=5)).replace(hour=23, minute=59, second=59, microsecond=0).isoformat()
+
+    exams = (
+        client.table("canonical_events")
+        .select("id, user_id, title, course_id, due_at")
+        .eq("type", "exam")
+        .gte("due_at", target_start)
+        .lte("due_at", target_end)
+        .execute()
+    ).data
+
+    dispatched = 0
+    for exam in exams:
+        run_gap_analysis_task.delay(exam["user_id"], exam["id"], exam.get("course_id", ""), exam["title"])
+        dispatched += 1
+    return {"status": "ok", "dispatched": dispatched}
+
+
+@celery_app.task(
+    name="tasks.run_gap_analysis_task",
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=2,
+    max_retries=3,
+)
+def run_gap_analysis_task(self, user_id: str, exam_event_id: str, course_id: str, exam_title: str) -> dict:
+    """Generate and send gap analysis SMS for one user's T-5 exam.
+
+    Fetches topics from syllabus via get_gap_topics (ILIKE course match).
+    Skips silently when no syllabus or topics found (graceful degradation).
+    Routes alert through batch queue (SMS-10/SMS-11) with priority_score=75.
+
+    Args:
+        user_id: UUID of the user.
+        exam_event_id: canonical_events row ID for the exam.
+        course_id: Course ID from canonical_events (used for syllabus lookup).
+        exam_title: Exam title for SMS body.
+
+    Returns:
+        Dict with user_id, exam_event_id, and status ('skipped' or 'queued').
+    """
+    from ai.syllabus import get_gap_topics, build_gap_alert_body
+    from sms.batch import enqueue_alert
+
+    topics = get_gap_topics(user_id, course_id)
+    if not topics:
+        return {"user_id": user_id, "exam_event_id": exam_event_id, "status": "skipped", "reason": "no_syllabus_or_topics"}
+
+    body = build_gap_alert_body(course_id, 5, exam_title, topics)
+
+    # Route through batch queue (SMS-10/SMS-11 compliant) with priority_score=75 (digest range)
+    is_first = enqueue_alert(user_id, body, priority_score=75)
+    if is_first:
+        flush_sms_batch.apply_async(args=[user_id], countdown=600)
+
+    return {"user_id": user_id, "exam_event_id": exam_event_id, "status": "queued"}
+
+
 @celery_app.task(name="tasks.ping")
 def ping():
     """Smoke-test task: logs timestamp to console. DB write added in Phase 2 when real users exist."""

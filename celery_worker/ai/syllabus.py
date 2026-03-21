@@ -174,3 +174,190 @@ def upsert_syllabus(user_id: str, course_name: str, parsed_json: dict) -> None:
         },
         on_conflict="user_id,course_name",
     ).execute()
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 — Gap analysis and briefing enrichment
+# ---------------------------------------------------------------------------
+
+
+def get_gap_topics(user_id: str, course_id: str) -> list[dict]:
+    """Return top-3 exam topics for a user's course to use in gap analysis.
+
+    Queries syllabi table using case-insensitive ILIKE match on course_name.
+    Returns topics from the first exam found, sorted by weight_pct descending,
+    capped at top 3. Returns [] when no syllabus or no topics exist.
+
+    Args:
+        user_id: UUID of the user.
+        course_id: Course ID from canonical_events (matched against syllabi.course_name).
+
+    Returns:
+        List of dicts with keys: topic (str), weight_pct (int|None). Max 3 items.
+    """
+    from ai.db import _get_supabase
+    client = _get_supabase()
+
+    result = (
+        client.table("syllabi")
+        .select("parsed_json")
+        .eq("user_id", user_id)
+        .ilike("course_name", f"%{course_id}%")
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        return []
+
+    parsed_json = result.data[0].get("parsed_json")
+    if not parsed_json:
+        return []
+
+    exams = parsed_json.get("exams") or []
+    if not exams:
+        return []
+
+    # Use the first exam's topics as gap candidates
+    exam = exams[0]
+    topics = exam.get("topics") or []
+    weight_pct = exam.get("weight_pct")
+
+    topic_dicts = [{"topic": t, "weight_pct": weight_pct} for t in topics]
+
+    # Sort by weight_pct descending (None treated as 0), cap at top 3
+    topic_dicts.sort(key=lambda x: x.get("weight_pct") or 0, reverse=True)
+    return topic_dicts[:3]
+
+
+def build_gap_alert_body(course: str, days_until: int, exam_title: str, topics: list[dict]) -> str:
+    """Build an SMS body for a gap analysis alert.
+
+    Formats a concise SMS under 800 characters listing top-3 uncovered topics
+    for an upcoming exam. Appends grade weight context when available.
+
+    Args:
+        course: Course name (e.g. "BIOL 201").
+        days_until: Days until the exam (typically 5).
+        exam_title: Name of the exam (e.g. "Midterm").
+        topics: List of topic dicts with keys: topic, weight_pct.
+
+    Returns:
+        SMS body string, guaranteed <= 800 characters.
+    """
+    topic_names = [t["topic"] for t in topics[:3]]
+    topic_list = ", ".join(topic_names)
+
+    weight_str = ""
+    if topics and topics[0].get("weight_pct") is not None:
+        weight_str = f" (worth ~{topics[0]['weight_pct']}%)"
+
+    body = (
+        f"Gap alert for {course} {exam_title} in {days_until} days: "
+        f"{topic_list}{weight_str}. Review these first."
+    )
+
+    if len(body) > 800:
+        body = body[:797] + "..."
+
+    return body
+
+
+def get_syllabus_context(
+    user_id: str,
+    deadlines: list[dict],
+    is_monday: bool = False,
+) -> dict | None:
+    """Build syllabus enrichment context for the daily briefing.
+
+    Queries all syllabi for the user and builds:
+    - exam_topic_hints: top-3 topics for exams due within 7 days
+    - coverage_summaries: all topics for exams due within 14 days (Monday only)
+
+    Returns None when user has no syllabi. Handles missing syllabus gracefully
+    (exam_topic_hints entry is skipped when no matching syllabus found).
+
+    Args:
+        user_id: UUID of the user.
+        deadlines: Active deadlines from get_events_for_briefing().
+        is_monday: If True, include coverage_summaries for exams within 14 days.
+
+    Returns:
+        Dict with keys: exam_topic_hints (list[str]), coverage_summaries (list[str]).
+        Returns None if no syllabi exist.
+    """
+    from ai.db import _get_supabase
+    from datetime import datetime, timedelta, timezone
+
+    client = _get_supabase()
+
+    result = (
+        client.table("syllabi")
+        .select("course_name, parsed_json")
+        .eq("user_id", user_id)
+        .not_.is_("parsed_json", "null")
+        .execute()
+    )
+
+    if not result.data:
+        return None
+
+    # Build lookup: course_name (lowered) -> parsed_json
+    syllabi_by_course: dict[str, dict] = {}
+    for row in result.data:
+        syllabi_by_course[row["course_name"].lower()] = row["parsed_json"]
+
+    def _find_syllabus(course_id: str) -> dict | None:
+        """Case-insensitive partial match against syllabi course names."""
+        course_lower = (course_id or "").lower()
+        for name, parsed in syllabi_by_course.items():
+            if course_lower in name or name in course_lower:
+                return parsed
+        return None
+
+    now = datetime.now(timezone.utc)
+    exam_topic_hints: list[str] = []
+    coverage_summaries: list[str] = []
+
+    for d in deadlines:
+        if d.get("type") != "exam":
+            continue
+
+        due_str = str(d.get("due_date") or d.get("due_at", ""))
+        if not due_str:
+            continue
+
+        due_dt = datetime.fromisoformat(due_str)
+        if due_dt.tzinfo is None:
+            due_dt = due_dt.replace(tzinfo=timezone.utc)
+
+        days_until = (due_dt.date() - now.date()).days
+        course_id = d.get("course") or d.get("course_id") or ""
+        parsed = _find_syllabus(course_id)
+        if not parsed:
+            continue
+
+        exams = parsed.get("exams") or []
+        if not exams:
+            continue
+
+        exam = exams[0]
+        all_topics = exam.get("topics") or []
+        if not all_topics:
+            continue
+
+        # Daily hint: exams within 7 days
+        if days_until <= 7:
+            hint = f"{course_id}: {', '.join(all_topics[:3])}"
+            exam_topic_hints.append(hint)
+
+        # Monday coverage summary: exams within 14 days
+        if is_monday and days_until <= 14:
+            exam_title = exam.get("title", "Exam")
+            summary = f"{course_id} {exam_title}: covers {', '.join(all_topics)}"
+            coverage_summaries.append(summary)
+
+    return {
+        "exam_topic_hints": exam_topic_hints,
+        "coverage_summaries": coverage_summaries if is_monday else [],
+    }
