@@ -70,6 +70,7 @@ def test_generate_daily_briefing_user_sends_on_valid_window():
     with patch("ai.briefing.is_in_briefing_window", return_value=True), \
          patch("ai.db.briefing_sent_today", return_value=False), \
          patch("ai.db.get_events_for_briefing", return_value=[]), \
+         patch("ai.syllabus.get_syllabus_context", return_value=None), \
          patch("ai.briefing.generate_briefing", return_value="Good morning! Clear day ahead."), \
          patch("sms.send._get_user_sms_state", return_value={
              "phone": "+15551234567",

@@ -233,6 +233,7 @@ def generate_briefing(
     is_welcome: bool = False,
     user_tz: ZoneInfo | None = None,
     gcal_context: dict | None = None,
+    syllabus_context: dict | None = None,  # NEW -- Phase 7
 ) -> str:
     """Generate a daily briefing via Claude Sonnet.
 
@@ -245,6 +246,9 @@ def generate_briefing(
         gcal_context: Optional dict with {conflicts: list[str], study_windows: list[str]}
             from get_briefing_gcal_context(). When provided and non-empty, appended
             to the Claude prompt for Monday briefings.
+        syllabus_context: Optional dict with {exam_topic_hints: list[str], coverage_summaries: list[str]}
+            from get_syllabus_context(). When provided, exam topic hints are appended daily;
+            coverage summaries are appended on Monday only.
 
     Returns:
         Briefing text string, guaranteed <= 800 characters.
@@ -302,6 +306,20 @@ def generate_briefing(
             context_parts.append("\nBEST AVAILABLE STUDY WINDOWS:")
             for w in study_windows:
                 context_parts.append(f"- {w}")
+
+    # Phase 7: Syllabus enrichment -- exam topic hints and Monday coverage summaries
+    if syllabus_context:
+        exam_hints = syllabus_context.get("exam_topic_hints") or []
+        if exam_hints:
+            context_parts.append("\nEXAM TOPIC HINTS (from syllabus):")
+            for hint in exam_hints:
+                context_parts.append(f"- {hint}")
+        if is_monday:
+            coverage_summaries = syllabus_context.get("coverage_summaries") or []
+            if coverage_summaries:
+                context_parts.append("\nEXAM TOPIC COVERAGE (next 14 days):")
+                for s in coverage_summaries:
+                    context_parts.append(f"- {s}")
 
     context_text = "\n".join(context_parts)
 

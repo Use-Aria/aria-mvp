@@ -483,12 +483,19 @@ def generate_daily_briefing_user(self, user_id: str) -> dict:
 
     # Fetch deadlines and generate
     deadlines = get_events_for_briefing(user_id, days_ahead=days_ahead)
+
+    # Phase 7: Enrich briefing with syllabus context (exam topics, coverage)
+    syllabus_context = None
+    from ai.syllabus import get_syllabus_context
+    syllabus_context = get_syllabus_context(user_id, deadlines, is_monday=is_monday)
+
     briefing_text = generate_briefing(
         user_id=user_id,
         deadlines=deadlines,
         is_monday=is_monday,
         user_tz=user_tz,
         gcal_context=gcal_context,
+        syllabus_context=syllabus_context,
     )
 
     # Send via TCPA-compliant path
