@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 7 context gathered
-last_updated: "2026-03-20T16:17:10.494Z"
+stopped_at: Completed 07-syllabus-parsing-study-gap-detection/07-01-PLAN.md
+last_updated: "2026-03-21T02:33:06.607Z"
 progress:
   total_phases: 9
   completed_phases: 6
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 18
+  completed_plans: 17
 ---
 
 ---
@@ -33,12 +33,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Students never miss a deadline or lose track of their week — Aria surfaces what matters, when it matters, over SMS.
-**Current focus:** Phase 07 — syllabus-parsing-+-study-gap-detection
+**Current focus:** Phase 07 — syllabus-parsing-study-gap-detection
 
 ## Current Position
 
-Phase: 07 (syllabus-parsing-+-study-gap-detection) — Ready to plan
-Plan: Not started
+Phase: 07 (syllabus-parsing-study-gap-detection) — EXECUTING
+Plan: 1 of 2
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Plan: Not started
 | Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P03 | 8 | 2 tasks | 13 files |
 | Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P04 | 6 | 2 tasks | 11 files |
 | Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection P05 | 10 | 2 tasks | 10 files |
+| Phase 07-syllabus-parsing-study-gap-detection P01 | 3 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -129,6 +130,10 @@ Recent decisions affecting current work:
 - [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: Patch ai.db._get_supabase not gcal.conflicts._get_supabase in conflict tests — lazy import means attribute only exists on source module
 - [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: gcal_context enrichment gated by is_monday in generate_briefing — avoids cluttering daily briefings with conflict data
 - [Phase 06-google-oauth-gcal-gmail-alerts-conflict-detection]: Study windows computed deterministically from calendar_events (not Claude API call) for Monday briefing enrichment
+- [Phase 07-01]: check_existing_syllabus uses .not_.is_('parsed_json', 'null') query to implement never-re-parse guard — skips Claude call if row already has parsed data
+- [Phase 07-01]: parse_syllabus_pdf strips markdown code fences before json.loads — Claude Opus occasionally wraps JSON in fences despite instructions
+- [Phase 07-01]: POST /api/upload/syllabus accepts user_id from FormData (Phase 7 bypass) — replaced with Supabase session in Phase 8 when auth UI is built
+- [Phase 07-01]: PDF bytes are never persisted — only base64 string passes through transient Redis queue
 
 ### Pending Todos
 
@@ -142,6 +147,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T16:17:10.475Z
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-syllabus-parsing-study-gap-detection/07-CONTEXT.md
+Last session: 2026-03-21T02:33:06.599Z
+Stopped at: Completed 07-syllabus-parsing-study-gap-detection/07-01-PLAN.md
+Resume file: None
