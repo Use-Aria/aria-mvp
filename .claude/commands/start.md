@@ -9,7 +9,6 @@ Use `/project:begin` instead if this is a fresh session (new day, opening your l
 ## 1. Pull latest
 ```bash
 git checkout main && git pull origin main
-git checkout dev && git pull origin dev
 ```
 Stop and resolve any merge conflicts before continuing.
 
@@ -38,13 +37,6 @@ git checkout feature/[branch-from-WORK.md]
 Continue work. Ask clarifying questions before writing code.
 
 ---
-
-## Branching rules
-```
-main  ← never push code here directly
-  └── dev  ← feature branches merge here via PR
-        └── feature/[task-name]  ← all work happens here
-```
 
 ## Session rules
 - `git add -p` always — never `git add .`

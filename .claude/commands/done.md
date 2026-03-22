@@ -27,21 +27,7 @@ npm test        # all tests must pass
 
 ---
 
-## 4. Push MD files directly to main
-PROGRESS.md, FEATURES.md, and WORK.md are coordination files — both devs need to see them immediately, not after a PR review.
-
-```bash
-git checkout main
-git pull origin main
-git add PROGRESS.md FEATURES.md
-git commit -m "chore: update session docs — [short description]"
-git push origin main
-git checkout feature/[branch-name]
-```
-
----
-
-## 5. Commit and push feature branch (code only)
+## 4. Commit and push to main
 ```bash
 git add -p     # review every change — never git add .
 git commit -m "feat: [description]
@@ -49,27 +35,17 @@ git commit -m "feat: [description]
 - [bullet 1]
 - [bullet 2]"
 
-git push origin feature/[branch-name]
+git push origin main
 ```
 
 ---
 
-## 5. Open PR: feature → dev
-Open a PR from `feature/[branch-name]` → **`dev`** (not main).
-Tag the other developer for review. **Do not merge without review.**
-
-PR title format: `feat: [short description]`
-
----
-
-## 7. After PR is merged to dev — update WORK.md
+## 5. Update WORK.md
 - Remove your row from "Currently In Progress"
 - Add a row to "Completed"
 - Add a Handoff Note (see format below)
 
 ```bash
-git checkout main
-git pull origin main
 git add WORK.md
 git commit -m "chore: complete [task-id] — [short description]"
 git push origin main
@@ -116,9 +92,7 @@ Rules: plain English lead sentence, 3–5 bullets, under 12 lines total, don't r
 
 ---
 
-## Branching reminder
-```
-feature/[x]  →  PR into dev  →  reviewed  →  merged
-dev          →  PR into main →  milestone boundary or deployment only
-main         ←  WORK.md coordination commits only (direct push allowed)
-```
+## Git reminder
+- Always `git add -p` — never `git add .`
+- Never `git push --force`
+- Always `git pull origin main` before pushing if you've been away

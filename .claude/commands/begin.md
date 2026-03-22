@@ -11,10 +11,9 @@ Use `/project:start` instead if you're resuming after a mid-session context rese
 
 ```bash
 git checkout main && git pull origin main
-git checkout dev && git pull origin dev
 ```
 
-If there are merge conflicts on either branch, stop and resolve before continuing.
+If there are merge conflicts, stop and resolve before continuing.
 
 ---
 
@@ -107,24 +106,17 @@ Only proceed once the developer confirms.
 
 Update `WORK.md` "Currently In Progress":
 ```
-| [Dev] | [task-id] — [description] | feature/[branch-name] | [date + time] |
+| [Dev] | [task-id] — [description] | main | [date + time] |
 ```
 
-Push the claim to `main` immediately (WORK.md is coordination, not code — this is the only direct push to main allowed):
+Push the claim to main:
 ```bash
-git checkout main
 git add WORK.md
 git commit -m "chore: [dev] claimed [task-id] — [short description]"
 git push origin main
 ```
 
-Create a feature branch off `dev`:
-```bash
-git checkout dev
-git checkout -b feature/[task-name]
-```
-
-Confirm: **"Claimed. Branch `feature/[task-name]` is ready. Let's build."**
+Confirm: **"Claimed. Working on main. Let's build."**
 
 ---
 
@@ -135,20 +127,9 @@ Keep the Architecture Gotchas from PROGRESS.md in mind throughout.
 
 ---
 
-## Branching rules
-```
-main  ← never push code here directly
-  └── dev  ← feature branches merge here via PR
-        └── feature/[task-name]  ← all work happens here
-```
-- Feature branches are cut from `dev`, not `main`
-- PRs go from `feature/x` → `dev` (other dev reviews)
-- `dev` → `main` PRs only happen at milestone boundaries or deployments
-- WORK.md claim commits are the only exception — they push directly to `main`
-
 ## Session rules
 - `git add -p` always — never `git add .`
-- Never push code directly to `main` or `dev`
+- Never push `--force`
 - Never touch the other developer's ownership area
 - Run `npm run lint` before every commit
 - Run `/project:save` before clearing context mid-session
