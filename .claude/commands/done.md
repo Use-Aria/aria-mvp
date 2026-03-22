@@ -66,7 +66,7 @@ Page ID: `32729f27-120a-8196-937f-dc119584390c`
 ```
 ---
 
-### [✅ or 🚧] Push #[N] — [Month Day, Year] at [H:MM AM/PM] PT
+### [✅ or 🚧] Push #[N] — [Month Day, Year] at [H:MM AM/PM] EST
 **[Phase name — one line]**
 [1 sentence: what can the student do now that they couldn't before? No jargon, no file names.]
 - [specific thing shipped]
@@ -78,7 +78,8 @@ Page ID: `32729f27-120a-8196-937f-dc119584390c`
 
 Rules: plain English lead sentence, 3–5 bullets, under 12 lines total, don't reformat existing entries.
 
-✅ After updating Notion, confirm by saying: "Notion updated — Push #[N] logged at [time]."
+✅ After updating Notion, confirm by saying: "Notion updated — Push #[N] logged at [time] EST."
+**IMPORTANT: Always use current time in EST (UTC-5), not PT or any other timezone.**
 If Notion update fails for any reason, report the error explicitly and retry before finishing.
 
 ---
