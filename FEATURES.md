@@ -2,190 +2,193 @@
 
 > Updated after every `git push`. This is the live build status.
 > Legend: ✅ Done | 🔄 In Progress | ⬜ Not Started | ⏳ Deferred
+>
+> **Note:** Feature IDs map to GSD phases (1–12), not original pre-build numbering.
 
 ---
 
-## Phase 0 — Foundation
+## v1.0 MVP — ✅ SHIPPED 2026-03-21
 
-| ID | Feature | Owner | Status | Notes |
-|---|---|---|---|---|
-| F-00 | Repo created, CLAUDE.md, FEATURES.md, slash commands | Josh + Seb | ✅ Done | |
-| F-01 | Next.js 14 scaffold (App Router, TypeScript, Tailwind) | Josh | ✅ Done | Next.js 15.2 with Turbopack |
-| F-02 | Supabase project setup + schema migrations | Josh | ✅ Done | Migrations pushed to remote (jjnedeyfpgogaizsucxp) |
-| F-03 | Shared types defined (Task, CalendarEvent, Message) | Josh | ✅ Done | `src/types/index.ts` |
-| F-04 | `.env.local` template + environment variable setup | Josh | ✅ Done | `.env.local.template` committed |
-| F-05 | ESLint + Prettier config | Josh | ✅ Done | ESLint passing |
-| F-06 | Google Cloud project created, Gmail + Calendar APIs enabled | Josh | ⬜ | |
-| F-07 | Vercel project connected to repo | Josh | ⬜ | |
+### Phase 1 — Infrastructure Foundation ✅
 
----
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Next.js 15.2 scaffold (App Router, TypeScript strict, Tailwind) | ✅ Done | Turbopack enabled |
+| Supabase schema + RLS + Auth + `handle_new_user` trigger | ✅ Done | Migration 001 |
+| Celery + Redis + Docker Compose worker | ✅ Done | |
+| Shared types: Task, CalendarEvent, Message | ✅ Done | `src/types/index.ts` |
+| `.env.local.template` | ✅ Done | |
+| ESLint config | ✅ Done | |
+| Auth middleware (token refresh every request) | ✅ Done | `src/middleware.ts` |
+| `/api/health` endpoint | ✅ Done | |
 
-## Phase 1 — Auth & Integrations Core
+### Phase 2 — Canvas iCal Sync ✅
 
-| ID | Feature | Owner | Status | Notes |
-|---|---|---|---|---|
-| F-10 | Supabase Auth setup | Josh | ⬜ | |
-| F-11 | Google OAuth 2.0 flow (Calendar + Gmail scopes) | Josh | ⬜ | |
-| F-12 | Token storage + refresh rotation in Supabase | Josh | ⬜ | |
-| F-13 | User onboarding web form (phone, Canvas iCal URL) | Josh | ⬜ | |
-| F-14 | SMS phone number verification via Twilio | Josh | ⬜ | |
-| F-15 | User preferences schema + defaults | Josh | ⬜ | |
-| F-16 | Canvas iCal URL validation on onboarding | Josh | ⬜ | |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Fetch + parse Canvas iCal feed | ✅ Done | `celery_worker/canvas/` |
+| Diff engine (added/changed/removed deadlines) | ✅ Done | |
+| Store deadlines in Supabase with `synced_at` | ✅ Done | Migration 002 |
+| Background sync job (every 60 min, Celery Beat) | ✅ Done | |
+| Rate limit handling + exponential backoff | ✅ Done | |
 
----
+### Phase 3 — Twilio SMS + TCPA Compliance ✅
 
-## Phase 2 — Canvas Integration
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Outbound SMS with 4 TCPA guards | ✅ Done | `celery_worker/sms/send.py` |
+| STOP / START / PAUSE / HELP keyword dispatch | ✅ Done | |
+| Inbound SMS webhook (Twilio signature validation) | ✅ Done | `src/app/api/sms/webhook/` |
+| Redis enqueue for inbound processing | ✅ Done | |
+| Migration 003 (7 TCPA columns on users) | ✅ Done | |
 
-| ID | Feature | Owner | Status | Notes |
-|---|---|---|---|---|
-| F-20 | Fetch + parse Canvas iCal feed | Josh | ⬜ | `src/lib/integrations/canvas.ts` |
-| F-21 | Normalize Canvas events to Task type | Josh | ⬜ | |
-| F-22 | Store deadlines in Supabase with synced_at | Josh | ⬜ | |
-| F-23 | Background sync job (every 60 min via Celery) | Josh | ⬜ | |
-| F-24 | Diff engine — detect added/changed/removed deadlines | Josh | ⬜ | |
-| F-25 | Trigger deadline change alert on diff | Josh | ⬜ | |
-| F-26 | Canvas API rate limit handling + exponential backoff | Josh | ⬜ | |
+### Phase 4 — Claude AI + Daily Briefing ✅
 
----
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Daily briefing generator (Claude Sonnet) | ✅ Done | `celery_worker/ai/briefing.py` |
+| Briefing Beat job (daily 8am send) | ✅ Done | |
+| Monday 7-day extended briefing | ✅ Done | |
+| Conversational SMS reply handler (Claude Sonnet) | ✅ Done | `celery_worker/ai/replies.py` |
+| Exam countdown touch points in briefing | ✅ Done | |
+| Task management via SMS (snooze, complete, list) | ✅ Done | |
+| On-demand scheduling via SMS | 📋 Planned | spec + plan in `docs/superpowers/`; plan needs 8 fixes |
 
-## Phase 3 — Gmail Integration (MVP)
+### Phase 5 — Priority Engine + Canonical Timeline DB ✅
 
-| ID | Feature | Owner | Status | Notes |
-|---|---|---|---|---|
-| F-30 | Gmail OAuth connection | Josh | ⬜ | Shares Google OAuth client with Calendar |
-| F-31 | Fetch emails from course-related senders | Josh | ⬜ | |
-| F-32 | Keyword detection (deadline moved, exam cancelled, etc.) | Josh | ⬜ | |
-| F-33 | Normalize to Message type | Josh | ⬜ | |
-| F-34 | Cross-reference Gmail changes with Canvas state | Josh | ⬜ | |
-| F-35 | Alert student if email contradicts Canvas deadline | Josh | ⬜ | |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Priority scoring engine (0–100) | ✅ Done | `celery_worker/priority/engine.py` |
+| Event router (immediate/digest/silent) | ✅ Done | |
+| `canonical_events` table + RLS | ✅ Done | Migration 005 |
+| `ingest_canonical_event()` entry point | ✅ Done | |
+| `send_sms_alert()` (bypasses quiet hours + caps) | ✅ Done | |
+| Canvas sync wired to canonical events | ✅ Done | |
 
----
+### Phase 6 — Google OAuth + GCal + Gmail + Alerts ✅
 
-## Phase 4 — Google Calendar Integration
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Google OAuth 2.0 (Calendar + Gmail scopes) | ✅ Done | HMAC CSRF, httpOnly cookie |
+| Fernet-encrypted token storage in Supabase | ✅ Done | `celery_worker/google_auth/` |
+| GCal sync (7-day window, push notifications) | ✅ Done | `celery_worker/gcal/` |
+| Watch channel auto-renewal (Beat every 6h) | ✅ Done | |
+| Gmail pipeline (Pub/Sub, Haiku classify, rapidfuzz) | ✅ Done | `celery_worker/gmail/` |
+| Conflict detection (Canvas vs GCal) | ✅ Done | |
+| Study block write-back to GCal | ✅ Done | |
+| SMS batch queue (Redis SETNX, 10-min window, 3-cap) | ✅ Done | `celery_worker/sms/batch.py` |
+| Monday briefing enrichment (conflicts + study windows) | ✅ Done | |
+| Migration 006 (gmail_flags, conflict_alerts, watch columns) | ✅ Done | |
 
-| ID | Feature | Owner | Status | Notes |
-|---|---|---|---|---|
-| F-40 | Google Calendar OAuth (shares Google app with Gmail) | Josh | ⬜ | |
-| F-41 | Fetch all calendar events (7-day window) | Josh | ⬜ | |
-| F-42 | Normalize to CalendarEvent type | Josh | ⬜ | |
-| F-43 | Write study blocks to calendar on student request | Josh | ⬜ | |
-| F-44 | Real-time push notifications for calendar changes | Josh | ⬜ | |
+### Phase 7 — Syllabus Parsing + Study Gap Detection ✅
 
----
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Syllabus PDF upload endpoint | ✅ Done | `src/app/api/upload/syllabus/` |
+| Claude Opus PDF parser (document block API) | ✅ Done | `celery_worker/ai/syllabus.py` |
+| Never-re-parse guard | ✅ Done | |
+| `(user_id, course_name)` UNIQUE constraint | ✅ Done | Migration 007 |
+| Study gap analysis Beat task (T-5 before exam) | ✅ Done | |
+| `get_syllabus_context()` for Monday briefing enrichment | ✅ Done | |
 
-## Phase 5 — SMS Interface (Twilio)
+### Phase 8 — iOS App + Onboarding ✅
 
-| ID | Feature | Owner | Status | Notes |
-|---|---|---|---|---|
-| F-50 | Twilio account + phone number setup | Josh | ⬜ | |
-| F-51 | Outbound SMS sending function | Josh | ⬜ | `src/lib/sms/twilio.ts` |
-| F-52 | Inbound SMS webhook handler | Josh | 🔄 In Progress | Stub in `src/app/api/sms/webhook/route.ts` — Twilio logic pending |
-| F-53 | Route inbound SMS to Claude for conversational reply | Josh | ⬜ | |
-| F-54 | Anti-spam rules (max 3 unsolicited/day, quiet hours) | Josh | ⬜ | |
-| F-55 | STOP / PAUSE command handling (TCPA compliance) | Josh | ⬜ | |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Expo React Native app scaffold | ✅ Done | `mobile/` |
+| 4-zone home dashboard (deadlines, messages, calendar, chat) | ✅ Done | |
+| Full onboarding flow (phone, Canvas URL, Google OAuth) | ✅ Done | |
+| In-app chat (ChatSheet + ChatBar) | ✅ Done | |
+| Voice input (tap-to-record) | ✅ Done | |
+| Theme system (light/dark) | ✅ Done | |
 
----
+### Phase 9 — Todoist Integration ✅
 
-## Phase 6 — AI Layer
-
-| ID | Feature | Owner | Status | Notes |
-|---|---|---|---|---|
-| F-60 | Syllabus PDF upload endpoint | Josh | ⬜ | `src/app/api/upload/syllabus/route.ts` |
-| F-61 | Claude Opus syllabus parser — extract exams, assignments, topics | Josh | ⬜ | `src/lib/ai/syllabus.ts` |
-| F-62 | Store parsed syllabus JSON in Supabase | Josh | ⬜ | |
-| F-63 | Daily briefing generator (Claude Sonnet) | Josh | ⬜ | `src/lib/ai/briefing.ts` |
-| F-64 | Briefing scheduled job (daily 7am generation, 8am send) | Josh | ⬜ | |
-| F-65 | Conversational reply handler (Claude Sonnet) | Josh | ⬜ | `src/lib/ai/replies.ts` |
-
----
-
-## Phase 7 — Sync Engine
-
-| ID | Feature | Owner | Status | Notes |
-|---|---|---|---|---|
-| F-70 | Celery + Redis setup for background jobs | Josh | ✅ Done | Docker Compose + Celery worker + ping task |
-| F-71 | Canvas iCal sync job (every 60 min) | Josh | ⬜ | |
-| F-72 | Google Calendar sync job (real-time via push) | Josh | ⬜ | |
-| F-73 | Todoist sync job (every 2 hours) | Josh | ⬜ | Phase 2 |
-| F-74 | Briefing generation job (weekly) | Josh | ⬜ | |
-| F-75 | Exam countdown check job (daily 7am) | Josh | ⬜ | |
-
----
-
-## Phase 8 — Frontend UI (Seb)
-
-| ID | Feature | Owner | Status | Notes |
-|---|---|---|---|---|
-| F-80 | Onboarding flow UI (phone, Canvas URL, Google OAuth) | Seb | ⏳ | After backend |
-| F-81 | Syllabus upload UI | Seb | ⏳ | |
-| F-82 | Preferences setup UI | Seb | ⏳ | |
-| F-83 | Connection status page (show linked integrations) | Seb | ⏳ | |
-| F-84 | First briefing preview UI | Seb | ⏳ | |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Todoist OAuth flow | ✅ Done | `src/app/api/auth/todoist/` |
+| Todoist task sync (Celery, every 2h) | ✅ Done | |
+| Todoist tasks in daily briefing | ✅ Done | |
+| SMS task CRUD (add, complete, list) | ✅ Done | |
 
 ---
 
-## Phase 9 — v2 Features (Post-MVP)
+## v1.1 App Store Launch — 🚧 In Progress
 
-| ID | Feature | Owner | Status | Notes |
-|---|---|---|---|---|
-| F-90 | Todoist OAuth + task read/write | Josh | ⏳ | v2 |
-| F-91 | Spotify OAuth + focus session automation | Josh | ⏳ | v2 |
-| F-92 | Study gap detection (syllabus vs. coverage) | Josh | ⏳ | v2 |
-| F-93 | Exam countdown + preparation scheduling | Josh | ⏳ | v2 |
-| F-94 | Conflict detection (Canvas vs. GCal) | Josh | ⏳ | v2 |
-| F-95 | Sendblue iMessage integration (upgrade from Twilio SMS) | Josh | ⏳ | v2 |
-| F-96 | Slack integration | Josh | ⏳ | v2 |
+### Phase 10 — iOS Build Configuration 🔄
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `eas.json` profiles (development/preview/production) | ✅ Done | |
+| `app.json` privacy permission strings | ✅ Done | |
+| App icon + splash screen assets | ✅ Done | |
+| Apple Developer credentials configured | ⬜ Not Started | APPLE_ID, ASC_APP_ID, team ID needed |
+| `eas build --platform ios --profile preview` succeeds | ⬜ Not Started | |
+| App on TestFlight | ⬜ Not Started | |
+
+### Phase 11 — Backend Deployment ⏳
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Next.js deployed to Vercel | ⬜ Not Started | |
+| Celery workers deployed to Railway | ⬜ Not Started | |
+| Redis plugin on Railway | ⬜ Not Started | |
+| All production env vars configured | ⬜ Not Started | |
+| `/api/health` returns 200 on production URL | ⬜ Not Started | |
+| E2E smoke test (Canvas URL → welcome SMS) | ⬜ Not Started | |
+
+### Phase 12 — Legal, Listing & Submission ⏳
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Privacy Policy published | ⬜ Not Started | |
+| Terms of Service published | ⬜ Not Started | |
+| TCPA opt-in consent copy | ⬜ Not Started | |
+| App Store Connect listing (name, description, keywords) | ⬜ Not Started | |
+| Screenshots (all required device sizes) | ⬜ Not Started | |
+| Submitted for App Store review | ⬜ Not Started | |
 
 ---
 
-## Phase 10 — Scale (Phase 3)
+## v1.2 — Post App Store Launch (Planned)
 
-| ID | Feature | Owner | Status | Notes |
-|---|---|---|---|---|
-| F-100 | Web dashboard (visual calendar + settings) | Seb | ⏳ | Phase 3 |
-| F-101 | iOS app shell | Josh | ⏳ | Phase 3 |
-| F-102 | Multi-university support | Josh | ⏳ | Phase 3 |
-| F-103 | Referral system | Josh + Seb | ⏳ | Phase 3 |
+| Phase | Feature | Status |
+|-------|---------|--------|
+| Phase 13 | Conversational Voice Mode (auto-detect end of speech, TTS, live visual feedback) | ⏳ Deferred |
 
 ---
 
 ## Push Log
 
-*Most recent push at the top. Updated by Claude after every `git push`.*
+*Most recent push at the top.*
 
----
+### ✅ Push #16 — 2026-03-21
+**What:** Phase 10 build config (`eas.json`, `app.json`), PROGRESS.md, docs/superpowers/ spec + plan for on-demand scheduling
+**Next up:** Apply 8 scheduling plan fixes → execute → Phase 10 Apple credentials
 
-### ✅ Push #2 — March 18, 2026
+### ✅ Push #15 — 2026-03-21
+**What:** v1.0 milestone shipped — Phase 7 complete (syllabus parsing + study gap detection)
 
-**Branch:** `main`
-**Features:** F-01, F-02, F-03, F-04, F-05, F-52 (stub), F-70
-**What was done:**
-- Next.js 15.2 scaffold with App Router, TypeScript strict, Tailwind CSS
-- Supabase project linked + `001_initial_schema.sql` migration pushed to remote
-- Shared types `Task`, `CalendarEvent`, `Message` defined in `src/types/index.ts`
-- `.env.local.template` with all required env vars documented
-- Auth middleware (`src/middleware.ts`) protecting all non-public routes
-- `/api/health` endpoint
-- `/api/sms/webhook` stub (Twilio inbound — logic pending)
-- Celery worker app + `ping` task + `requirements.txt` + `Dockerfile`
-- Docker Compose for local dev stack (Redis + Celery worker)
-- Supabase MCP added to `.mcp.json` for direct DB access in Claude sessions
-- GSD planning docs: roadmap, requirements, phase plans for 01-01 and 01-02
+### ✅ Push #14 — 2026-03-20
+**What:** Phase 9 complete (Todoist integration)
 
-**Next up:** F-10 — Supabase Auth setup → F-11 Google OAuth 2.0
+### ✅ Push #13 — 2026-03-20
+**What:** Phase 8 complete (iOS App + Onboarding)
 
----
+### ✅ Push #12 — 2026-03-20
+**What:** Phase 6 complete (Google OAuth + GCal + Gmail + conflict detection + SMS batching)
 
-### ✅ Push #1 — March 18, 2026
+### ✅ Push #11 — 2026-03-19
+**What:** Phase 5 complete (priority engine + canonical events)
 
-**Branch:** `main`
-**Features:** F-00
-**What was done:**
-- Repo connected to GitHub (`aria-mvp`)
-- `CLAUDE.md` written — full project constitution with stack, architecture, ownership, git workflow, data model, file structure, and Claude prompting guidelines
-- `FEATURES.md` written — 40+ feature checklist across 10 phases
-- `.claude/commands/start.md` — `/project:start` slash command
-- `.claude/commands/done.md` — `/project:done` slash command
-- `.claude/settings.json` — safety guardrails
+### ✅ Push #10 — 2026-03-19
+**What:** Phase 4 complete (Claude AI daily briefing + conversational replies)
 
-**Next up:** F-01 (Next.js scaffold) → F-02 (Supabase) → F-03 (shared types)
+### ✅ Push #9 — 2026-03-19
+**What:** Phase 3 complete (Twilio SMS + TCPA compliance)
+
+### ✅ Push #2 — 2026-03-18
+**What:** Phase 1 + Phase 2 infrastructure foundation
+
+### ✅ Push #1 — 2026-03-18
+**What:** Repo setup, CLAUDE.md, FEATURES.md, slash commands

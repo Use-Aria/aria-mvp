@@ -112,12 +112,32 @@ Files the plan creates/modifies:
 |---|---|
 | Project overview | `.planning/PROJECT.md` |
 | Roadmap (all phases) | `.planning/ROADMAP.md` |
+| GSD decisions log | `.planning/STATE.md` |
 | Scheduling spec | `docs/superpowers/specs/2026-03-21-on-demand-scheduling-design.md` |
 | Scheduling plan | `docs/superpowers/plans/2026-03-21-on-demand-scheduling.md` |
-| iOS build config (Phase 10) | `app.json`, `eas.json` |
+| iOS build config (Phase 10) | `mobile/app.json`, `mobile/eas.json` |
 | SMS reply handler | `celery_worker/ai/replies.py` |
 | GCal slot finder | `celery_worker/gcal/slots.py` |
 | GCal writeback | `celery_worker/gcal/writeback.py` |
+| Scheduling logic (to be created) | `celery_worker/sms/schedule.py` |
+
+---
+
+## Architecture Gotchas
+
+> Permanent — these survive across sessions. Add new ones as you discover them.
+
+| Gotcha | Rule |
+|--------|------|
+| Course matching | `syllabi.course_name` vs `canonical_events.course_id` — always use ILIKE; casing/formatting varies |
+| Windows strftime | `%-I` fails on Windows; use `%I` + `.lstrip("0").lower()` in `_format_time()` |
+| Lazy import patching | Patch at the SOURCE module (`sms.batch.enqueue_alert`), never the importing module |
+| Token encryption boundary | Next.js callback NEVER writes tokens to Supabase directly — only `encrypt_and_store_tokens` Celery task writes |
+| GCal/Gmail watch expiry | Watch channels expire every 7 days silently — `renew-watch-channels` Beat task runs every 6h |
+| Google OAuth verification | Gmail readonly is a sensitive scope — app verification takes 1–6 weeks; start NOW |
+| PDF bytes | Never persisted — only base64 passes through Redis queue → Celery decodes → parses → discards |
+| Re-parse guard | `check_existing_syllabus()` skips Claude call entirely if `parsed_json` already exists in DB |
+| On-demand scheduling flow | Redis pending state (5-min TTL) bridges two-message confirm flow; intercept order: pending_preference → pending_schedule → study_preference → Claude |
 
 ---
 
