@@ -62,6 +62,13 @@ git commit -m "chore: add dateparser for natural language date parsing"
 - Create: `celery_worker/sms/schedule.py`
 - Create: `celery_worker/tests/sms/test_schedule.py`
 
+- [ ] **Step 0: Ensure test package exists**
+
+```bash
+ls celery_worker/tests/sms/__init__.py 2>/dev/null || touch celery_worker/tests/sms/__init__.py
+```
+Expected: file exists (already present from prior phases — this is a no-op if so)
+
 - [ ] **Step 1: Write failing tests**
 
 Create `celery_worker/tests/sms/test_schedule.py`:
@@ -511,6 +518,13 @@ def test_learn_increments_confirmations():
 
         written = execute_mock.update.call_args[0][0]["preferences_json"]
         assert written["activity_preferences"]["study"]["confirmations"] == 5
+
+
+def test_classify_time_block_before_7am_returns_evening():
+    """Hour before 7am (e.g. 3am) is bucketed as 'evening' (late-night rounds down)."""
+    from sms.schedule import _classify_time_block
+    dt = datetime(2026, 3, 22, 3, 0)  # 3am
+    assert _classify_time_block(dt) == "evening"
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -636,6 +650,10 @@ def test_store_and_get_pending_schedule():
 
     assert result["title"] == "Chem Study"
     assert result["activity_type"] == "study"
+    # Verify 5-minute TTL was set
+    mock_r.setex.assert_called_once()
+    call_args = mock_r.setex.call_args[0]
+    assert call_args[1] == 300  # _PENDING_TTL = 300s
 
 
 def test_get_pending_schedule_returns_none_when_missing():
@@ -861,7 +879,7 @@ _DURATION_DEFAULTS: dict[str, int] = {
 def _format_time(iso: str) -> str:
     """Format ISO datetime to '8:00pm' style."""
     dt = datetime.fromisoformat(iso)
-    return dt.strftime("%-I:%M%p").lower()
+    return dt.strftime("%I:%M%p").lstrip("0").lower()
 
 
 def _format_date_label(target: datetime) -> str:
@@ -1055,7 +1073,7 @@ def test_handle_schedule_confirmation_no_pending():
     from sms.schedule import handle_schedule_confirmation
     with patch("sms.schedule.get_pending_schedule", return_value=None):
         result = handle_schedule_confirmation("user-123")
-    assert "couldn't find" in result.lower() or "expired" in result.lower() or "try again" in result.lower()
+    assert "couldn't find" in result.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -1104,6 +1122,14 @@ def test_handle_schedule_decline_no_alternatives():
 
     assert "no other slots" in result.lower()
     mock_clear.assert_called_once_with("user-123")
+
+
+def test_handle_schedule_decline_no_pending():
+    """Returns graceful message when pending has expired."""
+    from sms.schedule import handle_schedule_decline
+    with patch("sms.schedule.get_pending_schedule", return_value=None):
+        result = handle_schedule_decline("user-123")
+    assert "couldn't find" in result.lower() or "expired" in result.lower() or "try again" in result.lower()
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -1269,11 +1295,14 @@ def test_pending_schedule_negative_routes_to_decline():
 
 
 def test_pending_schedule_unmatched_reply_falls_through():
-    """An unrecognized reply while pending exists falls through to Claude intent extraction."""
+    """An unrecognized reply while pending exists falls through to Claude intent extraction.
+    Pending key must survive (clear_pending_schedule NOT called) so confirmation still works.
+    """
     from ai.replies import handle_reply
     intent_json = '{"action":"query","task_hint":null,"priority_value":null,"due_string":null}'
     with patch("sms.schedule.get_pending_preference", return_value=None), \
          patch("sms.schedule.get_pending_schedule", return_value={"title": "Study"}), \
+         patch("sms.schedule.clear_pending_schedule") as mock_clear, \
          patch("ai.replies.get_deadlines_for_briefing", return_value=[]), \
          patch("ai.replies.get_conversation_history", return_value=[]), \
          patch("ai.replies.Anthropic") as mock_anthropic:
@@ -1288,6 +1317,8 @@ def test_pending_schedule_unmatched_reply_falls_through():
 
     # Claude was called (fell through to intent path)
     assert mock_client.messages.create.call_count >= 1
+    # Pending key must NOT be cleared — confirmation flow must still be available
+    mock_clear.assert_not_called()
 
 
 def test_schedule_intent_routes_to_handle_schedule_request():
@@ -1469,6 +1500,13 @@ git commit -m "feat: wire on-demand scheduling into SMS reply handler"
 
 **Files:**
 - Modify: `.planning/ROADMAP.md`
+
+- [ ] **Step 0: Verify ROADMAP.md path**
+
+```bash
+ls .planning/ROADMAP.md
+```
+Expected: file exists. If not, check `PROGRESS.md → Key File Locations` for the correct path.
 
 - [ ] **Step 1: Add Phase 13 to ROADMAP.md**
 
