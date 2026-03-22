@@ -27,7 +27,21 @@ npm test        # all tests must pass
 
 ---
 
-## 4. Commit and push feature branch
+## 4. Push MD files directly to main
+PROGRESS.md, FEATURES.md, and WORK.md are coordination files — both devs need to see them immediately, not after a PR review.
+
+```bash
+git checkout main
+git pull origin main
+git add PROGRESS.md FEATURES.md
+git commit -m "chore: update session docs — [short description]"
+git push origin main
+git checkout feature/[branch-name]
+```
+
+---
+
+## 5. Commit and push feature branch (code only)
 ```bash
 git add -p     # review every change — never git add .
 git commit -m "feat: [description]
@@ -48,12 +62,11 @@ PR title format: `feat: [short description]`
 
 ---
 
-## 6. After PR is merged to dev — update WORK.md
+## 7. After PR is merged to dev — update WORK.md
 - Remove your row from "Currently In Progress"
 - Add a row to "Completed"
 - Add a Handoff Note (see format below)
 
-Push WORK.md directly to `main` (coordination file — only exception to no-direct-push rule):
 ```bash
 git checkout main
 git pull origin main
