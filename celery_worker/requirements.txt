@@ -14,3 +14,4 @@ google-auth-httplib2>=0.2.0
 google-cloud-pubsub>=2.21.0
 rapidfuzz>=3.9.0
 pdfplumber==0.11.9
+dateparser>=1.2.0
