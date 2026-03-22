@@ -7,67 +7,17 @@
 
 ## What We Accomplished This Session
 
-### Developer Workflow Overhaul (2026-03-22)
-- Created `/project:begin` — deep-context session start with planning step, works for Josh + Seb
-- Created `/project:save` — mid-session context checkpoint
-- Rewrote `/project:start` — quick resume after context reset
-- Updated `/project:done` — PRs to `dev`, MD files push to `main`, Notion update step
-- Deleted `project_context.md` — consolidated into `PROGRESS.md`
-- Added Architecture Gotchas + Key File Locations permanently to `PROGRESS.md`
-- Created `dev` branch on GitHub — new 3-branch model: `feature → dev → main`
-- Rewrote Notion MVP Progress Log — tighter format, all 16 push entries updated
-- Rewrote Notion Git Branches page — new branching model documented
-- Updated `CLAUDE.md` git workflow section
+### On-Demand Scheduling — Shipped (2026-03-22)
+Applied all 8 plan fixes and executed the full implementation:
+- `celery_worker/sms/schedule.py` — new module: date parsing, per-activity preference CRUD, preference learning (silent, from confirmed bookings), Redis pending state, schedule request/confirmation/decline orchestration
+- `celery_worker/ai/replies.py` — updated `INTENT_SYSTEM_PROMPT` with `schedule` action + 4 new fields; replaced single intercept with full 4-step intercept order
+- `celery_worker/tests/sms/test_schedule.py` — 29 new tests (all passing)
+- `celery_worker/tests/ai/test_replies.py` — 5 new intercept/routing tests
+- `celery_worker/tests/ai/conftest.py` — autouse fixture so existing tests don't need Redis
+- `celery_worker/requirements.txt` — added `dateparser>=1.2.0`
+- `.planning/ROADMAP.md` — Phase 13 (Conversational Voice Mode, v1.2) added
 
-### Next Steps
-1. Run `/project:begin` at start of next session — this will create `feature/` branch off `dev`
-2. Apply 8 plan fixes then execute: `docs/superpowers/plans/2026-03-21-on-demand-scheduling.md`
-3. Phase 10 — fill Apple credentials → `eas build --platform ios --profile preview` → TestFlight
-4. Phase 11 — deploy Vercel + Railway
-5. Phase 12 — App Store submission
-
----
-
-## Previous Session Notes
-
-### 1. Notion Sync
-Updated the Aria Notion workspace to match the current git state:
-- **Main Aria page** — rewrote the description (removed out-of-scope items like iMessage/Apple Health/Slack), added current milestone (v1.1), filled in the actual tech stack (was "TBD")
-- **MVP Progress Log** — added Phases 10, 11, 12 to the status table; added 4 missing push log entries (Push #13 iOS App, Push #14 Todoist, Push #15 v1.0 milestone ship, Push #16 Phase 10 build config)
-
-### 2. Product Decisions Made
-Had a detailed product review conversation. Key decisions:
-
-| Topic | Decision |
-|---|---|
-| Phase 4 scheduling | Add on-demand scheduling to SMS handler — confirmed before booking, learns per-activity preferences over time |
-| Phase 7 (syllabus) | Manual PDF upload is correct for now; Canvas iCal doesn't expose syllabus content |
-| Phase 8 voice | Current two-tap voice is wrong UX — needs full conversational redesign (voice activity detection, TTS, live visual feedback) |
-| Voice redesign timing | **Do after App Store launch** — don't delay Phase 10–12 for it |
-| Scheduling activity types | Support **any** activity (not just study/workout) from day one |
-| Confirmation flow | Always confirm before booking; learn from confirmed time to refine future suggestions |
-
-### 3. Phase 13 Added to Roadmap
-Conversational Voice Mode added as Phase 13 (v1.2, post App Store launch):
-- Auto-detect end of speech (no tap to stop)
-- Aria responds verbally + shows live visual feedback (calendar animations, task list updates)
-- Dedicated full-screen voice canvas UI (not a home page button)
-- On-demand scheduling works through voice
-
-### 4. On-Demand Scheduling — Designed & Planned
-Full design and implementation plan created for Phase 4 on-demand scheduling:
-
-**Spec:** `docs/superpowers/specs/2026-03-21-on-demand-scheduling-design.md`
-**Plan:** `docs/superpowers/plans/2026-03-21-on-demand-scheduling.md`
-
-Design covers:
-- New `schedule` SMS intent (any activity type: study, workout, meal, etc.)
-- Per-activity time preference store in `preferences_json.activity_preferences`
-- Silent preference learning from confirmed bookings (`recent_blocks` rolling window)
-- Two-step confirmation flow (Aria proposes → student confirms → books)
-- Redis pending state for multi-message flows (5-min TTL)
-- Natural language date parsing via `dateparser`
-- 4-step intercept order in `handle_reply()` to avoid collisions
+**Total test count: 306 (all passing)**
 
 ---
 
@@ -85,47 +35,19 @@ Design covers:
 
 | Item | Status |
 |---|---|
-| Design spec | ✅ Written + reviewed (`docs/superpowers/specs/`) |
-| Implementation plan | ✅ Written + reviewed (`docs/superpowers/plans/`) |
-| Plan minor fixes (8 items) | ⚠️ Not applied yet — session ran out of context |
-| Implementation | ⏳ Not started |
+| Design spec | ✅ Done (`docs/superpowers/specs/`) |
+| Implementation plan | ✅ Done (`docs/superpowers/plans/`) |
+| Plan fixes (8 items) | ✅ Applied |
+| Implementation | ✅ Shipped — 306 tests passing |
 
 ---
 
 ## Next Steps (in priority order)
 
-### Immediate — Fix the plan before executing it
-The implementation plan has 8 known minor issues identified by the spec reviewer. Apply these before executing:
-
-1. **Add `__init__.py` step** to Task 2 — create `celery_worker/tests/sms/__init__.py`
-2. **Add pre-7am test** — `_classify_time_block` before 7am should return `"evening"` (behavior is implemented, just not tested)
-3. **Fix `%-I` strftime** — Windows-incompatible; change to `%I` + `lstrip("0")` in `_format_time()`
-4. **Add TTL assertion** to `test_store_and_get_pending_schedule` — verify `setex` called with 300s
-5. **Fix unmatched-reply test** — assert `clear_pending_schedule` was NOT called (pending key survives)
-6. **Add `handle_schedule_decline` no-pending test** — graceful message when pending expired
-7. **Fix three-way `or`** in `test_handle_schedule_confirmation_no_pending` — narrow to single assertion
-8. **Add `.planning/ROADMAP.md`** to Task 9 file header with path verification step
-
-### Then — Execute the plan
-```
-/gsd:execute-phase  (or subagent-driven-development skill)
-Plan: docs/superpowers/plans/2026-03-21-on-demand-scheduling.md
-```
-
-Files the plan creates/modifies:
-- `celery_worker/sms/schedule.py` — new (all scheduling logic)
-- `celery_worker/ai/replies.py` — modified (intent prompt + intercept + routing)
-- `celery_worker/requirements.txt` — add `dateparser>=1.2.0`
-- `celery_worker/tests/sms/test_schedule.py` — new
-- `celery_worker/tests/ai/test_replies.py` — modified
-
-### After scheduling is implemented
-- Continue **Phase 10** — fill in Apple Developer credentials, run `eas build --platform ios --profile preview`, verify TestFlight
-- **Phase 11** — Deploy to Vercel + Railway
-- **Phase 12** — Privacy Policy, App Store listing, submit
-
-### Post App Store launch (v1.2)
-- **Phase 13** — Conversational voice mode redesign (full spec + plan needed)
+1. **Phase 10** — Fill Apple Developer credentials (`APPLE_ID`, `ASC_APP_ID`, team ID in `.env.local`), run `eas build --platform ios --profile preview`, verify TestFlight install
+2. **Phase 11** — Deploy Next.js to Vercel, Celery workers to Railway, configure all production env vars
+3. **Phase 12** — Privacy Policy, Terms of Service, App Store Connect listing, screenshots, submit
+4. **Phase 13** (post launch) — Conversational voice mode redesign (spec + plan needed)
 
 ---
 
@@ -137,12 +59,12 @@ Files the plan creates/modifies:
 | Roadmap (all phases) | `.planning/ROADMAP.md` |
 | GSD decisions log | `.planning/STATE.md` |
 | Scheduling spec | `docs/superpowers/specs/2026-03-21-on-demand-scheduling-design.md` |
-| Scheduling plan | `docs/superpowers/plans/2026-03-21-on-demand-scheduling.md` |
-| iOS build config (Phase 10) | `mobile/app.json`, `mobile/eas.json` |
+| Scheduling plan (executed) | `docs/superpowers/plans/2026-03-21-on-demand-scheduling.md` |
+| Scheduling module | `celery_worker/sms/schedule.py` |
 | SMS reply handler | `celery_worker/ai/replies.py` |
+| iOS build config (Phase 10) | `mobile/app.json`, `mobile/eas.json` |
 | GCal slot finder | `celery_worker/gcal/slots.py` |
 | GCal writeback | `celery_worker/gcal/writeback.py` |
-| Scheduling logic (to be created) | `celery_worker/sms/schedule.py` |
 
 ---
 
@@ -161,10 +83,11 @@ Files the plan creates/modifies:
 | PDF bytes | Never persisted — only base64 passes through Redis queue → Celery decodes → parses → discards |
 | Re-parse guard | `check_existing_syllabus()` skips Claude call entirely if `parsed_json` already exists in DB |
 | On-demand scheduling flow | Redis pending state (5-min TTL) bridges two-message confirm flow; intercept order: pending_preference → pending_schedule → study_preference → Claude |
+| conftest autouse | `tests/ai/conftest.py` stubs out both Redis intercepts for all ai tests — new schedule tests must patch `sms.schedule.*` directly to override |
 
 ---
 
-## Architecture Reminder (for context restoration)
+## Architecture Reminder
 
 Aria's SMS reply pipeline:
 ```
@@ -179,7 +102,7 @@ Twilio inbound → /api/sms/webhook → Celery (process_inbound_sms) → handle_
                                                                Action router → schedule / mark_complete / snooze / etc.
 ```
 
-New scheduling flow (once implemented):
+Scheduling flow:
 ```
 "find me time to study biochem tomorrow"
     → Claude: action=schedule, activity_type=study, subject=biochem, target_date_string=tomorrow

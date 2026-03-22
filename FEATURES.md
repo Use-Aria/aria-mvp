@@ -52,7 +52,7 @@
 | Conversational SMS reply handler (Claude Sonnet) | ✅ Done | `celery_worker/ai/replies.py` |
 | Exam countdown touch points in briefing | ✅ Done | |
 | Task management via SMS (snooze, complete, list) | ✅ Done | |
-| On-demand scheduling via SMS | 📋 Planned | spec + plan in `docs/superpowers/`; plan needs 8 fixes |
+| On-demand scheduling via SMS | ✅ Done | `celery_worker/sms/schedule.py`; 29 tests; wired into replies.py |
 
 ### Phase 5 — Priority Engine + Canonical Timeline DB ✅
 

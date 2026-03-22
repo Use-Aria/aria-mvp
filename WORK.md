@@ -18,11 +18,6 @@
 
 ## 🎯 Up Next (Priority Order)
 
-### On-Demand Scheduling Enhancement (Phase 4 SMS)
-- [ ] **SCH-01** — Apply 8 minor fixes to plan, then execute `docs/superpowers/plans/2026-03-21-on-demand-scheduling.md` → **Josh**
-  - Fix list in `PROGRESS.md` "Immediate — Fix the plan before executing it"
-  - Creates `celery_worker/sms/schedule.py`, modifies `celery_worker/ai/replies.py`
-
 ### v1.1 App Store Launch
 
 - [ ] **PH10-02** — Fill Apple Developer credentials (`APPLE_ID`, `ASC_APP_ID`, team ID), run `eas build --platform ios --profile preview`, verify TestFlight install → **Josh**
@@ -47,12 +42,19 @@
 | Phase 8 — iOS App + Onboarding | Expo React Native app, 4-zone dashboard, in-app chat, Google OAuth, onboarding flow | 2026-03-20 |
 | Phase 9 — Todoist Integration | Todoist OAuth, task sync, SMS CRUD, briefing integration | 2026-03-20 |
 | Phase 10-01 — iOS Build Config | `eas.json` + `app.json` fixes written (Apple credentials still needed) | 2026-03-21 |
+| SCH-01 — On-Demand Scheduling | `sms/schedule.py` created, `replies.py` updated, 34 new tests, 306 total passing | 2026-03-22 |
 
 ---
 
 ## 📋 Handoff Notes
 
 ### 2026-03-22 — Josh
+**Done:** SCH-01 — On-demand scheduling shipped
+**Files changed:** `celery_worker/sms/schedule.py` (new), `celery_worker/ai/replies.py`, `celery_worker/requirements.txt`, `celery_worker/tests/sms/test_schedule.py` (new), `celery_worker/tests/ai/test_replies.py`, `celery_worker/tests/ai/conftest.py` (new), `.planning/ROADMAP.md`
+**Gotchas:** `tests/ai/conftest.py` has an autouse fixture that stubs Redis intercepts — any new `handle_reply` tests for schedule paths must patch `sms.schedule.*` directly. `%-I` strftime fails on Windows; `_format_time()` uses `%I + lstrip("0")` instead.
+**Next up:** PH10-02 — Apple Developer credentials (APPLE_ID, ASC_APP_ID, team ID) → `eas build --platform ios --profile preview` → TestFlight
+
+### 2026-03-22 — Josh (earlier)
 **Done:** Developer workflow overhaul
 **Files changed:** `.claude/commands/begin.md`, `start.md`, `save.md`, `done.md`, `CLAUDE.md`, `PROGRESS.md`
 **Gotchas:** All skills now push/pull directly from `main` — no feature branches for now. `/project:begin` replaces `/project:start` for new sessions. Notion MVP Progress Log updated after every `/done`.
