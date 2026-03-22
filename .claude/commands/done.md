@@ -77,7 +77,8 @@ git push origin main
 
 ---
 
-## 7. Update Notion MVP Progress Log
+## 8. Update Notion MVP Progress Log
+⚠️ This step is mandatory. Do not skip it.
 Page ID: `32729f27-120a-8196-937f-dc119584390c`
 
 **a) Update the Feature Status table** — change the status cell for any phase that changed.
