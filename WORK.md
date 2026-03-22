@@ -8,7 +8,7 @@
 
 ## 🔒 Currently In Progress
 
-*Nothing claimed yet. Run `/project:start` to claim a task.*
+*Nothing claimed. Run `/project:begin` to start a session.*
 
 | Developer | Task | Branch | Claimed At |
 |-----------|------|--------|------------|
@@ -51,6 +51,12 @@
 ---
 
 ## 📋 Handoff Notes
+
+### 2026-03-22 — Josh
+**Done:** Developer workflow overhaul
+**Files changed:** `.claude/commands/begin.md`, `start.md`, `save.md`, `done.md`, `CLAUDE.md`, `PROGRESS.md`
+**Gotchas:** All skills now push/pull directly from `main` — no feature branches for now. `/project:begin` replaces `/project:start` for new sessions. Notion MVP Progress Log updated after every `/done`.
+**Next up:** SCH-01 — apply 8 plan fixes then execute on-demand scheduling plan
 
 ### 2026-03-21 — Josh
 **Done:** v1.0 MVP shipped (all 9 phases). Phase 10 build config files written.
