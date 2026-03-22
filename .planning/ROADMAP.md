@@ -4,6 +4,7 @@
 
 - ✅ **v1.0 MVP** — Phases 1–9 (shipped 2026-03-21)
 - 🚧 **v1.1 App Store Launch** — Phases 10–12 (in progress)
+- ⏳ **v1.2 Voice Redesign** — Phase 13 (planned, post App Store launch)
 
 ## Phases
 
@@ -70,6 +71,18 @@ Plans:
 Plans:
 - [ ] 12-01-PLAN.md — Privacy Policy + ToS + App Store listing copy + submission
 
+#### Phase 13: Conversational Voice Mode (v1.2)
+**Goal**: Replace the two-tap voice input with a fully conversational voice interface — auto-detects when the user stops speaking, responds verbally, and shows live visual feedback of actions being taken (calendar blocks filling, tasks being created).
+**Depends on**: Phase 12 (App Store launch complete)
+**Requirements**: Voice Activity Detection, Text-to-Speech output, dedicated full-screen voice canvas UI, live action animations (calendar, task list), on-demand scheduling integration
+**Success Criteria**:
+  1. User opens voice mode to a dedicated blank-canvas screen (not a home page button)
+  2. Aria detects end-of-speech automatically — no tap required to stop
+  3. Aria responds verbally within 3 seconds of detecting silence
+  4. Scheduling requests show a live calendar animation of the block being placed
+  5. Voice mode is fully functional end-to-end: "find me time to study biochem tomorrow" → verbal response + visual calendar block
+**Status**: Planned (v1.2 — post App Store launch)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -86,5 +99,6 @@ Plans:
 | 10. iOS Build Configuration | v1.1 | 0/1 | In Progress | — |
 | 11. Backend Deployment | v1.1 | 0/1 | Not started | — |
 | 12. Legal, Listing & Submission | v1.1 | 0/1 | Not started | — |
+| 13. Conversational Voice Mode | v1.2 | 0/1 | Planned | — |
 
 _Full v1.0 phase details archived in [.planning/milestones/v1.0-ROADMAP.md](.planning/milestones/v1.0-ROADMAP.md)_
