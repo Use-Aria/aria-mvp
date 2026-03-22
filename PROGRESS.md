@@ -1,11 +1,34 @@
 # Aria — Session Progress
 
-> Last updated: 2026-03-21
+> Last updated: 2026-03-22
 > Use this file at the start of every session to restore context quickly.
 
 ---
 
 ## What We Accomplished This Session
+
+### Developer Workflow Overhaul (2026-03-22)
+- Created `/project:begin` — deep-context session start with planning step, works for Josh + Seb
+- Created `/project:save` — mid-session context checkpoint
+- Rewrote `/project:start` — quick resume after context reset
+- Updated `/project:done` — PRs to `dev`, MD files push to `main`, Notion update step
+- Deleted `project_context.md` — consolidated into `PROGRESS.md`
+- Added Architecture Gotchas + Key File Locations permanently to `PROGRESS.md`
+- Created `dev` branch on GitHub — new 3-branch model: `feature → dev → main`
+- Rewrote Notion MVP Progress Log — tighter format, all 16 push entries updated
+- Rewrote Notion Git Branches page — new branching model documented
+- Updated `CLAUDE.md` git workflow section
+
+### Next Steps
+1. Run `/project:begin` at start of next session — this will create `feature/` branch off `dev`
+2. Apply 8 plan fixes then execute: `docs/superpowers/plans/2026-03-21-on-demand-scheduling.md`
+3. Phase 10 — fill Apple credentials → `eas build --platform ios --profile preview` → TestFlight
+4. Phase 11 — deploy Vercel + Railway
+5. Phase 12 — App Store submission
+
+---
+
+## Previous Session Notes
 
 ### 1. Notion Sync
 Updated the Aria Notion workspace to match the current git state:
@@ -112,12 +135,32 @@ Files the plan creates/modifies:
 |---|---|
 | Project overview | `.planning/PROJECT.md` |
 | Roadmap (all phases) | `.planning/ROADMAP.md` |
+| GSD decisions log | `.planning/STATE.md` |
 | Scheduling spec | `docs/superpowers/specs/2026-03-21-on-demand-scheduling-design.md` |
 | Scheduling plan | `docs/superpowers/plans/2026-03-21-on-demand-scheduling.md` |
-| iOS build config (Phase 10) | `app.json`, `eas.json` |
+| iOS build config (Phase 10) | `mobile/app.json`, `mobile/eas.json` |
 | SMS reply handler | `celery_worker/ai/replies.py` |
 | GCal slot finder | `celery_worker/gcal/slots.py` |
 | GCal writeback | `celery_worker/gcal/writeback.py` |
+| Scheduling logic (to be created) | `celery_worker/sms/schedule.py` |
+
+---
+
+## Architecture Gotchas
+
+> Permanent — these survive across sessions. Add new ones as you discover them.
+
+| Gotcha | Rule |
+|--------|------|
+| Course matching | `syllabi.course_name` vs `canonical_events.course_id` — always use ILIKE; casing/formatting varies |
+| Windows strftime | `%-I` fails on Windows; use `%I` + `.lstrip("0").lower()` in `_format_time()` |
+| Lazy import patching | Patch at the SOURCE module (`sms.batch.enqueue_alert`), never the importing module |
+| Token encryption boundary | Next.js callback NEVER writes tokens to Supabase directly — only `encrypt_and_store_tokens` Celery task writes |
+| GCal/Gmail watch expiry | Watch channels expire every 7 days silently — `renew-watch-channels` Beat task runs every 6h |
+| Google OAuth verification | Gmail readonly is a sensitive scope — app verification takes 1–6 weeks; start NOW |
+| PDF bytes | Never persisted — only base64 passes through Redis queue → Celery decodes → parses → discards |
+| Re-parse guard | `check_existing_syllabus()` skips Claude call entirely if `parsed_json` already exists in DB |
+| On-demand scheduling flow | Redis pending state (5-min TTL) bridges two-message confirm flow; intercept order: pending_preference → pending_schedule → study_preference → Claude |
 
 ---
 

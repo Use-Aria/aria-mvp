@@ -279,10 +279,17 @@ TODOIST_CLIENT_SECRET=
 
 ## Git Workflow
 
+```
+main  ← never push code here directly; only WORK.md coordination commits
+  └── dev  ← all feature branches merge here via PR
+        └── feature/[task-name]  ← all work happens here
+```
+
 ```bash
 # Start of every session
 git checkout main && git pull origin main
-git checkout -b feature/your-task-name
+git checkout dev && git pull origin dev
+git checkout -b feature/your-task-name   # branch FROM dev
 
 # Branch naming
 feature/canvas-ical-sync
@@ -291,13 +298,22 @@ feature/briefing-generator
 fix/oauth-token-refresh
 
 # End of every task
-git add -p                      # review each change, never git add .
+git add -p                               # review each change, never git add .
 git commit -m "feat: descriptive message"
 git push origin feature/your-task-name
-# Open PR on GitHub, other person reviews
+# Open PR: feature/x → dev. Other person reviews. Do not merge without review.
+
+# WORK.md coordination (only direct push to main allowed)
+git checkout main && git pull origin main
+git add WORK.md
+git commit -m "chore: [dev] claimed/completed [task]"
+git push origin main
+
+# Deploying to production (milestone boundaries only)
+# Open PR: dev → main. Both devs agree before merging.
 ```
 
-**Never push directly to `main`.** Never use `git add .`. Never `git push --force`.
+**Never push code directly to `main` or `dev`.** Never use `git add .`. Never `git push --force`.
 
 ---
 
