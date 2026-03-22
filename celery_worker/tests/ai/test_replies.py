@@ -478,3 +478,111 @@ def test_todoist_crud_requires_connected_integration():
 
     mock_create.assert_not_called()
     assert "connect todoist" in result.lower()
+
+
+# ---------------------------------------------------------------------------
+# Intercept order + schedule routing
+# ---------------------------------------------------------------------------
+
+def test_pending_preference_intercept_fires_before_claude():
+    """When pending_preference Redis key exists and answer is 'morning', stores preference and finds slots."""
+    from ai.replies import handle_reply
+    pending_pref = {
+        "activity_type": "workout",
+        "original_request": {"activity_type": "workout", "subject": None, "target_date_string": "tomorrow", "duration_hours": None}
+    }
+    with patch("sms.schedule.get_pending_preference", return_value=pending_pref), \
+         patch("sms.schedule.set_activity_preference") as mock_set, \
+         patch("sms.schedule.clear_pending_preference") as mock_clear, \
+         patch("sms.schedule.handle_schedule_request", return_value="Best window is 7–9am. Should I add it?") as mock_req, \
+         patch("ai.replies.get_conversation_history", return_value=[]):
+
+        result = handle_reply("user-123", "morning")
+
+    mock_set.assert_called_once_with("user-123", "workout", "morning")
+    mock_clear.assert_called_once()
+    mock_req.assert_called_once()
+    assert "should i add it" in result.lower()
+
+
+def test_pending_schedule_affirmative_routes_to_confirmation():
+    """'yes' with a pending schedule calls handle_schedule_confirmation."""
+    from ai.replies import handle_reply
+    with patch("sms.schedule.get_pending_preference", return_value=None), \
+         patch("sms.schedule.get_pending_schedule", return_value={"title": "Biochem Study", "start": "2026-03-22T20:00:00-05:00", "end": "2026-03-22T22:00:00-05:00", "activity_type": "study", "alternative_slots": []}), \
+         patch("sms.schedule.handle_schedule_confirmation", return_value="Done — Biochem Study added.") as mock_confirm, \
+         patch("ai.replies.get_conversation_history", return_value=[]):
+
+        result = handle_reply("user-123", "yes")
+
+    mock_confirm.assert_called_once_with("user-123")
+    assert "done" in result.lower()
+
+
+def test_pending_schedule_negative_routes_to_decline():
+    """'no' with a pending schedule calls handle_schedule_decline."""
+    from ai.replies import handle_reply
+    with patch("sms.schedule.get_pending_preference", return_value=None), \
+         patch("sms.schedule.get_pending_schedule", return_value={"title": "Study", "start": "x", "end": "y", "activity_type": "study", "alternative_slots": []}), \
+         patch("sms.schedule.handle_schedule_decline", return_value="Next best is 3–5pm.") as mock_decline, \
+         patch("ai.replies.get_conversation_history", return_value=[]):
+
+        result = handle_reply("user-123", "no")
+
+    mock_decline.assert_called_once_with("user-123")
+
+
+def test_pending_schedule_unmatched_reply_falls_through():
+    """An unrecognized reply while pending exists falls through to Claude intent extraction.
+    Pending key must survive (clear_pending_schedule NOT called) so confirmation still works.
+    """
+    from ai.replies import handle_reply
+    intent_json = '{"action":"query","task_hint":null,"priority_value":null,"due_string":null}'
+    with patch("sms.schedule.get_pending_preference", return_value=None), \
+         patch("sms.schedule.get_pending_schedule", return_value={"title": "Study"}), \
+         patch("sms.schedule.clear_pending_schedule") as mock_clear, \
+         patch("ai.replies.get_deadlines_for_briefing", return_value=[]), \
+         patch("ai.replies.get_conversation_history", return_value=[]), \
+         patch("ai.replies.Anthropic") as mock_anthropic, \
+         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+
+        mock_client = MagicMock()
+        mock_anthropic.return_value = mock_client
+        mock_client.messages.create.side_effect = [
+            _mock_claude_response(intent_json),
+            _mock_claude_response("You have no upcoming deadlines."),
+        ]
+        result = handle_reply("user-123", "what is the meaning of life")
+
+    # Claude was called (fell through to intent path)
+    assert mock_client.messages.create.call_count >= 1
+    # Pending key must NOT be cleared — confirmation flow must still be available
+    mock_clear.assert_not_called()
+
+
+def test_schedule_intent_routes_to_handle_schedule_request():
+    """Intent 'schedule' routes to handle_schedule_request."""
+    from ai.replies import handle_reply
+    intent_json = '{"action":"schedule","activity_type":"study","subject":"biochem","target_date_string":"tomorrow","duration_hours":null}'
+    with patch("sms.schedule.get_pending_preference", return_value=None), \
+         patch("sms.schedule.get_pending_schedule", return_value=None), \
+         patch("ai.replies._handle_study_preference_reply", return_value=None), \
+         patch("ai.replies.get_deadlines_for_briefing", return_value=[]), \
+         patch("ai.replies.get_conversation_history", return_value=[]), \
+         patch("ai.replies.Anthropic") as mock_anthropic, \
+         patch("sms.schedule.handle_schedule_request", return_value="Best window is 8–10pm. Should I add it?") as mock_req, \
+         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+
+        mock_client = MagicMock()
+        mock_anthropic.return_value = mock_client
+        mock_client.messages.create.return_value = _mock_claude_response(intent_json)
+
+        result = handle_reply("user-123", "find me time to study biochem tomorrow")
+
+    mock_req.assert_called_once_with(
+        "user-123",
+        activity_type="study",
+        subject="biochem",
+        target_date_string="tomorrow",
+        duration_hours=None,
+    )

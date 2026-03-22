@@ -29,10 +29,14 @@ logger = logging.getLogger(__name__)
 INTENT_SYSTEM_PROMPT = """You are Aria's intent classifier.
 Given a student's SMS, return ONLY valid JSON (no markdown, no explanation):
 {
-  "action": "query" | "mark_complete" | "snooze" | "set_priority" | "todoist_create" | "todoist_complete" | "todoist_update_due" | "todoist_delete" | "off_topic",
+  "action": "query" | "mark_complete" | "snooze" | "set_priority" | "todoist_create" | "todoist_complete" | "todoist_update_due" | "todoist_delete" | "schedule" | "off_topic",
   "task_hint": "<partial task name, lowercase, or null>",
   "priority_value": "high" | "normal" | null,
-  "due_string": "<natural language due date, e.g. 'Friday', 'tomorrow at 3pm', or null>"
+  "due_string": "<natural language due date, e.g. 'Friday', 'tomorrow at 3pm', or null>",
+  "activity_type": "<normalized: study | workout | meal | personal | other lowercase word, or null>",
+  "subject": "<specific topic/course/task, e.g. 'biochem exam', 'chest day', or null>",
+  "target_date_string": "<natural language date: 'tomorrow', 'Friday', 'tonight', or null>",
+  "duration_hours": <integer hours or null>
 }
 
 Rules:
@@ -44,9 +48,14 @@ Rules:
 - "todoist_complete" for completing Todoist tasks ("done with buy textbook", "finished grocery run")
 - "todoist_update_due" for rescheduling Todoist tasks ("move buy textbook to Monday", "push grocery to next week")
 - "todoist_delete" for removing Todoist tasks ("delete buy textbook", "remove grocery run from my list")
-- "off_topic" for anything not deadline-related
-- task_hint: extract the course/assignment name fragment, lowercase
+- "schedule" for scheduling/blocking time requests ("find me time to study", "schedule a workout", "block 2 hours for biochem", "when can I go to the gym tomorrow")
+- "off_topic" for anything not deadline or scheduling related
+- task_hint: extract the course/assignment name fragment, lowercase (for non-schedule actions)
 - due_string: extract date hint for create/update — use Todoist natural language format; null if not mentioned
+- activity_type normalization: study/review/homework/exam prep → "study"; workout/gym/run/lift/exercise/yoga → "workout"; lunch/dinner/breakfast/eat/meal → "meal"; anything else → pass through lowercase
+- duration_hours: extract if student specifies ("2 hours", "an hour") — null otherwise
+- subject: for schedule action, extract what specifically (course name, exam, topic); null if not mentioned
+- target_date_string: for schedule action, the date/time requested; null if not mentioned
 - If "todoist_create" but no due date mentioned, still classify as todoist_create with due_string=null"""
 
 REPLY_SYSTEM_PROMPT = """You are Aria, a smart personal assistant for college students.
@@ -289,10 +298,50 @@ def handle_reply(user_id: str, body: str) -> str:
     Returns:
         Reply text string, guaranteed <= 800 characters.
     """
-    # Intercept study preference reply before Claude processing
+    from sms.schedule import (
+        get_pending_preference, clear_pending_preference,
+        set_activity_preference, handle_schedule_request,
+        get_pending_schedule,
+        handle_schedule_confirmation, handle_schedule_decline,
+    )
+
+    # Step 1: Pending preference intercept (Flow A answer: morning/afternoon/evening)
+    pending_pref = get_pending_preference(user_id)
+    if pending_pref is not None:
+        answer = body.strip().lower().rstrip("s")  # normalize "mornings" → "morning"
+        if answer in ("morning", "afternoon", "evening"):
+            set_activity_preference(user_id, pending_pref["activity_type"], answer)
+            clear_pending_preference(user_id)
+            req = pending_pref["original_request"]
+            return handle_schedule_request(
+                user_id,
+                activity_type=req.get("activity_type", "personal"),
+                subject=req.get("subject"),
+                target_date_string=req.get("target_date_string", "today"),
+                duration_hours=req.get("duration_hours"),
+            )
+        # Unrecognized answer — re-ask
+        label = pending_pref["activity_type"].replace("_", " ")
+        return f"Just reply morning, afternoon, or evening — when do you usually like to {label}?"
+
+    # Step 2: Pending schedule intercept (confirmation / decline)
+    _AFFIRMATIVES = {"yes", "sure", "ok", "okay", "yeah", "yep", "yup", "add it", "confirm", "sounds good", "do it", "go ahead", "book it"}
+    _NEGATIVES    = {"no", "nope", "skip", "cancel", "different", "earlier", "later", "another"}
+    pending_sched = get_pending_schedule(user_id)
+    if pending_sched is not None:
+        normalized = body.strip().lower().rstrip(".")
+        if normalized in _AFFIRMATIVES:
+            return handle_schedule_confirmation(user_id)
+        if normalized in _NEGATIVES:
+            return handle_schedule_decline(user_id)
+        # Unrecognized — fall through with pending still alive
+
+    # Step 3: Existing study preference intercept (only when no Redis keys present)
     study_pref_reply = _handle_study_preference_reply(user_id, body)
     if study_pref_reply is not None:
         return study_pref_reply
+
+    # Step 4: Claude intent extraction (continues below)
 
     client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     hashed_id = hashlib.sha256(user_id.encode()).hexdigest()[:12]
@@ -335,6 +384,17 @@ def handle_reply(user_id: str, body: str) -> str:
     if action in ("todoist_create", "todoist_complete", "todoist_update_due", "todoist_delete"):
         mutation_result = _apply_todoist_mutation(
             action, task_hint or body, due_string, user_id
+        )
+
+    # Schedule action
+    if action == "schedule":
+        from sms.schedule import handle_schedule_request
+        return handle_schedule_request(
+            user_id,
+            activity_type=intent.get("activity_type") or "personal",
+            subject=intent.get("subject"),
+            target_date_string=intent.get("target_date_string") or "today",
+            duration_hours=int(intent["duration_hours"]) if intent.get("duration_hours") else None,
         )
 
     # Step 3: Handle off-topic directly (no second Claude call needed)
