@@ -13,6 +13,7 @@ type CardGridProps = {
   onHide: (id: string) => void
   onReorder: (data: Task[]) => void
   loading: boolean
+  ListHeaderComponent?: React.ReactElement
 }
 
 /** Skeleton shimmer animation for a single card placeholder */
@@ -50,7 +51,7 @@ function SkeletonCard() {
  * DraggableFlatList wrapper that renders DeadlineCards with drag-to-reorder,
  * skeleton loading state, empty state, and PlaceholderCards for unconnected integrations.
  */
-export function CardGrid({ tasks, onDone, onSnooze, onHide, onReorder, loading }: CardGridProps) {
+export function CardGrid({ tasks, onDone, onSnooze, onHide, onReorder, loading, ListHeaderComponent }: CardGridProps) {
   const { colors } = useTheme()
 
   if (loading) {
@@ -99,20 +100,7 @@ export function CardGrid({ tasks, onDone, onSnooze, onHide, onReorder, loading }
     </View>
   )
 
-  const ListFooterComponent = (
-    <View style={{ gap: 16, marginTop: tasks.length > 0 ? 16 : 0 }}>
-      <PlaceholderCard
-        title="Connect Google to see your calendar"
-        ctaText="Connect ->"
-        onPress={() => {}}
-      />
-      <PlaceholderCard
-        title="Connect Gmail to catch professor updates"
-        ctaText="Connect ->"
-        onPress={() => {}}
-      />
-    </View>
-  )
+  const ListFooterComponent = <View />
 
   return (
     <DraggableFlatList
@@ -120,6 +108,7 @@ export function CardGrid({ tasks, onDone, onSnooze, onHide, onReorder, loading }
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
       onDragEnd={({ data }) => onReorder(data)}
+      ListHeaderComponent={ListHeaderComponent}
       contentContainerStyle={{
         paddingHorizontal: 16,
         paddingTop: 16,

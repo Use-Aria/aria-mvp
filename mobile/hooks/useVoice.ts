@@ -1,8 +1,26 @@
 import { useState } from 'react'
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from 'expo-speech-recognition'
+
+// expo-speech-recognition requires a native module that is not available in Expo Go
+// or in the simulator without a dev client build. We guard the import so the app
+// doesn't crash in demo mode or when the module hasn't been compiled in.
+let ExpoSpeechRecognitionModule: {
+  stop: () => void
+  requestPermissionsAsync: () => Promise<{ granted: boolean }>
+  start: (opts: { lang: string; continuous: boolean }) => void
+} | null = null
+
+let useSpeechRecognitionEvent: (
+  event: string,
+  handler: (e: any) => void
+) => void = () => {}
+
+try {
+  const mod = require('expo-speech-recognition')
+  ExpoSpeechRecognitionModule = mod.ExpoSpeechRecognitionModule
+  useSpeechRecognitionEvent = mod.useSpeechRecognitionEvent
+} catch {
+  // Native module not available — voice input will be disabled (no-op)
+}
 
 /**
  * useVoice — two-tap voice input state machine.
@@ -26,6 +44,10 @@ export function useVoice(onResult: (text: string) => void) {
    * - If not listening: request permission, then start recognition
    */
   const toggle = async () => {
+    if (!ExpoSpeechRecognitionModule) {
+      // Native module unavailable — silently no-op
+      return
+    }
     if (isListening) {
       // Immediately stop recognition — does not wait for silence detection
       ExpoSpeechRecognitionModule.stop()
@@ -43,7 +65,7 @@ export function useVoice(onResult: (text: string) => void) {
     }
   }
 
-  useSpeechRecognitionEvent('result', (event) => {
+  useSpeechRecognitionEvent('result', (event: any) => {
     if (event.isFinal) {
       setIsListening(false)
       const transcript = event.results[0]?.transcript ?? ''

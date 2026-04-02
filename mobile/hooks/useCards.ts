@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { api } from '@/lib/api'
+import { MOCK_TASKS } from '@/lib/mockData'
 import type { Task } from '@/types'
+
+const DEMO_MODE = process.env.EXPO_PUBLIC_DEMO_MODE === 'true'
 
 const HIDDEN_CARDS_KEY = '@aria_hidden_cards'
 const CARD_ORDER_KEY = '@aria_card_order'
@@ -55,6 +58,11 @@ export function useCards(): UseCardsReturn {
   }, [])
 
   const fetchTasks = useCallback(async () => {
+    if (DEMO_MODE) {
+      setAllTasks(MOCK_TASKS)
+      setLoading(false)
+      return
+    }
     try {
       setError(null)
       const data = await api.getDeadlines()

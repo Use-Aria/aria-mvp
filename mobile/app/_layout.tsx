@@ -13,7 +13,7 @@ export default function RootLayout() {
   const segments = useSegments()
   const colorScheme = useColorScheme()
   const isDark = colorScheme === 'dark'
-  const [accentName, setAccentName] = useState<AccentColorName>('Indigo')
+  const [accentName, setAccentName] = useState<AccentColorName>('Green')
 
   useEffect(() => {
     if (loading) return

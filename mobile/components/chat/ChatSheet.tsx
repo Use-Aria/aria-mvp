@@ -12,9 +12,46 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/lib/theme'
 import { api } from '@/lib/api'
+import { MOCK_CHAT_MESSAGES } from '@/lib/mockData'
 import type { ChatMessage } from '@/types'
+
+const DEMO_MODE = process.env.EXPO_PUBLIC_DEMO_MODE === 'true'
 import { MessageBubble } from './MessageBubble'
 import { VoiceButton } from './VoiceButton'
+
+const SUGGESTIONS = [
+  "What's due this week?",
+  "Block study time for ECON",
+  "Any emails from professors?",
+  "How's my week looking?",
+]
+
+function SuggestionChips({ onSelect }: { onSelect: (text: string) => void }) {
+  const { colors, accent } = useTheme()
+  return (
+    <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 4 }}>
+      <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 8, fontWeight: '600', letterSpacing: 0.3 }}>
+        SUGGESTED
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {SUGGESTIONS.map((s) => (
+          <TouchableOpacity
+            key={s}
+            onPress={() => onSelect(s)}
+            style={{
+              paddingHorizontal: 14, paddingVertical: 8,
+              borderRadius: 18,
+              backgroundColor: `${accent}12`,
+              borderWidth: 1, borderColor: `${accent}30`,
+            }}
+          >
+            <Text style={{ fontSize: 14, color: accent, fontWeight: '500' }}>{s}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  )
+}
 
 /**
  * ChatSheet — full-screen in-app chat view.
@@ -25,7 +62,7 @@ import { VoiceButton } from './VoiceButton'
  * Supports voice input via VoiceButton — transcribed text auto-sends.
  * Chat history is independent from SMS (source: 'app').
  */
-export function ChatSheet() {
+export function ChatSheet({ onClose }: { onClose?: () => void }) {
   const { accent, colors } = useTheme()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
@@ -37,6 +74,12 @@ export function ChatSheet() {
   /** Load initial messages on mount */
   useEffect(() => {
     const loadMessages = async () => {
+      if (DEMO_MODE) {
+        setMessages(MOCK_CHAT_MESSAGES)
+        setHasMore(false)
+        setLoading(false)
+        return
+      }
       setLoading(true)
       try {
         const data = await api.getChatMessages(20)
@@ -93,6 +136,23 @@ export function ChatSheet() {
     }
     setMessages((prev) => [optimisticMsg, ...prev])
 
+    if (DEMO_MODE) {
+      // Simulate Aria reply after a short delay
+      setTimeout(() => {
+        const ariaReply: ChatMessage = {
+          id: `demo-reply-${Date.now()}`,
+          user_id: 'demo-user',
+          direction: 'in',
+          body: "Got it! I'll take care of that for you.",
+          sent_at: new Date().toISOString(),
+          source: 'app',
+        }
+        setMessages((prev) => [ariaReply, ...prev])
+        setSending(false)
+      }, 800)
+      return
+    }
+
     try {
       const sentMsg = await api.sendChatMessage(trimmed)
       // Replace the optimistic message with the real one and add Aria's reply
@@ -133,29 +193,39 @@ export function ChatSheet() {
       style={{ flex: 1, backgroundColor: colors.dominant }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      {/* Header */}
+      <View style={{
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: 16, paddingVertical: 12,
+        borderBottomWidth: 1, borderBottomColor: colors.cardBorder,
+      }}>
+        <View style={{
+          width: 32, height: 32, borderRadius: 16,
+          backgroundColor: accent, alignItems: 'center', justifyContent: 'center',
+          marginRight: 10,
+        }}>
+          <Text style={{ fontSize: 16, color: '#fff' }}>A</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary }}>Aria</Text>
+          <Text style={{ fontSize: 12, color: colors.textSecondary }}>AI assistant</Text>
+        </View>
+        <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+          <Ionicons name="close" size={24} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
       {/* Message list — inverted so newest messages appear at the bottom */}
       {messages.length === 0 ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-          <Text
-            style={{
-              fontSize: 20,
-              fontWeight: '600',
-              color: colors.textPrimary,
-              textAlign: 'center',
-            }}
-          >
-            No messages yet
-          </Text>
-          <Text
-            style={{
-              fontSize: 16,
-              color: colors.textSecondary,
-              textAlign: 'center',
-              marginTop: 8,
-            }}
-          >
-            Say hi or ask about your week.
-          </Text>
+        <View style={{ flex: 1, padding: 24, justifyContent: 'flex-end', paddingBottom: 16 }}>
+          <View style={{ alignItems: 'center', marginBottom: 32 }}>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: colors.textPrimary, marginBottom: 6 }}>
+              Hi Seb, I'm Aria
+            </Text>
+            <Text style={{ fontSize: 15, color: colors.textSecondary, textAlign: 'center' }}>
+              Ask me anything about your week, deadlines, or schedule.
+            </Text>
+          </View>
+          <SuggestionChips onSelect={(text) => sendMessage(text)} />
         </View>
       ) : (
         <FlatList
@@ -167,6 +237,9 @@ export function ChatSheet() {
           onEndReachedThreshold={0.2}
           contentContainerStyle={{ paddingVertical: 8 }}
           style={{ flex: 1 }}
+          ListFooterComponent={
+            <SuggestionChips onSelect={(text) => sendMessage(text)} />
+          }
         />
       )}
 

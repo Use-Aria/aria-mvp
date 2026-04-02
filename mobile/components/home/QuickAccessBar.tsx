@@ -1,73 +1,63 @@
 import React from 'react'
-import { View, TouchableOpacity } from 'react-native'
+import { View, Text, TouchableOpacity } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/lib/theme'
 
 type QuickAccessBarProps = {
   onPressTodo?: () => void
-  onPressCalendar?: () => void
   onPressNotifications?: () => void
 }
 
-/**
- * Zone 1 — QuickAccessBar
- * Fixed 56px bar with three icon buttons (To-Do, Calendar, Notifications).
- * Each icon has a 44x44 touch target and shows the accent color on press.
- */
-export function QuickAccessBar({
-  onPressTodo,
-  onPressCalendar,
-  onPressNotifications,
-}: QuickAccessBarProps) {
-  const { colors, accent } = useTheme()
-  const [pressedIcon, setPressedIcon] = React.useState<string | null>(null)
+const DEMO_USER = 'Seb'
 
-  const iconColor = (name: string) =>
-    pressedIcon === name ? accent : colors.textSecondary
+export function QuickAccessBar({ onPressTodo, onPressNotifications }: QuickAccessBarProps) {
+  const { colors, accent } = useTheme()
+
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+
+  const dateLabel = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  })
 
   return (
-    <View
-      style={{
-        height: 56,
-        backgroundColor: colors.secondary,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        paddingHorizontal: 16,
-      }}
-    >
-      <TouchableOpacity
-        accessibilityLabel="To-Do"
-        style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}
-        onPress={onPressTodo}
-        onPressIn={() => setPressedIcon('todo')}
-        onPressOut={() => setPressedIcon(null)}
-        activeOpacity={1}
-      >
-        <Ionicons name="checkmark-circle-outline" size={24} color={iconColor('todo')} />
-      </TouchableOpacity>
+    <View style={{
+      backgroundColor: colors.dominant,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+      paddingBottom: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.cardBorder,
+    }}>
+      {/* Left — greeting */}
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: colors.textPrimary }}>
+          {greeting}, {DEMO_USER}
+        </Text>
+        <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 1 }}>
+          {dateLabel}
+        </Text>
+      </View>
 
-      <TouchableOpacity
-        accessibilityLabel="Calendar"
-        style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}
-        onPress={onPressCalendar}
-        onPressIn={() => setPressedIcon('calendar')}
-        onPressOut={() => setPressedIcon(null)}
-        activeOpacity={1}
-      >
-        <Ionicons name="calendar-outline" size={24} color={iconColor('calendar')} />
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        accessibilityLabel="Notifications"
-        style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}
-        onPress={onPressNotifications}
-        onPressIn={() => setPressedIcon('notifications')}
-        onPressOut={() => setPressedIcon(null)}
-        activeOpacity={1}
-      >
-        <Ionicons name="notifications-outline" size={24} color={iconColor('notifications')} />
-      </TouchableOpacity>
+      {/* Right — action icons */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <TouchableOpacity
+          onPress={onPressTodo}
+          style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 20 }}
+          accessibilityLabel="Aria Personality"
+        >
+          <Ionicons name="person-circle-outline" size={26} color={colors.textSecondary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onPressNotifications}
+          style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 20 }}
+          accessibilityLabel="Notifications"
+        >
+          <Ionicons name="notifications-outline" size={24} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
     </View>
   )
 }

@@ -25,9 +25,18 @@ type DeadlineCardProps = {
  * NOTE: onDone and onSnooze are UI-only in Phase 8.
  * No backend routes exist yet for marking tasks complete or snoozing.
  */
+function priorityColor(due_date: string): string {
+  const diff = new Date(due_date).getTime() - Date.now()
+  const days = diff / (1000 * 60 * 60 * 24)
+  if (days < 1) return '#DC2626'   // red — due today
+  if (days < 3) return '#D97706'   // amber — due within 3 days
+  return '#16A34A'                  // green — 4+ days away
+}
+
 export function DeadlineCard({ task, onDone, onSnooze, onHide, isActive, drag }: DeadlineCardProps) {
   const { colors, accent } = useTheme()
   const [expanded, setExpanded] = React.useState(false)
+  const dotColor = priorityColor(task.due_date)
 
   const formattedDate = React.useMemo(() => {
     try {
@@ -96,8 +105,13 @@ export function DeadlineCard({ task, onDone, onSnooze, onHide, isActive, drag }:
           },
         ]}
       >
-        {/* Collapsed row: title + short date */}
+        {/* Collapsed row: priority dot + title + short date */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+          <View style={{
+            width: 8, height: 8, borderRadius: 4,
+            backgroundColor: dotColor,
+            marginTop: 5, marginRight: 8, flexShrink: 0,
+          }} />
           <Text
             style={{
               fontSize: 16,

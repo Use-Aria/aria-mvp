@@ -50,6 +50,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "router": {
+      "root": "app"
     }
   }
 }
