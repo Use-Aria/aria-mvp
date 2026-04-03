@@ -3,8 +3,20 @@
     "version": ">= 10.0.0"
   },
   "build": {
+    "simulator": {
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Release"
+      }
+    },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_DEMO_MODE": "true",
+        "EXPO_PUBLIC_API_URL": "http://localhost:3000",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://placeholder.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "placeholder_anon_key"
+      },
       "ios": {
         "simulator": false,
         "buildConfiguration": "Release"
@@ -19,9 +31,7 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "",
-        "ascAppId": "",
-        "appleTeamId": ""
+        "appleTeamId": "B4V6MXCJ5B"
       }
     }
   }
