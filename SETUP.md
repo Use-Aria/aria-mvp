@@ -177,7 +177,7 @@ Docs: [github.com/supermemoryai/claude-supermemory](https://github.com/supermemo
    - **Google Calendar API**
 4. Go to **Credentials → Create Credentials → OAuth 2.0 Client ID**
 5. Application type: **Web application**
-6. Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
+6. Authorized redirect URI: `http://localhost:3000/api/auth/google/callback`
 7. Download the credentials JSON — you'll need the Client ID and Secret
 
 ---
