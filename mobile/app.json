@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Aria",
-    "slug": "aria",
+    "slug": "aria-mvp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,14 +9,20 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/icon.png",
-      "bundleIdentifier": "com.aria.mobile",
+      "bundleIdentifier": "com.cr7sc3.aria",
       "buildNumber": "1",
-      "appleTeamId": "XXXXXXXXXX",
+      "appleTeamId": "B4V6MXCJ5B",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Aria uses your microphone to accept voice commands.",
         "NSSpeechRecognitionUsageDescription": "Aria transcribes your voice to send messages to your assistant.",
         "NSPhotoLibraryUsageDescription": "Aria accesses your files to upload course syllabi.",
-        "UIBackgroundModes": ["fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification",
+          "fetch",
+          "remote-notification"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -26,7 +32,10 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -50,6 +59,15 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "router": {
+      "root": "app"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9a515bf7-8cd7-4953-8177-aa9afec42b60"
+      }
     }
   }
 }
