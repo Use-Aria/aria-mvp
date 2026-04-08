@@ -60,7 +60,10 @@ GOTCHAS FOR TODAY:
 
 ## Step 4 — Identify the developer
 
-Ask: **"Josh or Seb?"**
+Ask: **"Josh, Seb, or Daniel?"**
+
+**Daniel** (CTO) owns:
+- Everything — full oversight across all areas
 
 **Josh** owns:
 - `src/lib/`, `src/app/api/`, `celery_worker/`, `supabase/`
@@ -68,13 +71,13 @@ Ask: **"Josh or Seb?"**
 **Seb** owns:
 - `mobile/`, `src/app/(pages)/`, `src/components/`
 
-**Both** (must call each other before changing):
+**Both Josh + Seb** (must call each other before changing):
 - `src/types/index.ts`, `supabase/migrations/`
 
 Then from `WORK.md` "Up Next", show the top 3 unclaimed tasks available for this developer:
 
 ```
-AVAILABLE FOR [JOSH / SEB]:
+AVAILABLE FOR [JOSH / SEB / DANIEL]:
   1. [task-id] — [task name] — [one line: what it involves]
   2. [task-id] — [task name] — [one line: what it involves]
   3. [task-id] — [task name] — [one line: what it involves]
