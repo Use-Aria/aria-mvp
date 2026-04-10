@@ -149,3 +149,10 @@ celerybeat.pid
 
 .DS_Store
 **/.DS_Store
+
+# Claude Code — GSD runtime files (generated, not project config)
+.claude/commands/gsd/
+.claude/agents/
+.claude/get-shit-done/
+.claude/gsd-file-manifest.json
+.claude/VERSION
