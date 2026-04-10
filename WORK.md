@@ -8,11 +8,9 @@
 
 ## 🔒 Currently In Progress
 
-*Nothing claimed. Run `/project:begin` to start a session.*
-
 | Developer | Task | Branch | Claimed At |
 |-----------|------|--------|------------|
-| — | — | — | — |
+| Daniel | Onboarding redesign — plan written, awaiting Ultraplan refinement + approval | `onboarding` | 2026-04-10 |
 
 ---
 
@@ -47,6 +45,11 @@
 ---
 
 ## 📋 Handoff Notes
+
+### 2026-04-10 — Daniel
+**Done:** Wrote `supabase/migrations/008_onboarding_completion.sql` (adds `phone_verified`, `onboarding_completed_at` to `users`). Removed ultraplan dependency from PROGRESS.md.
+**Blocked:** Could not run `npx supabase db push` — Supabase CLI needs `SUPABASE_ACCESS_TOKEN` in non-TTY environments. Get token from supabase.com/dashboard/account/tokens, then: `export SUPABASE_ACCESS_TOKEN=<token> && npx supabase link --project-ref jjnedeyfpgogaizsucxp && npx supabase db push`
+**Next up:** Push migration → Backend APIs (`src/app/api/onboarding/profile/route.ts`, `src/app/api/auth/phone/send/route.ts`, `src/app/api/auth/phone/verify/route.ts`, `src/app/api/onboarding/complete/route.ts`)
 
 ### 2026-03-22 — Josh
 **Done:** SCH-01 — On-demand scheduling shipped

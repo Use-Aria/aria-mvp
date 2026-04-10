@@ -1,29 +1,41 @@
 # Aria — Session Progress
 
-> Last updated: 2026-03-22
+> Last updated: 2026-04-10
 > Use this file at the start of every session to restore context quickly.
 
 ---
 
 ## What We Accomplished This Session
 
-### On-Demand Scheduling — Shipped (2026-03-22)
-Applied all 8 plan fixes and executed the full implementation:
-- `celery_worker/sms/schedule.py` — new module: date parsing, per-activity preference CRUD, preference learning (silent, from confirmed bookings), Redis pending state, schedule request/confirmation/decline orchestration
-- `celery_worker/ai/replies.py` — updated `INTENT_SYSTEM_PROMPT` with `schedule` action + 4 new fields; replaced single intercept with full 4-step intercept order
-- `celery_worker/tests/sms/test_schedule.py` — 29 new tests (all passing)
-- `celery_worker/tests/ai/test_replies.py` — 5 new intercept/routing tests
-- `celery_worker/tests/ai/conftest.py` — autouse fixture so existing tests don't need Redis
-- `celery_worker/requirements.txt` — added `dateparser>=1.2.0`
-- `.planning/ROADMAP.md` — Phase 13 (Conversational Voice Mode, v1.2) added
+### Onboarding Redesign — Session 2 (2026-04-10)
+- Disconnected ultraplan dependency — planning is now self-contained in PROGRESS.md
+- Created `supabase/migrations/008_onboarding_completion.sql` — adds `phone_verified BOOLEAN NOT NULL DEFAULT FALSE` and `onboarding_completed_at TIMESTAMPTZ` to `users` table
+- **Blocked:** Could not run `npx supabase db push` — Supabase CLI requires a `SUPABASE_ACCESS_TOKEN` (non-TTY environment, browser login not available). Must run `npx supabase login --token <token>` or set `SUPABASE_ACCESS_TOKEN` env var before next session. Get token from: https://supabase.com/dashboard/account/tokens
 
-**Total test count: 306 (all passing)**
+### Onboarding Redesign — Plan Written (2026-04-10)
+Full redesign of the onboarding flow planned (no code written yet).
+- New flow: `welcome → auth → profile → verify-phone → tcpa → tools → success → home`
+- Auth moved from phone OTP to Apple Sign-In or Google OAuth
+- Phone OTP retained for phone number verification (Twilio Verify, not Twilio Messaging)
+- Gmail + Google Calendar promoted to required integrations (Canvas demoted to optional)
+- Canvas validation, syllabus PDF upload, and Google Classroom ("coming soon") all in unified tools screen
+- Welcome SMS decoupled from Canvas sync — triggered via new `POST /api/onboarding/complete`
+- Preferences screen will expose connect/disconnect for all tools post-onboarding
+- 7 new backend files, 5 new mobile screens, 5 deleted mobile screens identified
 
 ---
 
 ## Current State
 
-### v1.1 App Store Launch (active milestone)
+### Onboarding Redesign (active — plan approved, not yet executed)
+
+| Item | Status |
+|---|---|
+| Plan written | ✅ Done |
+| Backend implementation | ⏳ Not started |
+| Mobile implementation | ⏳ Not started |
+
+### v1.1 App Store Launch (blocked on onboarding)
 
 | Phase | Status |
 |---|---|
@@ -31,23 +43,15 @@ Applied all 8 plan fixes and executed the full implementation:
 | Phase 11: Backend Deployment | ⏳ Not started |
 | Phase 12: Legal, Listing & Submission | ⏳ Not started |
 
-### Phase 4 Enhancement (on-demand scheduling)
-
-| Item | Status |
-|---|---|
-| Design spec | ✅ Done (`docs/superpowers/specs/`) |
-| Implementation plan | ✅ Done (`docs/superpowers/plans/`) |
-| Plan fixes (8 items) | ✅ Applied |
-| Implementation | ✅ Shipped — 306 tests passing |
-
 ---
 
 ## Next Steps (in priority order)
 
-1. **Phase 10** — Fill Apple Developer credentials (`APPLE_ID`, `ASC_APP_ID`, team ID in `.env.local`), run `eas build --platform ios --profile preview`, verify TestFlight install
-2. **Phase 11** — Deploy Next.js to Vercel, Celery workers to Railway, configure all production env vars
-3. **Phase 12** — Privacy Policy, Terms of Service, App Store Connect listing, screenshots, submit
-4. **Phase 13** (post launch) — Conversational voice mode redesign (spec + plan needed)
+1. **Onboarding — A7 (DB migration)** — migration file already written at `supabase/migrations/008_onboarding_completion.sql`. **Must get Supabase access token first:** set `SUPABASE_ACCESS_TOKEN` env var (get from supabase.com/dashboard/account/tokens), then run `npx supabase link --project-ref jjnedeyfpgogaizsucxp && npx supabase db push`
+2. **Onboarding — Backend APIs (parallel)** — implement `src/app/api/onboarding/profile/route.ts`, `src/app/api/auth/phone/send/route.ts`, `src/app/api/auth/phone/verify/route.ts`, `src/app/api/onboarding/complete/route.ts`; fix stub at `src/app/api/sync/canvas/route.ts` to return `{ deadline_count, sample_courses }`; add `TWILIO_VERIFY_SERVICE_SID` env var
+3. **Onboarding — Mobile screens (after API contracts locked)** — create `auth.tsx`, `profile.tsx`, `verify-phone.tsx`, `tools.tsx`, `success.tsx`; update `_layout.tsx` and `mobile/lib/api.ts`; add `expo-apple-authentication` (`npx expo install expo-apple-authentication`)
+4. **Onboarding — Delete old screens** — remove `phone.tsx`, `verify.tsx`, `canvas.tsx`, `google.tsx`, `preview.tsx`
+5. **Phase 10** — Apple Developer credentials → TestFlight build
 
 ---
 
@@ -55,6 +59,7 @@ Applied all 8 plan fixes and executed the full implementation:
 
 | What | Where |
 |---|---|
+| **Onboarding redesign spec** | **`docs/onboarding-redesign-spec.md`** |
 | Project overview | `.planning/PROJECT.md` |
 | Roadmap (all phases) | `.planning/ROADMAP.md` |
 | GSD decisions log | `.planning/STATE.md` |
@@ -84,6 +89,10 @@ Applied all 8 plan fixes and executed the full implementation:
 | Re-parse guard | `check_existing_syllabus()` skips Claude call entirely if `parsed_json` already exists in DB |
 | On-demand scheduling flow | Redis pending state (5-min TTL) bridges two-message confirm flow; intercept order: pending_preference → pending_schedule → study_preference → Claude |
 | conftest autouse | `tests/ai/conftest.py` stubs out both Redis intercepts for all ai tests — new schedule tests must patch `sms.schedule.*` directly to override |
+| Twilio two-service split | `TWILIO_PHONE_NUMBER` + `TWILIO_ACCOUNT_SID/AUTH_TOKEN` = messaging; `TWILIO_VERIFY_SERVICE_SID` = OTP verify — separate service, must be created in Twilio Console |
+| Apple Sign-In requires NSFaceIDUsageDescription | `mobile/app.json` must include `NSFaceIDUsageDescription` for Apple Sign-In to pass App Store review |
+| Apple auth → Google tools required | If user signs in with Apple (not Google), Gmail+GCal scopes are NOT granted at auth time — tools screen must show a "Connect Google" prompt before allowing Continue |
+| Welcome SMS decoupled from Canvas | `tasks.welcome_briefing` is no longer triggered by first Canvas sync — it fires via `POST /api/onboarding/complete`. Don't re-couple these. |
 
 ---
 
