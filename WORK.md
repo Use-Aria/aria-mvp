@@ -25,7 +25,7 @@
 - [x] **OB-C1** — Fill `mobile/.env`: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` + `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` ✅ Done 2026-04-11
 - ~~**OB-C2**~~ — ~~Apple Sign-In Supabase config~~ **CANCELLED** — Apple auth removed from flow
 - [ ] **OB-P0** ⚠️ MANUAL FIRST — Enable Supabase phone auth provider + configure Twilio in dashboard (plan Task 0) → **Daniel**
-- [ ] **OB-P1** — Execute pivot plan Tasks 1–9: delete old phone routes, rewrite auth/verify-phone/profile/tools, update _layout, remove expo-apple-authentication → **Daniel**
+- [x] **OB-P1** (Tasks 1–5 DONE, Tasks 6–10 REMAINING) — Tasks 1–5 committed to `onboarding` branch. Tasks 6–10 are next. → **Daniel**
 - [ ] **OB-C3** — Integration test phone OTP path on simulator: enter phone → OTP → profile → TCPA → connect Google → complete → welcome SMS → **Daniel**
 - [ ] **OB-C4** — Code review backend + mobile screens, fix findings → **Daniel**
 - [ ] **OB-C5** — Merge `onboarding` → `main` → **Daniel**
@@ -60,6 +60,12 @@
 ---
 
 ## 📋 Handoff Notes
+
+### 2026-04-11 — Daniel (Phase C partial)
+**Done:** OB-P1 Tasks 1–5 of pivot plan executed and committed to `onboarding` branch.
+**Files changed:** Deleted `src/app/api/auth/phone/send+verify/route.ts`. Updated `src/app/api/onboarding/profile/route.ts` (phone from session). Updated `mobile/lib/api.ts` (removed OTP methods, exported API_BASE). Rewrote `mobile/app/(onboarding)/auth.tsx` (phone + signInWithOtp). Updated `mobile/app/(onboarding)/verify-phone.tsx` (verifyOtp, navigate to profile). Updated `mobile/components/onboarding/PinInput.tsx` (testID + onComplete forwarding). Created `mobile/jest.globals.js` + `mobile/__mocks__/empty.js` (Expo winter runtime Jest fix).
+**Gotchas:** PhoneInput test input must use RAW DIGITS (e.g. `'5551234567'`), not formatted string. TouchableOpacity `disabled` becomes `accessibilityState.disabled` in test renderer — use `getByTestId('btn').props.accessibilityState?.disabled`. PinInput fires `fireEvent(el, 'complete', code)` via `testID="pin-input"` + forwarded `onComplete` prop.
+**Next up:** Tasks 6–10 of `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`. Tests for Task 6 (profile screen) are already written in `__tests__/onboarding.test.tsx` and failing — run test first, then implement. See PROGRESS.md for full task list.
 
 ### 2026-04-10 — Daniel (session 2)
 **Done:** Phases A + B of onboarding redesign fully implemented and committed to `onboarding` branch.
