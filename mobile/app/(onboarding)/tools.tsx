@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   View,
   Text,
@@ -8,18 +8,14 @@ import {
   ScrollView,
 } from 'react-native'
 import { useRouter } from 'expo-router'
-import * as Crypto from 'expo-crypto'
 import * as DocumentPicker from 'expo-document-picker'
-import * as Google from 'expo-auth-session/providers/google'
 import * as WebBrowser from 'expo-web-browser'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/lib/supabase'
-import { api } from '@/lib/api'
+import { api, API_BASE } from '@/lib/api'
 import { useTheme } from '@/lib/theme'
 import ProgressBar from '@/components/onboarding/ProgressBar'
 import CanvasUrlInput from '@/components/onboarding/CanvasUrlInput'
-
-WebBrowser.maybeCompleteAuthSession()
 
 type CanvasStatus = 'idle' | 'validating' | 'valid' | 'error'
 
@@ -27,23 +23,22 @@ type CanvasStatus = 'idle' | 'validating' | 'valid' | 'error'
  * Onboarding Step 6 — Integration hub.
  *
  * Required section: Gmail + Google Calendar.
- *   - If user signed in with Google (provider === 'google'): show "Connected ✓" — no action needed.
- *   - If user signed in with Apple: show "Connect Google" button. Re-triggers Google OAuth
- *     with calendar + gmail.readonly scopes. Continue is disabled until connected.
+ *   All users arrive here via phone auth (no Google session).
+ *   "Connect Google" opens the existing /api/auth/google web OAuth flow in a browser.
+ *   After the browser closes, we poll the integrations table to confirm Google tokens
+ *   were stored by the backend Celery task. Continue is disabled until connected.
  *
  * Optional section:
- *   - Canvas iCal URL: validate via POST /api/sync/canvas (reuses CanvasUrlInput component).
- *   - Syllabus PDF: file picker per course via expo-document-picker → POST /api/upload/syllabus.
+ *   - Canvas iCal URL: validate via POST /api/sync/canvas.
+ *   - Syllabus PDF: file picker → POST /api/upload/syllabus.
  *   - Google Classroom: "Coming soon" badge.
- *
- * User can skip all optional items and tap Continue once Google is connected.
  */
 export default function Tools() {
   const router = useRouter()
   const { accent, colors } = useTheme()
 
   const [googleConnected, setGoogleConnected] = useState(false)
-  const [checkingProvider, setCheckingProvider] = useState(true)
+  const [checkingGoogle, setCheckingGoogle] = useState(true)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [googleError, setGoogleError] = useState<string | null>(null)
 
@@ -55,67 +50,68 @@ export default function Tools() {
   const [syllabusFileName, setSyllabusFileName] = useState<string | null>(null)
   const [syllabusError, setSyllabusError] = useState<string | null>(null)
 
-  const [rawNonce, setRawNonce] = useState('')
-  const [hashedNonce, setHashedNonce] = useState('')
-
-  // Generate nonce pair for Google OAuth (only needed for Apple-auth users)
-  useEffect(() => {
-    const generate = async () => {
-      const nonce = Crypto.randomUUID()
-      setRawNonce(nonce)
-      const hashed = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        nonce,
-      )
-      setHashedNonce(hashed)
-    }
-    generate()
+  /**
+   * Check integrations table for a google row for this user.
+   * Returns true if found.
+   */
+  const checkGoogleIntegration = useCallback(async (): Promise<boolean> => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user?.id) return false
+    const { data } = await supabase
+      .from('integrations')
+      .select('platform')
+      .eq('user_id', session.user.id)
+      .eq('platform', 'google')
+      .maybeSingle()
+    return !!data
   }, [])
 
-  // Detect auth provider from session
+  // Check on mount whether Google was already connected in a prior session
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const provider = session?.user?.app_metadata?.provider as string | undefined
-      setGoogleConnected(provider === 'google')
-      setCheckingProvider(false)
+    checkGoogleIntegration().then((connected) => {
+      setGoogleConnected(connected)
+      setCheckingGoogle(false)
     })
-  }, [])
+  }, [checkGoogleIntegration])
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    scopes: [
-      'https://www.googleapis.com/auth/calendar',
-      'https://www.googleapis.com/auth/gmail.readonly',
-    ],
-    extraParams: hashedNonce ? { nonce: hashedNonce } : undefined,
-  })
-
-  // Handle Google OAuth response (for Apple-auth users connecting Google)
-  useEffect(() => {
-    if (response?.type === 'success') {
-      setGoogleLoading(true)
-      const { id_token } = response.params
-      supabase.auth
-        .signInWithIdToken({
-          provider: 'google',
-          token: id_token,
-          nonce: rawNonce,
-        })
-        .then(({ error: authError }) => {
-          setGoogleLoading(false)
-          if (authError) {
-            setGoogleError("Couldn't connect Google. Please try again.")
-          } else {
-            setGoogleConnected(true)
-            setGoogleError(null)
-          }
-        })
-    } else if (response?.type === 'error') {
-      setGoogleError("Couldn't connect Google. Please try again.")
+  /**
+   * Poll integrations table for up to 12 seconds (8 × 1.5s) after browser closes.
+   * The Celery task encrypts and stores tokens asynchronously — we wait for it.
+   */
+  const pollForGoogleConnection = async (): Promise<boolean> => {
+    for (let i = 0; i < 8; i++) {
+      await new Promise((r) => setTimeout(r, 1500))
+      const connected = await checkGoogleIntegration()
+      if (connected) return true
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [response])
+    return false
+  }
+
+  const handleConnectGoogle = async () => {
+    if (googleLoading) return
+    setGoogleError(null)
+    setGoogleLoading(true)
+
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+    if (!userId) {
+      setGoogleError('Session expired. Please restart onboarding.')
+      setGoogleLoading(false)
+      return
+    }
+
+    // Open the existing web-based Google OAuth flow in a browser.
+    // The backend route handles CSRF, code exchange, and Fernet-encrypted token storage.
+    await WebBrowser.openBrowserAsync(`${API_BASE}/api/auth/google?user_id=${userId}`)
+
+    // Browser closed — poll for the Celery task to write tokens to integrations table
+    const connected = await pollForGoogleConnection()
+    setGoogleConnected(connected)
+    if (!connected) {
+      setGoogleError("Couldn't confirm Google connection. Please try again.")
+    }
+    setGoogleLoading(false)
+  }
 
   const handleCanvasValidate = async () => {
     setCanvasError(undefined)
@@ -168,8 +164,6 @@ export default function Tools() {
     }
   }
 
-  const isGoogleReady = !!request && !!hashedNonce
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.dominant }}>
       <ProgressBar currentStep={6} />
@@ -210,7 +204,7 @@ export default function Tools() {
             </View>
           </View>
 
-          {checkingProvider ? (
+          {checkingGoogle ? (
             <ActivityIndicator color={accent} />
           ) : googleConnected ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -223,15 +217,15 @@ export default function Tools() {
                 <Text style={{ color: '#FF3B30', fontSize: 14, marginBottom: 10 }}>{googleError}</Text>
               ) : null}
               <TouchableOpacity
-                onPress={() => { setGoogleError(null); promptAsync() }}
-                disabled={!isGoogleReady || googleLoading}
+                onPress={handleConnectGoogle}
+                disabled={googleLoading}
                 style={{
                   backgroundColor: accent,
                   borderRadius: 10,
                   height: 44,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  opacity: !isGoogleReady || googleLoading ? 0.6 : 1,
+                  opacity: googleLoading ? 0.6 : 1,
                 }}
               >
                 {googleLoading ? (

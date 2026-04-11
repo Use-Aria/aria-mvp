@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import {
-  View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   SafeAreaView,
   ScrollView,
@@ -15,14 +14,13 @@ import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api'
 import { useTheme } from '@/lib/theme'
 import ProgressBar from '@/components/onboarding/ProgressBar'
-import PhoneInput from '@/components/onboarding/PhoneInput'
 
 /**
- * Onboarding Step 3 — Profile collection.
+ * Onboarding Step 4 — Profile collection.
  *
- * Collects name (pre-filled from OAuth metadata), phone number, university,
- * and graduation year. Submits to POST /api/onboarding/profile, then navigates
- * to verify-phone with the phone number as a route param.
+ * Collects name (pre-filled from Supabase session metadata), university,
+ * and graduation year. Phone is already captured and verified via OTP.
+ * Submits to POST /api/onboarding/profile, then navigates to tcpa.
  *
  * Graduation year is a numeric text input (keyboard: number-pad). Valid range: 2024–2035.
  */
@@ -31,28 +29,25 @@ export default function Profile() {
   const { accent, colors } = useTheme()
 
   const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
   const [university, setUniversity] = useState('')
   const [gradYear, setGradYear] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Pre-fill name from OAuth session metadata
+  // Pre-fill name from session metadata
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
       const fullName = session?.user?.user_metadata?.full_name as string | undefined
       if (fullName) setName(fullName)
-    })
+    })()
   }, [])
 
-  const phoneDigits = phone.replace(/\D/g, '').length
-  const isPhoneValid = phoneDigits >= 10
   const gradYearNum = parseInt(gradYear, 10)
   const isGradYearValid = !isNaN(gradYearNum) && gradYearNum >= 2024 && gradYearNum <= 2035
 
   const isFormValid =
     name.trim().length > 0 &&
-    isPhoneValid &&
     university.trim().length > 0 &&
     isGradYearValid
 
@@ -64,11 +59,10 @@ export default function Profile() {
     try {
       await api.saveProfile({
         name: name.trim(),
-        phone: phone.trim(),
         university: university.trim(),
         graduation_year: gradYearNum,
       })
-      router.push({ pathname: '/(onboarding)/verify-phone', params: { phone: phone.trim() } })
+      router.push('/(onboarding)/tcpa')
     } catch {
       setError("Couldn't save your profile. Please try again.")
     } finally {
@@ -97,7 +91,7 @@ export default function Profile() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.dominant }}>
-      <ProgressBar currentStep={3} />
+      <ProgressBar currentStep={4} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -129,14 +123,6 @@ export default function Profile() {
             autoComplete="name"
             returnKeyType="next"
             style={inputStyle}
-          />
-
-          {/* Phone */}
-          <Text style={labelStyle}>Phone number</Text>
-          <PhoneInput
-            value={phone}
-            onChangeText={setPhone}
-            isValid={isPhoneValid}
           />
 
           {/* University */}
@@ -172,7 +158,7 @@ export default function Profile() {
             </Text>
           ) : null}
 
-          <TouchableOpacity
+          <Pressable
             onPress={handleContinue}
             disabled={!isFormValid || isLoading}
             style={{
@@ -188,11 +174,14 @@ export default function Profile() {
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
-                Send verification code
+              <Text
+                disabled={!isFormValid || isLoading}
+                style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}
+              >
+                Continue
               </Text>
             )}
-          </TouchableOpacity>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

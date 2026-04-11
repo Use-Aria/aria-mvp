@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import {
-  View,
   Text,
   TouchableOpacity,
   ActivityIndicator,
@@ -74,10 +73,10 @@ export default function Auth() {
             ARIA · AI PERSONAL ASSISTANT
           </Text>
           <Text style={{ fontSize: 34, fontWeight: '800', color: colors.textPrimary, lineHeight: 40, marginBottom: 12 }}>
-            What's your number?
+            {"What's your number?"}
           </Text>
           <Text style={{ fontSize: 16, color: colors.textSecondary, lineHeight: 24, marginBottom: 40 }}>
-            We'll text you a code to verify your number. No app download required.
+            {"We'll text you a code to verify your number. No app download required."}
           </Text>
 
           <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 6 }}>

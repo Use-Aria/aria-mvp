@@ -19,7 +19,6 @@
     "@react-navigation/native": "^7.1.33",
     "@supabase/supabase-js": "^2.99.3",
     "expo": "~55.0.8",
-    "expo-apple-authentication": "~55.0.13",
     "expo-auth-session": "~55.0.9",
     "expo-constants": "~55.0.9",
     "expo-crypto": "~55.0.10",

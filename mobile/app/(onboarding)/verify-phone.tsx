@@ -57,7 +57,6 @@ export default function VerifyPhone() {
     return () => {
       if (cooldownRef.current) clearInterval(cooldownRef.current)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleComplete = async (code: string) => {
