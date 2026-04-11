@@ -1,26 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { View, Text, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native'
 import { useRouter, useLocalSearchParams } from 'expo-router'
+import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/lib/theme'
-import { api } from '@/lib/api'
 import ProgressBar from '@/components/onboarding/ProgressBar'
 import PinInput from '@/components/onboarding/PinInput'
 
 const RESEND_COOLDOWN_SECONDS = 30
 
 /**
- * Onboarding Step 4 — Phone OTP verification.
+ * Onboarding Step 3 — Phone OTP verification.
  *
- * On mount: calls POST /api/auth/phone/send with the phone param from profile screen.
- * Auto-submits on 6th digit via PinInput.onComplete.
- * Navigates to tcpa on success.
+ * OTP was already sent by auth.tsx via supabase.auth.signInWithOtp.
+ * This screen calls supabase.auth.verifyOtp to verify the code and
+ * create the Supabase session.
+ *
+ * On success: navigate to profile (step 4).
  *
  * Error handling:
- *   API 410 → code expired — prompt resend
- *   API 422 → wrong code — try again
+ *   Supabase "Token has expired" → prompt resend
+ *   Supabase "invalid" → wrong code, try again
  *
- * Resend button appears after 30s cooldown (same timer starts on mount since
- * send is called immediately).
+ * Resend: calls supabase.auth.signInWithOtp again (same phone).
+ * Cooldown starts on mount since OTP was already sent by auth screen.
  */
 export default function VerifyPhone() {
   const router = useRouter()
@@ -29,8 +31,6 @@ export default function VerifyPhone() {
 
   const [pinError, setPinError] = useState<string | undefined>(undefined)
   const [isVerifying, setIsVerifying] = useState(false)
-  const [isSending, setIsSending] = useState(true) // true while initial send is in flight
-  const [sendError, setSendError] = useState<string | null>(null)
   const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN_SECONDS)
   const [canResend, setCanResend] = useState(false)
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -51,61 +51,55 @@ export default function VerifyPhone() {
     }, 1000)
   }
 
-  // Send OTP on mount
+  // OTP was already sent by auth.tsx — just start the cooldown timer on mount
   useEffect(() => {
-    const sendOtp = async () => {
-      try {
-        await api.sendPhoneOtp(phone ?? '')
-        startCooldown()
-      } catch {
-        setSendError("Couldn't send the code. Check your number and go back to try again.")
-      } finally {
-        setIsSending(false)
-      }
-    }
-    sendOtp()
+    startCooldown()
     return () => {
       if (cooldownRef.current) clearInterval(cooldownRef.current)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleComplete = async (code: string) => {
     if (isVerifying) return
     setPinError(undefined)
     setIsVerifying(true)
-    try {
-      await api.verifyPhoneOtp(phone ?? '', code)
-      router.push('/(onboarding)/tcpa')
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : ''
-      if (message.includes('410')) {
+
+    const { error } = await supabase.auth.verifyOtp({
+      phone: phone ?? '',
+      token: code,
+      type: 'sms',
+    })
+
+    setIsVerifying(false)
+
+    if (error) {
+      const msg = error.message.toLowerCase()
+      if (msg.includes('expired')) {
         setPinError("Code expired. Tap 'Resend' to get a new one.")
-      } else if (message.includes('422')) {
-        setPinError("That code didn't match. Try again.")
       } else {
-        setPinError("Something went wrong. Please try again.")
+        setPinError("That code didn't match. Try again.")
       }
-    } finally {
-      setIsVerifying(false)
+      return
     }
+
+    router.push('/(onboarding)/profile')
   }
 
   const handleResend = async () => {
     if (!canResend || isVerifying) return
     setPinError(undefined)
-    setSendError(null)
-    try {
-      await api.sendPhoneOtp(phone ?? '')
-      startCooldown()
-    } catch {
-      setPinError("Couldn't send the code. Please try again.")
+    const { error } = await supabase.auth.signInWithOtp({ phone: phone ?? '' })
+    if (error) {
+      setPinError("Couldn't resend the code. Please try again.")
+      return
     }
+    startCooldown()
   }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.dominant }}>
-      <ProgressBar currentStep={4} />
+      <ProgressBar currentStep={3} />
 
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
         <Text style={{ fontSize: 28, fontWeight: '600', color: colors.textPrimary, marginBottom: 8 }}>
@@ -115,30 +109,26 @@ export default function VerifyPhone() {
           Sent to {phone}
         </Text>
 
-        {isSending ? (
-          <ActivityIndicator color={accent} style={{ marginTop: 16 }} />
-        ) : sendError ? (
-          <Text style={{ color: '#FF3B30', fontSize: 15, lineHeight: 22 }}>{sendError}</Text>
-        ) : (
-          <>
-            <PinInput onComplete={handleComplete} error={pinError} />
+        <PinInput testID="pin-input" onComplete={handleComplete} error={pinError} />
 
-            <TouchableOpacity
-              onPress={handleResend}
-              disabled={!canResend || isVerifying}
-              style={{ marginTop: 24, alignItems: 'center' }}
+        {isVerifying ? (
+          <ActivityIndicator color={accent} style={{ marginTop: 24 }} />
+        ) : (
+          <TouchableOpacity
+            onPress={handleResend}
+            disabled={!canResend || isVerifying}
+            style={{ marginTop: 24, alignItems: 'center' }}
+          >
+            <Text
+              style={{
+                fontSize: 16,
+                color: canResend && !isVerifying ? accent : colors.textSecondary,
+                fontWeight: canResend && !isVerifying ? '600' : '400',
+              }}
             >
-              <Text
-                style={{
-                  fontSize: 16,
-                  color: canResend && !isVerifying ? accent : colors.textSecondary,
-                  fontWeight: canResend && !isVerifying ? '600' : '400',
-                }}
-              >
-                {canResend ? 'Resend code' : `Resend in ${resendCooldown}s`}
-              </Text>
-            </TouchableOpacity>
-          </>
+              {canResend ? 'Resend code' : `Resend in ${resendCooldown}s`}
+            </Text>
+          </TouchableOpacity>
         )}
       </View>
     </SafeAreaView>
