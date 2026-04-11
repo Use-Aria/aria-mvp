@@ -1,17 +1,17 @@
 # Aria — Session Progress
 
-> Last updated: 2026-04-11
+> Last updated: 2026-04-11 (session 2)
 > Use this file at the start of every session to restore context quickly.
 
 ---
 
 ## What We Accomplished This Session
 
-### Onboarding Phase C — Auth Pivot (partial, 2026-04-11)
+### Onboarding Phase C — Auth Pivot (COMPLETE, 2026-04-11 session 2)
 
 Executing `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`.
 
-Tasks completed (5 of 9 code tasks):
+**All 10 code tasks done. Plan fully executed.**
 
 | Task | What shipped | Commit |
 |------|-------------|--------|
@@ -20,24 +20,48 @@ Tasks completed (5 of 9 code tasks):
 | Task 3 | `mobile/lib/api.ts` — removed `sendPhoneOtp`/`verifyPhoneOtp`, updated `saveProfile` signature, exported `API_BASE` | `091b881` |
 | Task 4 | `mobile/app/(onboarding)/auth.tsx` — full rewrite: phone entry + `supabase.auth.signInWithOtp`. Also wrote tests + fixed Expo winter runtime Jest blocker (`jest.globals.js` + `__mocks__/empty.js`) | `c9202e3` |
 | Task 5 | `mobile/app/(onboarding)/verify-phone.tsx` — now uses `supabase.auth.verifyOtp`, no mount API call, navigates to `profile`. `PinInput` updated with `testID` + `onComplete` forwarding for tests | `3ae59b4` |
+| Tasks 6–10 | `profile.tsx` (phone removed, navigate to tcpa, ProgressBar step 4, Pressable + Text.disabled), `tools.tsx` (WebBrowser + integrations poll), `_layout.tsx` (reorder), `expo-apple-authentication` uninstalled, 11/11 tests pass, lint clean | `7d3d8a5` |
 
 ---
 
-## Remaining Phase C Tasks (Tasks 6–10)
+## Current Status
 
-All on branch `onboarding`. Plan: `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`
+**OB-P1 (all 10 code tasks) = DONE.** Branch: `onboarding`. Committed + pushed.
 
-| Task | File | What to do |
-|------|------|------------|
-| **Task 6** | `mobile/app/(onboarding)/profile.tsx` | Remove phone field + PhoneInput import. Tests already written in `__tests__/onboarding.test.tsx`. Run failing test first, then update screen. Navigate to `tcpa`. ProgressBar step → 4. |
-| **Task 7** | `mobile/app/(onboarding)/tools.tsx` | Replace `expo-auth-session` nonce logic with `WebBrowser.openBrowserAsync` + integrations table poll. Check for `expo-crypto` imports to remove. |
-| **Task 8** | `mobile/app/(onboarding)/_layout.tsx` | Reorder Stack: auth → verify-phone → profile (verify-phone BEFORE profile). |
-| **Task 9** | `mobile/package.json` | `npm uninstall expo-apple-authentication` (auth.tsx no longer imports it). |
-| **Task 10** | — | Full test suite (`npx jest __tests__/onboarding.test.tsx --verbose`) + `npm run lint` + confirm no `auth/phone/send\|verify` references in src/ or mobile/. |
+**Blocked on OB-P0 (manual):** Supabase phone auth provider must be enabled before simulator testing. See exact steps below.
 
 ---
 
-## Critical Jest Fix Applied This Session
+## OB-P0 — Supabase Phone Auth Setup (Manual — Daniel)
+
+**Location:** supabase.com → your project → Authentication → Providers → Phone
+
+1. Toggle "Enable Phone provider" ON
+2. Select **Twilio** as SMS provider
+3. Fill in:
+   - **Account SID** → `TWILIO_ACCOUNT_SID` from `.env.local`
+   - **Auth Token** → `TWILIO_AUTH_TOKEN` from `.env.local`
+   - **Messaging Service SID** → a Twilio `MG...` SID (NOT `TWILIO_PHONE_NUMBER`, NOT `TWILIO_VERIFY_SERVICE_SID` which is `VA...`)
+     - To create: Twilio Console → Messaging → Services → Create Messaging Service → add your phone number as sender → copy the `MG...` SID
+   - **Twilio Content SID** → leave blank (WhatsApp only)
+   - **Test Phone Numbers and OTPs** → add your own number + code `123456` for simulator testing (no real SMS needed)
+4. Click Save
+
+---
+
+## Next Steps (in order)
+
+| Step | What | Who |
+|------|------|-----|
+| **OB-P0** ⚠️ | Enable Supabase phone auth + Twilio Messaging Service (see above) | Daniel |
+| **OB-C3** | Integration test on simulator: phone → OTP → profile → TCPA → Google → success → welcome SMS | Daniel |
+| **OB-C4** | Code review backend + mobile screens, fix findings | Daniel |
+| **OB-C5** | Merge `onboarding` → `main` | Daniel |
+| **OB-D1** | `mobile/app/(home)/preferences.tsx` integration management UI (after merge) | Daniel |
+
+---
+
+## Critical Jest Fix Applied (session 1)
 
 **Problem:** Expo 55 winter runtime installs lazy getters for `structuredClone`, `__ExpoImportMetaRegistry` etc. on `global`. When these fire during React test rendering, they try to `require()` from Jest's torn-down module scope → "You are trying to import a file outside of the scope of the test code."
 
@@ -49,7 +73,7 @@ All on branch `onboarding`. Plan: `docs/superpowers/plans/2026-04-11-onboarding-
 
 ## Test Status
 
-All tests in `mobile/__tests__/onboarding.test.tsx` for Tasks 4 + 5 pass (7 tests). Tasks 6 tests are written and failing (expected — TDD). Run:
+All 11 tests in `mobile/__tests__/onboarding.test.tsx` pass. Run:
 
 ```bash
 cd mobile && npx jest __tests__/onboarding.test.tsx --verbose
@@ -89,3 +113,6 @@ cd mobile && npx jest __tests__/onboarding.test.tsx --verbose
 | PhoneInput test input | `fireEvent.changeText` with RAW DIGITS only (e.g. `'5551234567'`), not formatted string. Formatted string double-counts the `+1` country code. |
 | PinInput testID | `PinInput` accepts `testID` prop forwarded to root View with `onComplete` — `fireEvent(el, 'complete', code)` works |
 | Phone in profile route | Since pivot: phone is NOT in request body — backend reads `user.phone` from Supabase JWT session |
+| getSession() mock in tests | The test mock returns a plain object (not Promise). Use `await supabase.auth.getSession()` pattern, NOT `.then()` — awaiting a non-promise returns the value directly |
+| Text.disabled for testing | RN `Text` has a `disabled` prop explicitly for testing. Pass `disabled={condition}` to `<Text>` to make `getByText(...).parent?.props.disabled` work in test renderer. Neither `TouchableOpacity` nor `Pressable` exposes `disabled` on their rendered host element. |
+| Supabase phone auth Twilio field | Supabase wants a **Messaging Service SID** (`MG...`), NOT the raw phone number and NOT the Verify Service SID (`VA...`). Create in Twilio Console → Messaging → Services. |

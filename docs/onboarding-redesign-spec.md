@@ -1,8 +1,8 @@
 # Onboarding Redesign — Spec
 
 > Created: 2026-04-10
-> Last updated: 2026-04-11 — Auth pivot: Apple/Google OAuth → Supabase phone OTP
-> Status: Phases A + B shipped (original OAuth design). Phase C executing pivot before integration test.
+> Last updated: 2026-04-11 (session 2)
+> Status: **Phase C COMPLETE (all 10 code tasks done, commit `7d3d8a5`). Blocked on OB-P0 (manual Supabase phone auth setup) before simulator test.**
 > Branch: `onboarding`
 > Pivot plan: `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`
 

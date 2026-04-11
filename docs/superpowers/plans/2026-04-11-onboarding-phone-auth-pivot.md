@@ -1,5 +1,9 @@
 # Onboarding Phone Auth Pivot — Implementation Plan
 
+> **STATUS (2026-04-11): TASKS 1–10 ALL COMPLETE. Committed to `onboarding` branch.**
+> Task 0 (Supabase dashboard setup) is still PENDING — manual step required before simulator testing.
+> See PROGRESS.md for exact OB-P0 steps and next actions.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the Apple/Google OAuth auth screen with a phone number + Supabase OTP flow, making phone the primary auth identity for all users.
@@ -54,9 +58,12 @@ Toggle "Enable Phone provider" ON.
 
 In the same Phone provider settings:
 - Select "Twilio" as SMS provider
-- Enter `TWILIO_ACCOUNT_SID` value
-- Enter `TWILIO_AUTH_TOKEN` value
-- Enter `TWILIO_PHONE_NUMBER` value (E.164 format: `+1XXXXXXXXXX`)
+- **Account SID** → `TWILIO_ACCOUNT_SID` from `.env.local`
+- **Auth Token** → `TWILIO_AUTH_TOKEN` from `.env.local`
+- **Messaging Service SID** → a Twilio Messaging Service SID (`MG...`) — NOT `TWILIO_PHONE_NUMBER` and NOT `TWILIO_VERIFY_SERVICE_SID` (`VA...`). These are different things.
+  - Create one: Twilio Console → Messaging → Services → Create Messaging Service → add your phone number as a sender → copy the `MG...` SID
+- **Twilio Content SID** → leave blank (WhatsApp only)
+- **Test Phone Numbers and OTPs** → optional but recommended for simulator testing: add your number (`+1XXXXXXXXXX`) with a hardcoded OTP like `123456`. Supabase will accept this code without sending a real SMS.
 
 Click Save.
 

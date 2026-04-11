@@ -25,7 +25,7 @@
 - [x] **OB-C1** — Fill `mobile/.env`: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` + `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` ✅ Done 2026-04-11
 - ~~**OB-C2**~~ — ~~Apple Sign-In Supabase config~~ **CANCELLED** — Apple auth removed from flow
 - [ ] **OB-P0** ⚠️ MANUAL FIRST — Enable Supabase phone auth provider + configure Twilio in dashboard (plan Task 0) → **Daniel**
-- [x] **OB-P1** (Tasks 1–5 DONE, Tasks 6–10 REMAINING) — Tasks 1–5 committed to `onboarding` branch. Tasks 6–10 are next. → **Daniel**
+- [x] **OB-P1** (ALL 10 TASKS DONE) — All code tasks committed to `onboarding` branch. Commit `7d3d8a5`. → **Daniel**
 - [ ] **OB-C3** — Integration test phone OTP path on simulator: enter phone → OTP → profile → TCPA → connect Google → complete → welcome SMS → **Daniel**
 - [ ] **OB-C4** — Code review backend + mobile screens, fix findings → **Daniel**
 - [ ] **OB-C5** — Merge `onboarding` → `main` → **Daniel**
@@ -61,8 +61,17 @@
 
 ## 📋 Handoff Notes
 
+### 2026-04-11 — Daniel (Phase C COMPLETE — session 2)
+**Done:** OB-P1 Tasks 6–10 executed and committed to `onboarding` branch (`7d3d8a5`). Phase C code is fully complete.
+**Files changed:** `mobile/app/(onboarding)/profile.tsx` (phone removed, Pressable, Text.disabled, navigate to tcpa, ProgressBar step 4). `mobile/app/(onboarding)/tools.tsx` (replaced expo-auth-session nonce/signInWithIdToken with WebBrowser.openBrowserAsync + integrations table poll 8×1.5s). `mobile/app/(onboarding)/_layout.tsx` (verify-phone before profile). `mobile/package.json` + `package-lock.json` (expo-apple-authentication removed). Lint clean, 11/11 tests pass.
+**Gotchas discovered:**
+1. RN `Text` has a `disabled` prop for testing — `getByText(...).parent?.props.disabled` only works if you pass `disabled={condition}` to the `<Text>` itself. Neither TouchableOpacity nor Pressable exposes `disabled` on their host element.
+2. `supabase.auth.getSession()` test mock returns a plain object (not Promise) — use `await`, never `.then()`.
+3. Supabase phone auth needs a **Messaging Service SID** (`MG...`), NOT the raw phone number and NOT the Verify Service SID (`VA...`). Create in Twilio Console → Messaging → Services. Plan file Task 0 has been corrected.
+**Blocked on:** OB-P0 — Supabase phone auth provider + Twilio Messaging Service must be enabled manually before simulator test. See PROGRESS.md for exact steps.
+**Next up:** OB-P0 (manual, ~5 min) → OB-C3 (simulator integration test) → OB-C4 (code review) → OB-C5 (merge to main).
+
 ### 2026-04-11 — Daniel (Phase C partial)
-**Done:** OB-P1 Tasks 1–5 of pivot plan executed and committed to `onboarding` branch.
 **Files changed:** Deleted `src/app/api/auth/phone/send+verify/route.ts`. Updated `src/app/api/onboarding/profile/route.ts` (phone from session). Updated `mobile/lib/api.ts` (removed OTP methods, exported API_BASE). Rewrote `mobile/app/(onboarding)/auth.tsx` (phone + signInWithOtp). Updated `mobile/app/(onboarding)/verify-phone.tsx` (verifyOtp, navigate to profile). Updated `mobile/components/onboarding/PinInput.tsx` (testID + onComplete forwarding). Created `mobile/jest.globals.js` + `mobile/__mocks__/empty.js` (Expo winter runtime Jest fix).
 **Gotchas:** PhoneInput test input must use RAW DIGITS (e.g. `'5551234567'`), not formatted string. TouchableOpacity `disabled` becomes `accessibilityState.disabled` in test renderer — use `getByTestId('btn').props.accessibilityState?.disabled`. PinInput fires `fireEvent(el, 'complete', code)` via `testID="pin-input"` + forwarded `onComplete` prop.
 **Next up:** Tasks 6–10 of `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`. Tests for Task 6 (profile screen) are already written in `__tests__/onboarding.test.tsx` and failing — run test first, then implement. See PROGRESS.md for full task list.
