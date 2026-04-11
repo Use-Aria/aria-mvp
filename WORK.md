@@ -20,8 +20,8 @@
 
 ### Onboarding Redesign (branch: `onboarding`)
 
-- [ ] **OB-C1** — Fill `mobile/.env`: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` + `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` → **Daniel**
-- [ ] **OB-C2** — Verify Apple Sign-In enabled in Supabase Auth dashboard (Auth → Providers → Apple) → **Daniel**
+- [x] **OB-C1** — Fill `mobile/.env`: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` + `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` ✅ Done 2026-04-11
+- [ ] **OB-C2** — Enable Apple provider in Supabase Auth dashboard — needs Seb to share: Services ID, Team ID, Key ID + .p8 private key from his Apple Developer account → **Daniel + Seb**
 - [ ] **OB-C3** — Integration test Google path on simulator: sign in → profile → OTP → TCPA → tools → complete → welcome SMS → **Daniel**
 - [ ] **OB-C4** — Code review backend routes + mobile screens, fix findings → **Daniel**
 - [ ] **OB-C5** — Merge `onboarding` → `main` → **Daniel**
