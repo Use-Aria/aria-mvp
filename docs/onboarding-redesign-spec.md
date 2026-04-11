@@ -1,17 +1,20 @@
 # Onboarding Redesign — Spec
 
 > Created: 2026-04-10
-> Status: Phases A (backend) + B (mobile) complete. Next: Phase C integration test + code review + merge.
+> Last updated: 2026-04-11 — Auth pivot: Apple/Google OAuth → Supabase phone OTP
+> Status: Phases A + B shipped (original OAuth design). Phase C executing pivot before integration test.
 > Branch: `onboarding`
-> Full plan: `./.claude/plans/quiet-wandering-ullman.md`
+> Pivot plan: `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`
 
 ---
 
 ## Overview
 
-The original onboarding flow used phone number as the primary auth method (OTP via Twilio Messaging). This is being replaced with a standard OAuth-first flow (Apple Sign-In or Google) while retaining phone verification as a separate step using Twilio Verify.
+**⚠️ Auth method changed 2026-04-11.** The original Phase A/B design used Apple Sign-In or Google OAuth as the primary auth method. This has been replaced with **Supabase phone OTP** (phone number → 6-digit SMS code → Supabase session). Apple Sign-In has been removed from the MVP entirely.
 
-Gmail and Google Calendar are promoted to **required** integrations. Canvas is **optional**. Canvas validation is no longer a stub — it returns real deadline counts.
+**Reason for pivot:** Apple Sign-In requires org-level Apple Developer account approval (blocked). Phone OTP works immediately, fits the product (Aria communicates via SMS), and avoids the dependency on Seb's Apple credentials.
+
+Gmail and Google Calendar remain **required** integrations, connected in the tools screen via the existing web-based `/api/auth/google` OAuth flow. Canvas is **optional**. Canvas validation returns real deadline counts.
 
 Welcome SMS is decoupled from Canvas sync and triggered explicitly at onboarding completion.
 
@@ -20,47 +23,50 @@ Welcome SMS is decoupled from Canvas sync and triggered explicitly at onboarding
 ## Screen Flow
 
 ```
-welcome → auth → profile → verify-phone → tcpa → tools → success → home
+welcome → auth → verify-phone → profile → tcpa → tools → success → home
 ```
+
+> ⚠️ Order changed in pivot: verify-phone now comes before profile (phone is auth, not profile data).
 
 | Screen         | File                                                 | Purpose                                                                            |
 | -------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `welcome`      | `welcome.tsx`                                        | Splash / value prop (existing, keep as-is)                                         |
-| `auth`         | `auth.tsx` (new)                                     | Apple Sign-In or Google OAuth — replaces old phone entry screen                    |
-| `profile`      | `profile.tsx` (new)                                  | Collect name (pre-filled), phone, university, graduation year                      |
-| `verify-phone` | `verify-phone.tsx` (new, repurposes `verify.tsx` UI) | 6-digit OTP verification via Twilio Verify                                         |
+| `auth`         | `auth.tsx` (rewritten)                               | Phone number entry — calls Supabase signInWithOtp                                  |
+| `verify-phone` | `verify-phone.tsx` (updated)                         | 6-digit OTP — calls Supabase verifyOtp, creates session                            |
+| `profile`      | `profile.tsx` (updated)                              | Collect name, university, graduation year (phone removed — already in session)     |
 | `tcpa`         | `tcpa.tsx` (existing)                                | SMS consent checkbox — required before any SMS is sent                             |
-| `tools`        | `tools.tsx` (new)                                    | Connect Gmail + GCal (required), Canvas URL (optional), syllabus upload (optional) |
-| `success`      | `success.tsx` (new)                                  | Confirmation — triggers welcome SMS, navigates to home                             |
+| `tools`        | `tools.tsx` (updated)                                | Connect Gmail + GCal (required), Canvas URL (optional), syllabus upload (optional) |
+| `success`      | `success.tsx` (existing)                             | Confirmation — triggers welcome SMS, navigates to home                             |
 | `home`         | `index.tsx` (existing)                               | Main dashboard                                                                     |
 
 ---
 
 ## Screen Design Details
 
-### Auth Screen (`auth.tsx`)
+### Auth Screen (`auth.tsx`) — REWRITTEN
 
-- Two buttons: "Sign in with Apple" + "Sign in with Google"
-- Apple uses `expo-apple-authentication`
-- Google uses `expo-auth-session` with nonce-based OIDC (same as current `google.tsx`)
-- Google path: requests `calendar` + `gmail.readonly` scopes together
-- Apple path: grants no Google scopes at auth time — user must connect Google in tools screen
+- Single phone number input using existing `PhoneInput` component (US formatting, 10-digit validation)
+- "Send code" button disabled until 10 digits entered
+- On submit: convert to E.164 (`+1XXXXXXXXXX`), call `supabase.auth.signInWithOtp({ phone })`
+- On success: navigate to `verify-phone` with E.164 phone as route param
+- On error: show inline error below the phone input
+
+> Apple Sign-In and Google OAuth removed. `expo-apple-authentication` uninstalled.
+
+### Verify Phone Screen (`verify-phone.tsx`) — UPDATED
+
+- Repurpose existing `PinInput` component (6 digits, auto-focus, auto-submit)
+- On mount: start 30s resend cooldown (OTP already sent by auth screen — no API call on mount)
+- On 6-digit entry: call `supabase.auth.verifyOtp({ phone, token: code, type: 'sms' })` — this creates the session
+- Error handling: Supabase "expired" message → "Code expired, tap Resend"; other errors → "That code didn't match"
+- Resend: call `supabase.auth.signInWithOtp({ phone })`, restart cooldown
 - On success: navigate to `profile`
 
-### Profile Screen (`profile.tsx`)
+### Profile Screen (`profile.tsx`) — UPDATED
 
-- Form fields: name (pre-filled from `session.user.user_metadata.full_name`), phone, university, graduation year
-- Phone number format: any digits, validated client-side
-- On submit: call `POST /api/onboarding/profile`, pass phone to `verify-phone` route param
-- On success: navigate to `verify-phone`
-
-### Verify Phone Screen (`verify-phone.tsx`)
-
-- Repurpose existing `verify.tsx` PinInput component (6 digits, auto-focus, auto-submit)
-- On mount: call `POST /api/auth/phone/send` with phone from route params
-- On 6-digit entry: call `POST /api/auth/phone/verify` with phone + code
-- Error handling: 410 → "Code expired, tap Resend", 422 → "Wrong code, try again"
-- Resend button: visible after 30s cooldown
+- Form fields: name, university, graduation year (**phone removed** — already captured and verified)
+- On submit: call `POST /api/onboarding/profile` with `{ name, university, graduation_year }` only
+- Backend reads phone from `user.phone` in the Supabase session
 - On success: navigate to `tcpa`
 
 ### TCPA Screen (`tcpa.tsx`)
@@ -69,18 +75,21 @@ welcome → auth → profile → verify-phone → tcpa → tools → success →
 - Writes `has_alert_consent` to `preferences_json`
 - Defaults OFF — user must explicitly toggle ON
 
-### Tools Screen (`tools.tsx`)
+### Tools Screen (`tools.tsx`) — UPDATED
 
 - **Required section:** Gmail + Google Calendar
-  - Check: `session.user.app_metadata.provider === 'google'`?
-  - If yes: show "Connected ✓" badge, no action needed
-  - If no (Apple auth): show "Connect Google" button, re-trigger Google OAuth flow
+  - On mount: query `integrations` table for a `google` row (`platform = 'google'`) for this user
+  - If found: show "Connected ✓" badge
+  - If not found (all phone-auth users arrive unconnected): show "Connect Google" button
+  - "Connect Google": opens `GET /api/auth/google?user_id=<uuid>` in `WebBrowser.openBrowserAsync`
+    - Backend handles CSRF, Google OAuth redirect, code exchange, Fernet-encrypted token storage via Celery
+  - After browser closes: poll `integrations` table every 1.5s (up to 12s) to confirm tokens stored
   - Continue button disabled until `googleConnected = true`
-- **Optional section:**
+- **Optional section:** unchanged
   - Canvas iCal URL: input field + validate button (calls `POST /api/sync/canvas`)
   - Syllabus PDF: file picker per course (calls `POST /api/upload/syllabus`)
-  - Google Classroom: "Coming soon" badge (no functionality)
-- User can skip optional integrations
+  - Google Classroom: "Coming soon" badge
+- `expo-auth-session`, `expo-crypto`, and nonce logic removed from this screen
 
 ### Success Screen (`success.tsx`)
 
@@ -93,30 +102,28 @@ welcome → auth → profile → verify-phone → tcpa → tools → success →
 
 ## API Contracts
 
-### `POST /api/onboarding/profile`
+### `POST /api/onboarding/profile` — UPDATED
 
 ```typescript
-Request:  { name: string; phone: string; university: string; graduation_year: number }
+Request:  { name: string; university: string; graduation_year: number }
+// phone field REMOVED — backend reads from user.phone in Supabase session
 Response: { ok: true }
 Errors:   400 (invalid input), 401 (auth required)
 ```
 
-### `POST /api/auth/phone/send`
+### ~~`POST /api/auth/phone/send`~~ — DELETED
 
-```typescript
-Request:  { phone: string }  // E.164 format: +12025551234
-Response: { ok: true }
-Errors:   400 (invalid format), 401 (auth required)
-```
+Replaced by `supabase.auth.signInWithOtp({ phone })` called client-side from `auth.tsx`.
+Route file deleted: `src/app/api/auth/phone/send/route.ts`
 
-### `POST /api/auth/phone/verify`
+### ~~`POST /api/auth/phone/verify`~~ — DELETED
 
-```typescript
-Request:  { phone: string; code: string }  // 6-digit code
-Response: { ok: true }
-Errors:   410 (expired), 422 (wrong code), 401 (auth required)
-Side effect: Sets `phone_verified = true` in users table
-```
+Replaced by `supabase.auth.verifyOtp({ phone, token, type: 'sms' })` called client-side from `verify-phone.tsx`.
+Route file deleted: `src/app/api/auth/phone/verify/route.ts`
+
+### `GET /api/auth/google` — UNCHANGED (used by tools screen)
+
+Opens in browser via `WebBrowser.openBrowserAsync`. No changes to this route.
 
 ### `POST /api/sync/canvas` (fixed)
 
@@ -270,28 +277,28 @@ TWILIO_VERIFY_SERVICE_SID=   # Create new Verify Service in Twilio Console (sepa
 
 ## Implementation Sequence
 
-**Phase A (Backend):**
+**Phase A (Backend) — ✅ COMPLETE**
+**Phase B (Mobile) — ✅ COMPLETE (original OAuth design)**
 
-1. Push DB migration (requires `SUPABASE_ACCESS_TOKEN`)
-2. Implement `POST /api/onboarding/profile`
-3. Implement `POST /api/auth/phone/send` and `POST /api/auth/phone/verify`
-4. Fix `POST /api/sync/canvas` stub
-5. Implement `POST /api/onboarding/complete`
-6. Verify Apple is enabled in Supabase Auth
+**Phase C — Auth Pivot (in progress):**
 
-**Phase B (Mobile, after API contracts locked):**
+> Full task breakdown in `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`
 
-1. Install `expo-apple-authentication`
-2. Create `auth.tsx` (Apple + Google OAuth)
-3. Create `profile.tsx`
-4. Create `verify-phone.tsx`
-5. Create `tools.tsx`
-6. Create `success.tsx`
-7. Update `_layout.tsx` and `mobile/lib/api.ts`
-8. Delete old screens
+0. **Manual:** Enable Supabase phone auth provider + configure Twilio in Supabase dashboard
+1. Delete `src/app/api/auth/phone/send/route.ts` and `verify/route.ts`
+2. Update `src/app/api/onboarding/profile/route.ts` — read phone from session
+3. Update `mobile/lib/api.ts` — remove OTP methods, update saveProfile, export API_BASE
+4. Rewrite `mobile/app/(onboarding)/auth.tsx` — phone entry + signInWithOtp
+5. Update `mobile/app/(onboarding)/verify-phone.tsx` — verifyOtp, navigate to profile
+6. Update `mobile/app/(onboarding)/profile.tsx` — remove phone field, navigate to tcpa
+7. Update `mobile/app/(onboarding)/tools.tsx` — WebBrowser Google connect + integrations poll
+8. Update `mobile/app/(onboarding)/_layout.tsx` — reorder verify-phone before profile
+9. `npm uninstall expo-apple-authentication`
 
-**Phase C (Post-Flow):**
+**Phase C — Integration Test:**
+- Phone OTP path on simulator: enter phone → OTP → profile → TCPA → Google connect → complete → welcome SMS
 
+**Phase D (Post-Flow):**
 - Update `mobile/app/(home)/preferences.tsx` for disconnect/reconnect
 
 ---

@@ -1,11 +1,41 @@
 # Aria — Session Progress
 
-> Last updated: 2026-04-10
+> Last updated: 2026-04-11
 > Use this file at the start of every session to restore context quickly.
 
 ---
 
 ## What We Accomplished This Session
+
+### Onboarding Auth Pivot — Plan Written (2026-04-11)
+
+**Decision:** Pivoted away from Apple/Google OAuth as the primary auth method.
+New auth method: phone number + Supabase phone OTP (backed by Twilio via Supabase dashboard).
+
+**Reason:** Apple Sign-In requires org-level Apple Developer approval (blocked on Seb). Google-only OAuth was too narrow for an MVP. Phone OTP is simpler, works immediately, and fits the product (Aria already communicates via SMS).
+
+**New flow:** `welcome → auth (phone entry) → verify-phone (Supabase OTP) → profile (name/uni/year) → tcpa → tools (Google required) → success → home`
+
+**Plan written:** `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`
+**Spec updated:** `docs/onboarding-redesign-spec.md`
+
+**What changes (10 tasks in the plan):**
+- Task 0: Manual — enable Supabase phone auth + Twilio config in dashboard
+- Task 1: Delete `src/app/api/auth/phone/send/route.ts` and `verify/route.ts`
+- Task 2: Update profile route — read phone from session (`user.phone`), remove from body
+- Task 3: Update `mobile/lib/api.ts` — remove sendPhoneOtp/verifyPhoneOtp, update saveProfile
+- Task 4: Rewrite `auth.tsx` — phone entry + Supabase signInWithOtp
+- Task 5: Update `verify-phone.tsx` — Supabase verifyOtp, navigate to profile (not tcpa)
+- Task 6: Update `profile.tsx` — remove phone field, navigate to tcpa
+- Task 7: Update `tools.tsx` — Google connect via WebBrowser + integrations table poll
+- Task 8: Update `_layout.tsx` — reorder verify-phone before profile
+- Task 9: Remove expo-apple-authentication from package.json
+
+**Key architectural decision for Google in tools:** Instead of `expo-auth-session` + `signInWithIdToken` (which would replace the phone session), open `/api/auth/google?user_id=<uuid>` in a WebBrowser. The existing backend callback route handles code exchange + Fernet-encrypted token storage via Celery. After browser closes, poll `integrations` table to confirm.
+
+---
+
+## Previously Accomplished
 
 ### Onboarding Redesign — Phases A + B Shipped (2026-04-10)
 

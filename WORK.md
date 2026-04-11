@@ -18,12 +18,16 @@
 
 ## 🎯 Up Next (Priority Order)
 
-### Onboarding Redesign (branch: `onboarding`)
+### Onboarding Redesign (branch: `onboarding`) — PIVOTED 2026-04-11
+
+**Auth pivot:** Apple/Google OAuth replaced with Supabase phone OTP. Plan: `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`
 
 - [x] **OB-C1** — Fill `mobile/.env`: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` + `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` ✅ Done 2026-04-11
-- [ ] **OB-C2** — Enable Apple provider in Supabase Auth dashboard — needs Seb to share: Services ID, Team ID, Key ID + .p8 private key from his Apple Developer account → **Daniel + Seb**
-- [ ] **OB-C3** — Integration test Google path on simulator: sign in → profile → OTP → TCPA → tools → complete → welcome SMS → **Daniel**
-- [ ] **OB-C4** — Code review backend routes + mobile screens, fix findings → **Daniel**
+- ~~**OB-C2**~~ — ~~Apple Sign-In Supabase config~~ **CANCELLED** — Apple auth removed from flow
+- [ ] **OB-P0** ⚠️ MANUAL FIRST — Enable Supabase phone auth provider + configure Twilio in dashboard (plan Task 0) → **Daniel**
+- [ ] **OB-P1** — Execute pivot plan Tasks 1–9: delete old phone routes, rewrite auth/verify-phone/profile/tools, update _layout, remove expo-apple-authentication → **Daniel**
+- [ ] **OB-C3** — Integration test phone OTP path on simulator: enter phone → OTP → profile → TCPA → connect Google → complete → welcome SMS → **Daniel**
+- [ ] **OB-C4** — Code review backend + mobile screens, fix findings → **Daniel**
 - [ ] **OB-C5** — Merge `onboarding` → `main` → **Daniel**
 - [ ] **OB-D1** — `mobile/app/(home)/preferences.tsx` integration management UI → **Daniel** (after merge)
 
