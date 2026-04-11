@@ -60,7 +60,7 @@ export default function TcpaConsent() {
 
     setSaving(false)
     if (!error) {
-      router.push('/(onboarding)/preview')
+      router.push('/(onboarding)/tools')
     }
   }
 

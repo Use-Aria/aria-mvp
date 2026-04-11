@@ -80,4 +80,34 @@ export const api = {
    */
   validateCanvasUrl: (icalUrl: string) =>
     authFetch('/api/sync/canvas', { method: 'POST', body: JSON.stringify({ ical_url: icalUrl }) }),
+
+  /** Save user profile (name, phone, university, graduation_year) during onboarding */
+  saveProfile: (data: { name: string; phone: string; university: string; graduation_year: number }) =>
+    authFetch('/api/onboarding/profile', { method: 'POST', body: JSON.stringify(data) }),
+
+  /** Mark onboarding complete and enqueue welcome SMS */
+  completeOnboarding: () =>
+    authFetch('/api/onboarding/complete', { method: 'POST', body: JSON.stringify({}) }),
+
+  /**
+   * Upload a syllabus PDF for a course.
+   * Sends as multipart/form-data — does NOT use authFetch (different Content-Type).
+   */
+  uploadSyllabus: async (fileUri: string, courseName: string): Promise<void> => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const formData = new FormData()
+    formData.append('file', { uri: fileUri, name: `${courseName}.pdf`, type: 'application/pdf' } as unknown as Blob)
+    formData.append('course_name', courseName)
+    const res = await fetch(`${API_BASE}/api/upload/syllabus`, {
+      method: 'POST',
+      headers: {
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: formData,
+    })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(`API ${res.status}: ${body}`)
+    }
+  },
 }

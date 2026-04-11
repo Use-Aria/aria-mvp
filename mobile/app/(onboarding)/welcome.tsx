@@ -86,7 +86,7 @@ export default function Welcome() {
             alignItems: 'center',
             marginBottom: 14,
           }}
-          onPress={() => router.push('/(onboarding)/phone')}
+          onPress={() => router.push('/(onboarding)/auth')}
         >
           <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
             Get started — 90 seconds

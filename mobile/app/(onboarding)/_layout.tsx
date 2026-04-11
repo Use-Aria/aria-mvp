@@ -4,12 +4,12 @@ export default function OnboardingLayout() {
   return (
     <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <Stack.Screen name="welcome" />
-      <Stack.Screen name="phone" />
-      <Stack.Screen name="verify" />
-      <Stack.Screen name="canvas" />
-      <Stack.Screen name="google" />
+      <Stack.Screen name="auth" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="verify-phone" />
       <Stack.Screen name="tcpa" />
-      <Stack.Screen name="preview" />
+      <Stack.Screen name="tools" />
+      <Stack.Screen name="success" />
     </Stack>
   )
 }
