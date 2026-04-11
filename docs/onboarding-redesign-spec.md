@@ -1,7 +1,7 @@
 # Onboarding Redesign — Spec
 
 > Created: 2026-04-10
-> Status: Plan approved, DB migration written, implementation in progress
+> Status: Phases A (backend) + B (mobile) complete. Next: Phase C integration test + code review + merge.
 > Branch: `onboarding`
 > Full plan: `./.claude/plans/quiet-wandering-ullman.md`
 

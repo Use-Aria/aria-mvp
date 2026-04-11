@@ -8,13 +8,24 @@
 
 ## 🔒 Currently In Progress
 
+*Nothing claimed. Run `/project:begin` to start a session.*
+
 | Developer | Task | Branch | Claimed At |
 |-----------|------|--------|------------|
-| Daniel | Onboarding redesign — plan written, awaiting Ultraplan refinement + approval | `onboarding` | 2026-04-10 |
+| — | — | — | — |
 
 ---
 
 ## 🎯 Up Next (Priority Order)
+
+### Onboarding Redesign (branch: `onboarding`)
+
+- [ ] **OB-C1** — Fill `mobile/.env`: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` + `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` → **Daniel**
+- [ ] **OB-C2** — Verify Apple Sign-In enabled in Supabase Auth dashboard (Auth → Providers → Apple) → **Daniel**
+- [ ] **OB-C3** — Integration test Google path on simulator: sign in → profile → OTP → TCPA → tools → complete → welcome SMS → **Daniel**
+- [ ] **OB-C4** — Code review backend routes + mobile screens, fix findings → **Daniel**
+- [ ] **OB-C5** — Merge `onboarding` → `main` → **Daniel**
+- [ ] **OB-D1** — `mobile/app/(home)/preferences.tsx` integration management UI → **Daniel** (after merge)
 
 ### v1.1 App Store Launch
 
@@ -46,7 +57,14 @@
 
 ## 📋 Handoff Notes
 
-### 2026-04-10 — Daniel
+### 2026-04-10 — Daniel (session 2)
+**Done:** Phases A + B of onboarding redesign fully implemented and committed to `onboarding` branch.
+**Phase A (backend):** DB migrations pushed to Supabase. All 5 routes created: `POST /api/onboarding/profile`, `POST /api/auth/phone/send`, `POST /api/auth/phone/verify`, `POST /api/sync/canvas` (real iCal validation), `POST /api/onboarding/complete`.
+**Phase B (mobile):** 5 new screens (auth, profile, verify-phone, tools, success). Old screens deleted. `_layout.tsx`, `tcpa.tsx`, `welcome.tsx`, `api.ts` all updated. `expo-apple-authentication` installed.
+**Gotchas:** `TWILIO_VERIFY_SERVICE_SID` is in `.env.local` (set this session). `mobile/.env` has `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` EMPTY — must fill before simulator test. Apple Sign-In needs to be enabled in Supabase Auth dashboard.
+**Next up:** OB-C1 through OB-C5 — fill env vars → integration test → code review → merge
+
+### 2026-04-10 — Daniel (session 1)
 **Done:** Wrote `supabase/migrations/008_onboarding_completion.sql` (adds `phone_verified`, `onboarding_completed_at` to `users`). Removed ultraplan dependency from PROGRESS.md.
 **Blocked:** Could not run `npx supabase db push` — Supabase CLI needs `SUPABASE_ACCESS_TOKEN` in non-TTY environments. Get token from supabase.com/dashboard/account/tokens, then: `export SUPABASE_ACCESS_TOKEN=<token> && npx supabase link --project-ref jjnedeyfpgogaizsucxp && npx supabase db push`
 **Next up:** Push migration → Backend APIs (`src/app/api/onboarding/profile/route.ts`, `src/app/api/auth/phone/send/route.ts`, `src/app/api/auth/phone/verify/route.ts`, `src/app/api/onboarding/complete/route.ts`)
