@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import type { Task, CalendarEvent, ChatMessage } from '@/types'
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000'
+export const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000'
 
 /**
  * Expected response shape for briefing preview API.
@@ -66,14 +66,6 @@ export const api = {
   sendChatMessage: (body: string): Promise<ChatMessage> =>
     authFetch('/api/chat', { method: 'POST', body: JSON.stringify({ body, source: 'app' }) }),
 
-  /** Send phone OTP via Twilio Verify (credentials live server-side) */
-  sendPhoneOtp: (phone: string) =>
-    authFetch('/api/auth/phone/send', { method: 'POST', body: JSON.stringify({ phone }) }),
-
-  /** Verify phone OTP and establish Supabase session */
-  verifyPhoneOtp: (phone: string, code: string) =>
-    authFetch('/api/auth/phone/verify', { method: 'POST', body: JSON.stringify({ phone, code }) }),
-
   /**
    * Validate Canvas iCal URL by attempting a backend sync.
    * Returns error details distinguishing format vs reachability vs empty feed.
@@ -81,8 +73,9 @@ export const api = {
   validateCanvasUrl: (icalUrl: string) =>
     authFetch('/api/sync/canvas', { method: 'POST', body: JSON.stringify({ ical_url: icalUrl }) }),
 
-  /** Save user profile (name, phone, university, graduation_year) during onboarding */
-  saveProfile: (data: { name: string; phone: string; university: string; graduation_year: number }) =>
+  /** Save user profile (name, university, graduation_year) during onboarding.
+   * Phone is now sourced from the Supabase session — not sent in the body. */
+  saveProfile: (data: { name: string; university: string; graduation_year: number }) =>
     authFetch('/api/onboarding/profile', { method: 'POST', body: JSON.stringify(data) }),
 
   /** Mark onboarding complete and enqueue welcome SMS */
