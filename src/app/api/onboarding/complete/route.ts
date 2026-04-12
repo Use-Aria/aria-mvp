@@ -1,13 +1,12 @@
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import Redis from 'ioredis'
-import { createClient } from '@/lib/supabase/server'
 
 /**
  * POST /api/onboarding/complete
  * Marks onboarding as complete for the authenticated user and triggers the welcome SMS.
  *
- * Auth: JWT required.
+ * Auth: JWT required (Bearer token from mobile).
  *
  * Side effects:
  *   1. Sets onboarding_completed_at = now() in users table (idempotent — safe to call twice)
@@ -18,25 +17,26 @@ import { createClient } from '@/lib/supabase/server'
  *
  * Response: { ok: true }
  */
-export async function POST(): Promise<NextResponse> {
+export async function POST(request: Request): Promise<NextResponse> {
   try {
-    // --- Auth ---
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
+    // --- Auth (Bearer token from mobile) ---
+    const authHeader = request.headers.get('Authorization')
+    const jwt = authHeader?.replace('Bearer ', '').trim()
+    if (!jwt) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    // --- Set onboarding_completed_at (idempotent) ---
     const adminClient = createServiceClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
 
+    const { data: { user }, error: authError } = await adminClient.auth.getUser(jwt)
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    // --- Set onboarding_completed_at (idempotent) ---
     const { error: updateError } = await adminClient
       .from('users')
       .update({ onboarding_completed_at: new Date().toISOString() })

@@ -24,9 +24,9 @@
 
 - [x] **OB-C1** — Fill `mobile/.env`: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` + `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` ✅ Done 2026-04-11
 - ~~**OB-C2**~~ — ~~Apple Sign-In Supabase config~~ **CANCELLED** — Apple auth removed from flow
-- [ ] **OB-P0** ⚠️ MANUAL FIRST — Enable Supabase phone auth provider + configure Twilio in dashboard (plan Task 0) → **Daniel**
+- [x] **OB-P0** ✅ DONE 2026-04-12 — Supabase phone auth enabled, Twilio Messaging Service `MGbf33d2d3327638ca21a7f05be5e138ba` configured, test phone + OTP `123456` added. Toll-free verification submitted (pending).
 - [x] **OB-P1** (ALL 10 TASKS DONE) — All code tasks committed to `onboarding` branch. Commit `7d3d8a5`. → **Daniel**
-- [ ] **OB-C3** — Integration test phone OTP path on simulator: enter phone → OTP → profile → TCPA → connect Google → complete → welcome SMS → **Daniel**
+- [ ] **OB-C3** ⚠️ IN PROGRESS — Reached tools screen. Remaining: Google connect → success → welcome SMS → home. See PROGRESS.md for exact next steps and known bugs. → **Daniel**
 - [ ] **OB-C4** — Code review backend + mobile screens, fix findings → **Daniel**
 - [ ] **OB-C5** — Merge `onboarding` → `main` → **Daniel**
 - [ ] **OB-D1** — `mobile/app/(home)/preferences.tsx` integration management UI → **Daniel** (after merge)
@@ -60,6 +60,20 @@
 ---
 
 ## 📋 Handoff Notes
+
+### 2026-04-12 — Daniel (OB-C3 in progress — session 4)
+**Done:** Fixed `POST /api/onboarding/complete` — was using cookie-based auth (`createClient()`), now reads JWT from `Authorization: Bearer` header using `adminClient.auth.getUser(jwt)`. Removed unused `createClient` import. Diagnosed simulator spinner hang: stale SecureStore session causes `getSession()` to hang on token refresh. Fix: erase simulator before each test session.
+**Files changed:** `src/app/api/onboarding/complete/route.ts` (Bearer token auth fix).
+**Blocked:** Mac restart needed — simulator test not yet resumed.
+**CRITICAL before resuming:** Run `Device → Erase All Content and Settings` in simulator first (clears stale session). Then `npm run dev` + `npx expo start --clear`.
+**Next up:** OB-C3 cont. — full flow from welcome screen through tools → success → welcome SMS → home. Then OB-C4 (code review) → OB-C5 (merge).
+
+### 2026-04-12 — Daniel (OB-C3 in progress — session 3)
+**Done:** OB-P0 complete. Fixed 10 bugs during simulator integration test. Reached tools screen.
+**Files changed:** `mobile/.env` (DEMO_MODE=false), `mobile/app/_layout.tsx` (url polyfill, onboarding routing), `mobile/lib/supabase.ts` (global fetch), `mobile/components/onboarding/PhoneInput.tsx` (digit corruption fix, maxLength), `mobile/app/(onboarding)/auth.tsx` (validation fix, real error logging), `mobile/app/(onboarding)/verify-phone.tsx` (back button), `mobile/app/(onboarding)/profile.tsx` (back button, TouchableOpacity import), `mobile/app/(onboarding)/tcpa.tsx` (back button), `mobile/app/(onboarding)/tools.tsx` (back button), `src/app/api/onboarding/profile/route.ts` (Bearer token auth fix), `supabase/migrations/009_fix_email_not_null.sql` (new, pushed).
+**Gotchas discovered:** See new entries at bottom of PROGRESS.md Architecture Gotchas table (5 new entries: mobile API auth, url-polyfill, DEMO_MODE, onboarding routing, back navigation, Next.js dev server, Redis).
+**CRITICAL — fix before testing success screen:** `src/app/api/onboarding/complete/route.ts` uses cookie auth → will 401. Fix same as profile route (Bearer token). Also Redis must be running for welcome SMS. See PROGRESS.md "IMPORTANT" section.
+**Next up:** OB-C3 cont. — tools screen → Google connect → success → welcome SMS → home. Then OB-C4 (code review) → OB-C5 (merge).
 
 ### 2026-04-11 — Daniel (Phase C COMPLETE — session 2)
 **Done:** OB-P1 Tasks 6–10 executed and committed to `onboarding` branch (`7d3d8a5`). Phase C code is fully complete.
