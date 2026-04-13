@@ -1,3 +1,9 @@
+// Extend RNTL's waitFor timeout and Jest's test timeout so async state updates
+// in act() contexts have enough time to flush when multiple test renders are active.
+import { configure } from '@testing-library/react-native'
+configure({ asyncUtilTimeout: 10000 })
+jest.setTimeout(15000)
+
 jest.mock('expo-secure-store')
 jest.mock('expo-speech-recognition', () => ({
   ExpoSpeechRecognitionModule: {

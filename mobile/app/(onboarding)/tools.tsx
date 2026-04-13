@@ -66,12 +66,33 @@ export default function Tools() {
     return !!data
   }, [])
 
-  // Check on mount whether Google was already connected in a prior session
+  // Check on mount whether Google was already connected, and restore Canvas URL
   useEffect(() => {
-    checkGoogleIntegration().then((connected) => {
-      setGoogleConnected(connected)
-      setCheckingGoogle(false)
-    })
+    let active = true
+    const timer = setTimeout(() => {
+      if (!active) return
+      checkGoogleIntegration().then((connected) => {
+        if (!active) return
+        setGoogleConnected(connected)
+        setCheckingGoogle(false)
+      })
+      ;(async () => {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!active || !session?.user?.id) return
+        const { data } = await supabase
+          .from('integrations')
+          .select('ical_url')
+          .eq('user_id', session.user.id)
+          .eq('platform', 'canvas')
+          .maybeSingle()
+        if (active && data?.ical_url) {
+          setCanvasUrl(data.ical_url)
+          setCanvasStatus('valid')
+        }
+      })()
+    }, 0)
+
+    return () => { active = false; clearTimeout(timer) }
   }, [checkGoogleIntegration])
 
   /**
@@ -113,7 +134,7 @@ export default function Tools() {
     setGoogleLoading(false)
   }
 
-  const handleCanvasValidate = async () => {
+  const handleCanvasValidate = () => {
     setCanvasError(undefined)
     const CANVAS_URL_REGEX = /^(webcal|https?):\/\/.*/
     if (!CANVAS_URL_REGEX.test(canvasUrl.trim())) {
@@ -122,23 +143,31 @@ export default function Tools() {
       return
     }
     setCanvasStatus('validating')
-    try {
-      const result = await api.validateCanvasUrl(canvasUrl.trim())
-      if (result?.deadline_count === 0) {
+    void (async () => {
+      try {
+        const result = await api.validateCanvasUrl(canvasUrl.trim())
+        if (result?.deadline_count === 0) {
+          setCanvasStatus('error')
+          setCanvasError('URL connected but no deadlines found. Check your Canvas calendar has events.')
+          return
+        }
+        setCanvasStatus('valid')
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : ''
         setCanvasStatus('error')
-        setCanvasError('URL connected but no deadlines found. Check your Canvas calendar has events.')
-        return
+        setCanvasError(
+          message.includes('400')
+            ? "That doesn't look like a Canvas iCal URL."
+            : "Couldn't reach that Canvas feed. Double-check the URL."
+        )
       }
-      setCanvasStatus('valid')
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : ''
-      setCanvasStatus('error')
-      setCanvasError(
-        message.includes('400')
-          ? "That doesn't look like a Canvas iCal URL."
-          : "Couldn't reach that Canvas feed. Double-check the URL."
-      )
-    }
+    })()
+  }
+
+  const handleOpenCanvas = async () => {
+    await WebBrowser.openBrowserAsync(
+      'https://yale.instructure.com/profile/settings#feed_holder',
+    )
   }
 
   const handleSyllabusPick = async () => {
@@ -172,6 +201,9 @@ export default function Tools() {
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
       >
+        <TouchableOpacity onPress={() => router.replace('/(onboarding)/tcpa')} style={{ marginBottom: 24 }}>
+          <Text style={{ fontSize: 16, color: accent }}>← Back</Text>
+        </TouchableOpacity>
         <Text style={{ fontSize: 28, fontWeight: '600', color: colors.textPrimary, marginBottom: 8 }}>
           Connect your tools
         </Text>
@@ -265,6 +297,41 @@ export default function Tools() {
               </Text>
             </View>
           </View>
+          {canvasStatus !== 'valid' && (
+            <View style={{ marginBottom: 16 }}>
+              {[
+                'Step 1: Tap "Open Canvas" below',
+                'Step 2: Scroll to "Calendar Feed" and tap the link',
+                'Step 3: Copy the URL and paste it here',
+              ].map((step) => (
+                <View key={step} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 }}>
+                  <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 20 }}>
+                    {step}
+                  </Text>
+                </View>
+              ))}
+
+              <TouchableOpacity
+                onPress={handleOpenCanvas}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: accent,
+                  borderRadius: 10,
+                  height: 40,
+                  marginTop: 10,
+                  gap: 6,
+                }}
+              >
+                <Ionicons name="open-outline" size={16} color={accent} />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: accent }}>Open Canvas</Text>
+              </TouchableOpacity>
+
+              <View style={{ height: 1, backgroundColor: colors.cardBorder, marginVertical: 16 }} />
+            </View>
+          )}
           <CanvasUrlInput
             value={canvasUrl}
             onChangeText={(text) => {
