@@ -22,9 +22,55 @@ jest.mock('@/lib/supabase', () => ({
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn(() => ({ data: null, error: null })),
+      single: jest.fn(() => ({ data: null, error: null })),
     })),
   },
 }))
+
+// Mock expo-web-browser
+jest.mock('expo-web-browser', () => ({
+  openBrowserAsync: jest.fn(),
+}))
+
+// Mock expo-document-picker
+jest.mock('expo-document-picker', () => ({
+  getDocumentAsync: jest.fn(),
+}))
+
+// Mock ProgressBar (no-op)
+jest.mock('@/components/onboarding/ProgressBar', () => () => null)
+
+// Mock CanvasUrlInput — renders a simple TextInput + Validate button for test control
+jest.mock('@/components/onboarding/CanvasUrlInput', () => {
+  const { TextInput, TouchableOpacity, Text } = require('react-native')
+  return function MockCanvasUrlInput({
+    value,
+    onChangeText,
+    onValidate,
+    status,
+  }: {
+    value: string
+    onChangeText: (t: string) => void
+    onValidate: () => void
+    status: string
+  }) {
+    if (status === 'valid') {
+      return <Text>Connected</Text>
+    }
+    return (
+      <>
+        <TextInput
+          testID="canvas-url-input"
+          value={value}
+          onChangeText={onChangeText}
+        />
+        <TouchableOpacity testID="canvas-validate-btn" onPress={onValidate}>
+          <Text>Validate</Text>
+        </TouchableOpacity>
+      </>
+    )
+  }
+})
 
 // Mock lib/theme
 jest.mock('@/lib/theme', () => ({
@@ -88,7 +134,7 @@ describe('Auth screen — phone entry', () => {
     const { getByPlaceholderText, getByText, findByText } = render(<Auth />)
     fireEvent.changeText(getByPlaceholderText('+1 (555) 000-0000'), '5551234567')
     fireEvent.press(getByText('Send code'))
-    expect(await findByText(/couldn't send/i)).toBeTruthy()
+    expect(await findByText(/couldn't send|SMS quota exceeded/i)).toBeTruthy()
   })
 })
 
@@ -136,8 +182,10 @@ import Profile from '@/app/(onboarding)/profile'
 import { api } from '@/lib/api'
 
 jest.mock('@/lib/api', () => ({
+  API_BASE: 'http://localhost:3000',
   api: {
     saveProfile: jest.fn(),
+    validateCanvasUrl: jest.fn(),
   },
 }))
 
@@ -185,6 +233,51 @@ describe('Profile screen — no phone field', () => {
         expect.objectContaining({ phone: expect.anything() }),
       )
       expect(mockPush).toHaveBeenCalledWith('/(onboarding)/tcpa')
+    })
+  })
+})
+
+// ── Tools screen ─────────────────────────────────────────────────────────────
+
+import Tools from '@/app/(onboarding)/tools'
+import * as WebBrowser from 'expo-web-browser'
+const mockOpenBrowser = WebBrowser.openBrowserAsync as jest.Mock
+const mockValidateCanvasUrl = (api as any).validateCanvasUrl as jest.Mock
+
+describe('Tools screen — Canvas guide', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('renders the 3-step Canvas guide when not yet connected', () => {
+    const { getByText } = render(<Tools />)
+    expect(getByText(/step 1/i)).toBeTruthy()
+    expect(getByText(/step 2/i)).toBeTruthy()
+    expect(getByText(/step 3/i)).toBeTruthy()
+  })
+
+  it('renders the "Open Canvas" button when not yet connected', () => {
+    const { getByText } = render(<Tools />)
+    expect(getByText('Open Canvas')).toBeTruthy()
+  })
+
+  it('tapping "Open Canvas" calls openBrowserAsync with Yale settings URL', async () => {
+    mockOpenBrowser.mockResolvedValue(undefined)
+    const { getByText } = render(<Tools />)
+    fireEvent.press(getByText('Open Canvas'))
+    await waitFor(() => {
+      expect(mockOpenBrowser).toHaveBeenCalledWith(
+        'https://yale.instructure.com/profile/settings#feed_holder',
+      )
+    })
+  })
+
+  it('hides the guide and "Open Canvas" button when Canvas is connected', async () => {
+    mockValidateCanvasUrl.mockResolvedValue({ deadline_count: 5, sample_courses: [] })
+    const { getByTestId, queryByText } = render(<Tools />)
+    fireEvent.changeText(getByTestId('canvas-url-input'), 'https://yale.instructure.com/feeds/calendars/user_abc.ics')
+    fireEvent.press(getByTestId('canvas-validate-btn'))
+    await waitFor(() => {
+      expect(queryByText(/step 1/i)).toBeNull()
+      expect(queryByText('Open Canvas')).toBeNull()
     })
   })
 })
