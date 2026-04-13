@@ -242,7 +242,7 @@ describe('Profile screen — no phone field', () => {
 import Tools from '@/app/(onboarding)/tools'
 import * as WebBrowser from 'expo-web-browser'
 const mockOpenBrowser = WebBrowser.openBrowserAsync as jest.Mock
-const mockValidateCanvasUrl = (api as any).validateCanvasUrl as jest.Mock
+const mockValidateCanvasUrl = jest.mocked(api.validateCanvasUrl)
 
 describe('Tools screen — Canvas guide', () => {
   beforeEach(() => jest.clearAllMocks())
@@ -276,6 +276,9 @@ describe('Tools screen — Canvas guide', () => {
     fireEvent.changeText(getByTestId('canvas-url-input'), 'https://yale.instructure.com/feeds/calendars/user_abc.ics')
     fireEvent.press(getByTestId('canvas-validate-btn'))
     await waitFor(() => {
+      expect(mockValidateCanvasUrl).toHaveBeenCalledWith(
+        'https://yale.instructure.com/feeds/calendars/user_abc.ics',
+      )
       expect(queryByText(/step 1/i)).toBeNull()
       expect(queryByText('Open Canvas')).toBeNull()
     })
