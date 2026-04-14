@@ -1,10 +1,28 @@
 # Onboarding Redesign — Spec
 
 > Created: 2026-04-10
-> Last updated: 2026-04-11 (session 2)
-> Status: **Phase C COMPLETE (all 10 code tasks done, commit `7d3d8a5`). Blocked on OB-P0 (manual Supabase phone auth setup) before simulator test.**
+> Last updated: 2026-04-12 (session 7)
+> Status: **OB-C3 COMPLETE — full redesign shipped. 51-university system, school-agnostic UI, syllabus removed, coming-soon integrations added. 18/18 tests passing. Next: OB-C4 (code review) → OB-C5 (merge).**
 > Branch: `onboarding`
 > Pivot plan: `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`
+
+### Session 7 changes (2026-04-12)
+
+- Full onboarding redesign complete: universities.ts with 51 Canvas domains, UniversityPicker component for profile screen
+- Welcome screen: school-agnostic copy ("Your academic life, under control"), Gmail+GCal reordered to #1, "Get started" button
+- Tools screen: Canvas domain resolution priority (extract from URL → university lookup → null), updated guide steps
+- Syllabus upload removed entirely from onboarding (moved to future preferences flow)
+- Todoist, iOS Reminders, Google Classroom added as "coming soon" cards (50% opacity, frontend-only scaffolding)
+- All 18 tests passing, lint clean, ready for code review
+
+### Session 5 changes (2026-04-12)
+
+- All onboarding screens now hydrate from Supabase on mount (profile, tcpa, tools)
+- Google OAuth callback: `NODE_ENV` branch — dev writes directly to Supabase, production uses Redis+Celery
+- Migration 010: unique constraint on `integrations(user_id, platform)`
+- `_layout.tsx` routing race condition fixed (segments[0] dependency)
+- `PRODUCTION.md` and `LOCALDEV.md` created
+- Reset procedure: erase simulator + SQL reset both required (see LOCALDEV.md)
 
 ---
 
@@ -28,16 +46,16 @@ welcome → auth → verify-phone → profile → tcpa → tools → success →
 
 > ⚠️ Order changed in pivot: verify-phone now comes before profile (phone is auth, not profile data).
 
-| Screen         | File                                                 | Purpose                                                                            |
-| -------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `welcome`      | `welcome.tsx`                                        | Splash / value prop (existing, keep as-is)                                         |
-| `auth`         | `auth.tsx` (rewritten)                               | Phone number entry — calls Supabase signInWithOtp                                  |
-| `verify-phone` | `verify-phone.tsx` (updated)                         | 6-digit OTP — calls Supabase verifyOtp, creates session                            |
-| `profile`      | `profile.tsx` (updated)                              | Collect name, university, graduation year (phone removed — already in session)     |
-| `tcpa`         | `tcpa.tsx` (existing)                                | SMS consent checkbox — required before any SMS is sent                             |
-| `tools`        | `tools.tsx` (updated)                                | Connect Gmail + GCal (required), Canvas URL (optional), syllabus upload (optional) |
-| `success`      | `success.tsx` (existing)                             | Confirmation — triggers welcome SMS, navigates to home                             |
-| `home`         | `index.tsx` (existing)                               | Main dashboard                                                                     |
+| Screen         | File                         | Purpose                                                                            |
+| -------------- | ---------------------------- | ---------------------------------------------------------------------------------- |
+| `welcome`      | `welcome.tsx`                | Splash / value prop (existing, keep as-is)                                         |
+| `auth`         | `auth.tsx` (rewritten)       | Phone number entry — calls Supabase signInWithOtp                                  |
+| `verify-phone` | `verify-phone.tsx` (updated) | 6-digit OTP — calls Supabase verifyOtp, creates session                            |
+| `profile`      | `profile.tsx` (updated)      | Collect name, university, graduation year (phone removed — already in session)     |
+| `tcpa`         | `tcpa.tsx` (existing)        | SMS consent checkbox — required before any SMS is sent                             |
+| `tools`        | `tools.tsx` (updated)        | Connect Gmail + GCal (required), Canvas URL (optional), syllabus upload (optional) |
+| `success`      | `success.tsx` (existing)     | Confirmation — triggers welcome SMS, navigates to home                             |
+| `home`         | `index.tsx` (existing)       | Main dashboard                                                                     |
 
 ---
 
@@ -85,10 +103,12 @@ welcome → auth → verify-phone → profile → tcpa → tools → success →
     - Backend handles CSRF, Google OAuth redirect, code exchange, Fernet-encrypted token storage via Celery
   - After browser closes: poll `integrations` table every 1.5s (up to 12s) to confirm tokens stored
   - Continue button disabled until `googleConnected = true`
-- **Optional section:** unchanged
-  - Canvas iCal URL: input field + validate button (calls `POST /api/sync/canvas`)
-  - Syllabus PDF: file picker per course (calls `POST /api/upload/syllabus`)
-  - Google Classroom: "Coming soon" badge
+- **Optional section:** updated
+  - Canvas iCal URL: input field + validate button (calls `POST /api/sync/canvas`). 3-step in-app guide + "Open Canvas" deep-link button (uses university lookup from `lib/universities.ts`).
+  - Syllabus PDF upload: **REMOVED** from onboarding. Will be added as a post-onboarding flow in preferences/settings.
+  - Todoist: "Coming soon" badge (backend implementation planned for v1.1)
+  - iOS Reminders: "Coming soon" badge (backend implementation planned for v1.1)
+  - Google Classroom: "Coming soon" badge (backend implementation planned for v1.1)
 - `expo-auth-session`, `expo-crypto`, and nonce logic removed from this screen
 
 ### Success Screen (`success.tsx`)
@@ -296,9 +316,11 @@ TWILIO_VERIFY_SERVICE_SID=   # Create new Verify Service in Twilio Console (sepa
 9. `npm uninstall expo-apple-authentication`
 
 **Phase C — Integration Test:**
+
 - Phone OTP path on simulator: enter phone → OTP → profile → TCPA → Google connect → complete → welcome SMS
 
 **Phase D (Post-Flow):**
+
 - Update `mobile/app/(home)/preferences.tsx` for disconnect/reconnect
 
 ---
@@ -306,6 +328,7 @@ TWILIO_VERIFY_SERVICE_SID=   # Create new Verify Service in Twilio Console (sepa
 ## Files to Create / Modify
 
 ### New Files (Create)
+
 - `src/app/api/onboarding/profile/route.ts` — Save user profile (name, phone, university, year)
 - `src/app/api/auth/phone/send/route.ts` — Send OTP via Twilio Verify
 - `src/app/api/auth/phone/verify/route.ts` — Verify OTP, mark phone verified
@@ -318,6 +341,7 @@ TWILIO_VERIFY_SERVICE_SID=   # Create new Verify Service in Twilio Console (sepa
 - `mobile/app/(onboarding)/success.tsx` — Onboarding completion screen, triggers welcome SMS
 
 ### Modified Files (Existing, Update)
+
 - `src/app/api/sync/canvas/route.ts` — Replace stub with real validation (return `deadline_count`, `sample_courses`)
 - `mobile/app/(onboarding)/_layout.tsx` — Update screen order: `welcome` → `auth` → `profile` → `verify-phone` → `tcpa` → `tools` → `success`
 - `mobile/lib/api.ts` — Add new methods: `saveProfile()`, `sendPhoneOtp()`, `verifyPhoneOtp()`, `completeOnboarding()`, `uploadSyllabus()`
@@ -325,6 +349,7 @@ TWILIO_VERIFY_SERVICE_SID=   # Create new Verify Service in Twilio Console (sepa
 - `mobile/package.json` — Add `expo-apple-authentication` dependency
 
 ### Deleted Files (Remove)
+
 - `mobile/app/(onboarding)/phone.tsx` — Replaced by `profile.tsx`
 - `mobile/app/(onboarding)/verify.tsx` — Repurposed as `verify-phone.tsx`
 - `mobile/app/(onboarding)/canvas.tsx` — Functionality moved to `tools.tsx`
@@ -346,15 +371,15 @@ Use parallel execution for independent backend + mobile tracks to maximize veloc
 
 ### Skills and Agents to Use
 
-| Task | Skill/Agent | Reasoning |
-|------|-------------|-----------|
-| **Parallel execution** | `superpowers:dispatching-parallel-agents` | Backend (Josh) and mobile (Seb) are independent; run in parallel |
-| **Backend implementation** | `superpowers:executing-plans` (or `gsd-executor`) | Follow Phase A of plan exactly, atomic commits per route |
-| **Mobile implementation** | `superpowers:executing-plans` (or `gsd-executor`) | Follow Phase B of plan exactly, atomic commits per screen |
-| **TDD for all code** | `superpowers:test-driven-development` | Write tests first for all routes and screens |
-| **Final code review** | `superpowers:requesting-code-review` or `gsd:code-review` | Verify implementation matches plan and spec before merge |
-| **Verification** | `superpowers:verification-before-completion` | Cross-check against spec before claiming work done |
-| **DB migration** | `gsd:fast` (or manual) | Single-file migration, low risk, can execute independently |
+| Task                       | Skill/Agent                                               | Reasoning                                                        |
+| -------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------- |
+| **Parallel execution**     | `superpowers:dispatching-parallel-agents`                 | Backend (Josh) and mobile (Seb) are independent; run in parallel |
+| **Backend implementation** | `superpowers:executing-plans` (or `gsd-executor`)         | Follow Phase A of plan exactly, atomic commits per route         |
+| **Mobile implementation**  | `superpowers:executing-plans` (or `gsd-executor`)         | Follow Phase B of plan exactly, atomic commits per screen        |
+| **TDD for all code**       | `superpowers:test-driven-development`                     | Write tests first for all routes and screens                     |
+| **Final code review**      | `superpowers:requesting-code-review` or `gsd:code-review` | Verify implementation matches plan and spec before merge         |
+| **Verification**           | `superpowers:verification-before-completion`              | Cross-check against spec before claiming work done               |
+| **DB migration**           | `gsd:fast` (or manual)                                    | Single-file migration, low risk, can execute independently       |
 
 ### Worktree Isolation (Optional but Recommended)
 

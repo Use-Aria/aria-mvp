@@ -8,11 +8,11 @@ import {
   ScrollView,
 } from 'react-native'
 import { useRouter } from 'expo-router'
-import * as DocumentPicker from 'expo-document-picker'
 import * as WebBrowser from 'expo-web-browser'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/lib/supabase'
 import { api, API_BASE } from '@/lib/api'
+import { canvasDomainForUniversity } from '@/lib/universities'
 import { useTheme } from '@/lib/theme'
 import ProgressBar from '@/components/onboarding/ProgressBar'
 import CanvasUrlInput from '@/components/onboarding/CanvasUrlInput'
@@ -30,8 +30,7 @@ type CanvasStatus = 'idle' | 'validating' | 'valid' | 'error'
  *
  * Optional section:
  *   - Canvas iCal URL: validate via POST /api/sync/canvas.
- *   - Syllabus PDF: file picker → POST /api/upload/syllabus.
- *   - Google Classroom: "Coming soon" badge.
+ *   - Todoist, iOS Reminders, Google Classroom: "Coming soon" badges (not yet implemented).
  */
 export default function Tools() {
   const router = useRouter()
@@ -46,9 +45,7 @@ export default function Tools() {
   const [canvasStatus, setCanvasStatus] = useState<CanvasStatus>('idle')
   const [canvasError, setCanvasError] = useState<string | undefined>(undefined)
 
-  const [syllabusUploading, setSyllabusUploading] = useState(false)
-  const [syllabusFileName, setSyllabusFileName] = useState<string | null>(null)
-  const [syllabusError, setSyllabusError] = useState<string | null>(null)
+  const [university, setUniversity] = useState<string | null>(null)
 
   /**
    * Check integrations table for a google row for this user.
@@ -89,6 +86,16 @@ export default function Tools() {
           setCanvasUrl(data.ical_url)
           setCanvasStatus('valid')
         }
+      })()
+      ;(async () => {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!active || !session?.user?.id) return
+        const { data } = await supabase
+          .from('users')
+          .select('university')
+          .eq('id', session.user.id)
+          .maybeSingle()
+        if (active && data?.university) setUniversity(data.university)
       })()
     }, 0)
 
@@ -164,33 +171,22 @@ export default function Tools() {
     })()
   }
 
-  const handleOpenCanvas = async () => {
-    await WebBrowser.openBrowserAsync(
-      'https://yale.instructure.com/profile/settings#feed_holder',
-    )
-  }
-
-  const handleSyllabusPick = async () => {
-    setSyllabusError(null)
-    setSyllabusUploading(true)
+  /**
+   * Derives the Canvas base URL to open, in priority order:
+   * 1. Domain extracted from a typed/pasted iCal URL
+   * 2. Domain from university lookup (fetched from user profile)
+   * 3. null → button disabled (unknown school, no URL typed)
+   */
+  const resolvedCanvasDomain = (() => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        copyToCacheDirectory: true,
-      })
-      if (result.canceled || !result.assets?.[0]) {
-        setSyllabusUploading(false)
-        return
-      }
-      const asset = result.assets[0]
-      const courseName = asset.name.replace(/\.pdf$/i, '')
-      await api.uploadSyllabus(asset.uri, courseName)
-      setSyllabusFileName(asset.name)
-    } catch {
-      setSyllabusError("Couldn't upload syllabus. Please try again.")
-    } finally {
-      setSyllabusUploading(false)
-    }
+      if (canvasUrl) return new URL(canvasUrl).origin
+    } catch {}
+    return canvasDomainForUniversity(university)
+  })()
+
+  const handleOpenCanvas = async () => {
+    if (!resolvedCanvasDomain) return
+    await WebBrowser.openBrowserAsync(`${resolvedCanvasDomain}/calendar`)
   }
 
   return (
@@ -301,8 +297,8 @@ export default function Tools() {
             <View style={{ marginBottom: 16 }}>
               {[
                 'Step 1: Tap "Open Canvas" below',
-                'Step 2: Scroll to "Calendar Feed" and tap the link',
-                'Step 3: Copy the URL and paste it here',
+                'Step 2: Scroll down to "Calendar Feed" and tap it — a card appears with your iCal URL',
+                'Step 3: Copy the URL, come back here, and paste it below',
               ].map((step) => (
                 <View key={step} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 }}>
                   <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 20 }}>
@@ -313,21 +309,30 @@ export default function Tools() {
 
               <TouchableOpacity
                 onPress={handleOpenCanvas}
+                disabled={!resolvedCanvasDomain}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 1,
-                  borderColor: accent,
+                  borderColor: resolvedCanvasDomain ? accent : colors.cardBorder,
                   borderRadius: 10,
                   height: 40,
                   marginTop: 10,
                   gap: 6,
+                  opacity: resolvedCanvasDomain ? 1 : 0.4,
                 }}
               >
-                <Ionicons name="open-outline" size={16} color={accent} />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: accent }}>Open Canvas</Text>
+                <Ionicons name="open-outline" size={16} color={resolvedCanvasDomain ? accent : colors.textSecondary} />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: resolvedCanvasDomain ? accent : colors.textSecondary }}>
+                  Open Canvas
+                </Text>
               </TouchableOpacity>
+              {!resolvedCanvasDomain && (
+                <Text style={{ fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: 6 }}>
+                  Paste your Canvas URL above to activate this button
+                </Text>
+              )}
 
               <View style={{ height: 1, backgroundColor: colors.cardBorder, marginVertical: 16 }} />
             </View>
@@ -344,96 +349,58 @@ export default function Tools() {
           />
         </View>
 
-        {/* Syllabus */}
-        <View style={{
-          borderWidth: 1,
-          borderColor: colors.cardBorder,
-          borderRadius: 16,
-          padding: 20,
-          marginBottom: 16,
-          backgroundColor: colors.secondary,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-            <Ionicons name="document-text-outline" size={22} color={colors.textPrimary} />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>
-                Syllabus
-              </Text>
-              <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-                Upload a PDF so Aria knows your grade weights
-              </Text>
-            </View>
-          </View>
-
-          {syllabusFileName ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="checkmark-circle" size={20} color="#34C759" />
-              <Text style={{ fontSize: 14, color: '#34C759', fontWeight: '600', flex: 1 }} numberOfLines={1}>
-                {syllabusFileName}
-              </Text>
-            </View>
-          ) : (
-            <>
-              {syllabusError ? (
-                <Text style={{ color: '#FF3B30', fontSize: 14, marginBottom: 8 }}>{syllabusError}</Text>
-              ) : null}
-              <TouchableOpacity
-                onPress={handleSyllabusPick}
-                disabled={syllabusUploading}
-                style={{
-                  borderWidth: 1,
-                  borderColor: accent,
-                  borderRadius: 10,
-                  height: 44,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: syllabusUploading ? 0.6 : 1,
-                }}
-              >
-                {syllabusUploading ? (
-                  <ActivityIndicator color={accent} />
-                ) : (
-                  <Text style={{ color: accent, fontSize: 15, fontWeight: '600' }}>
-                    Choose PDF
+        {/* Coming soon cards */}
+        {[
+          {
+            icon: 'checkmark-done-outline' as const,
+            title: 'Todoist',
+            description: 'Sync your tasks and to-dos with Aria',
+          },
+          {
+            icon: 'list-outline' as const,
+            title: 'Reminders',
+            description: 'Bring your iOS Reminders into your daily briefing',
+          },
+          {
+            icon: 'library-outline' as const,
+            title: 'Google Classroom',
+            description: 'Assignment sync from Google Classroom',
+          },
+        ].map((item) => (
+          <View key={item.title} style={{
+            borderWidth: 1,
+            borderColor: colors.cardBorder,
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 16,
+            backgroundColor: colors.secondary,
+            opacity: 0.5,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name={item.icon} size={22} color={colors.textPrimary} />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>
+                    {item.title}
                   </Text>
-                )}
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-
-        {/* Google Classroom — coming soon */}
-        <View style={{
-          borderWidth: 1,
-          borderColor: colors.cardBorder,
-          borderRadius: 16,
-          padding: 20,
-          marginBottom: 32,
-          backgroundColor: colors.secondary,
-          opacity: 0.6,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="library-outline" size={22} color={colors.textPrimary} />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>
-                  Google Classroom
-                </Text>
-                <View style={{
-                  backgroundColor: `${accent}20`,
-                  borderRadius: 6,
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                }}>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: accent }}>COMING SOON</Text>
+                  <View style={{
+                    backgroundColor: `${accent}20`,
+                    borderRadius: 6,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                  }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: accent }}>COMING SOON</Text>
+                  </View>
                 </View>
+                <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
+                  {item.description}
+                </Text>
               </View>
-              <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-                Assignment sync from Google Classroom
-              </Text>
             </View>
           </View>
-        </View>
+        ))}
+
+        <View style={{ marginBottom: 16 }} />
 
         {/* Continue CTA */}
         <TouchableOpacity

@@ -101,6 +101,9 @@ export default function VerifyPhone() {
       <ProgressBar currentStep={3} />
 
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
+        <TouchableOpacity onPress={() => router.replace('/(onboarding)/auth')} style={{ marginBottom: 24 }}>
+          <Text style={{ fontSize: 16, color: accent }}>← Back</Text>
+        </TouchableOpacity>
         <Text style={{ fontSize: 28, fontWeight: '600', color: colors.textPrimary, marginBottom: 8 }}>
           Enter the code
         </Text>

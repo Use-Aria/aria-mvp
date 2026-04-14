@@ -34,7 +34,7 @@ export default function Auth() {
   const [error, setError] = useState<string | null>(null)
 
   const phoneDigits = phone.replace(/\D/g, '').length
-  const isPhoneValid = phoneDigits >= 10
+  const isPhoneValid = phoneDigits >= 11 // formatted value includes '1' from '+1' country code
 
   /** Convert PhoneInput display value to E.164 (e.g. "+1 (555) 123-4567" → "+15551234567") */
   const toE164 = (display: string): string => {
@@ -52,7 +52,8 @@ export default function Auth() {
     setLoading(false)
 
     if (otpError) {
-      setError("Couldn't send the code. Check your number and try again.")
+      console.error('[auth] signInWithOtp error:', JSON.stringify(otpError))
+      setError(otpError.message ?? "Couldn't send the code. Check your number and try again.")
       return
     }
 
@@ -111,10 +112,6 @@ export default function Auth() {
               </Text>
             )}
           </TouchableOpacity>
-
-          <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: 20 }}>
-            Yale students only · Closed beta
-          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

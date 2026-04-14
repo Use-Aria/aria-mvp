@@ -1,5 +1,5 @@
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 
 /**
  * POST /api/sync/canvas
@@ -23,12 +23,18 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // --- Auth ---
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    // --- Auth: resolve user from Bearer token (mobile app sends JWT in Authorization header) ---
+    const authHeader = request.headers.get('Authorization')
+    const jwt = authHeader?.replace('Bearer ', '').trim()
+    if (!jwt) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const adminClient = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+    const { data: { user }, error: authError } = await adminClient.auth.getUser(jwt)
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
@@ -49,9 +55,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // --- Validate URL shape before fetching ---
+    // Canvas sometimes emits webcal:// scheme links — normalize to https:// before parsing.
+    // Node's URL constructor does not recognise webcal as a valid WHATWG scheme and will throw.
+    const normalizedUrl = ical_url.trim().replace(/^webcal:\/\//i, 'https://')
     let parsedUrl: URL
     try {
-      parsedUrl = new URL(ical_url.trim())
+      parsedUrl = new URL(normalizedUrl)
     } catch {
       return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 })
     }
@@ -144,6 +153,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const sampleCourses = Array.from(courseSet).slice(0, 5)
+
+    // --- Persist the validated iCal URL to the integrations table ---
+    const { error: upsertError } = await adminClient
+      .from('integrations')
+      .upsert(
+        { user_id: user.id, platform: 'canvas', ical_url: parsedUrl.toString() },
+        { onConflict: 'user_id,platform' },
+      )
+
+    if (upsertError) {
+      console.error('[sync/canvas] failed to save ical_url:', upsertError.message)
+      // Non-fatal — validation succeeded, return results anyway
+    }
 
     console.log('[sync/canvas] validated feed for user:', user.id, '— events:', deadlineCount)
 

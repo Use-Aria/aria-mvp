@@ -1,6 +1,5 @@
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 
 /**
  * POST /api/onboarding/profile
@@ -14,12 +13,18 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // --- Auth: resolve user from JWT ---
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    // --- Auth: resolve user from Bearer token (mobile app sends JWT in Authorization header) ---
+    const authHeader = request.headers.get('Authorization')
+    const jwt = authHeader?.replace('Bearer ', '').trim()
+    if (!jwt) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const adminClient = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+    const { data: { user }, error: authError } = await adminClient.auth.getUser(jwt)
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
@@ -39,10 +44,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       typeof name !== 'string' || name.trim().length === 0 ||
       typeof university !== 'string' || university.trim().length === 0 ||
       typeof graduation_year !== 'number' || !Number.isInteger(graduation_year) ||
-      graduation_year < 2020 || graduation_year > 2035
+      graduation_year < 2024 || graduation_year > 2035
     ) {
       return NextResponse.json(
-        { error: 'name, university, and graduation_year (integer 2020–2035) are required' },
+        { error: 'name, university, and graduation_year (integer 2024–2035) are required' },
         { status: 400 },
       )
     }
@@ -51,11 +56,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const phone = user.phone ?? ''
 
     // --- Write to DB using service role (bypasses RLS) ---
-    const adminClient = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
-
     const { error: upsertError } = await adminClient
       .from('users')
       .upsert(

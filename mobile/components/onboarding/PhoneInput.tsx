@@ -37,7 +37,12 @@ export default function PhoneInput({ value, onChangeText, isValid, error }: Phon
   }
 
   const handleChangeText = (text: string) => {
-    const digits = text.replace(/\D/g, '')
+    let digits = text.replace(/\D/g, '')
+    // Strip the leading '1' injected by the '+1' country code prefix in the formatted display value
+    if (digits.startsWith('1')) {
+      digits = digits.slice(1)
+    }
+    digits = digits.slice(0, 10)
     const formatted = formatPhone(digits)
     onChangeText(formatted)
   }
@@ -49,7 +54,7 @@ export default function PhoneInput({ value, onChangeText, isValid, error }: Phon
         onChangeText={handleChangeText}
         keyboardType="phone-pad"
         autoComplete="tel"
-        maxLength={15}
+        maxLength={18}
         placeholder="+1 (555) 000-0000"
         placeholderTextColor={colors.textSecondary}
         style={{

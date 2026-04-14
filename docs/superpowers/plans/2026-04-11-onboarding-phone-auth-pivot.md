@@ -1177,6 +1177,12 @@ git commit -m "feat(onboarding): profile screen removes phone field, navigates t
 
 ## Task 7: Update tools.tsx — Google Connect via WebBrowser
 
+> **⚠️ AMENDMENT (2026-04-12):** The tools screen has been further updated beyond this original plan:
+> - **Syllabus PDF upload removed** from onboarding. The `expo-document-picker` import, `handleSyllabusPick`, and all syllabus state (`syllabusUploading`, `syllabusFileName`, `syllabusError`) have been deleted. Syllabus upload will be re-introduced as a post-onboarding settings/preferences flow in a future phase.
+> - **Todoist** and **iOS Reminders** added as "Coming soon" optional cards (frontend-only, no backend).
+> - **University picker** added to profile screen (`UniversityPicker` component + `lib/universities.ts`). The tools screen reads `university` from the `users` table on mount and uses `canvasDomainForUniversity()` to power the "Open Canvas" deep-link button.
+> - The code block below reflects the original plan — see `mobile/app/(onboarding)/tools.tsx` for the current implementation.
+
 **Files:**
 - Modify: `mobile/app/(onboarding)/tools.tsx`
 

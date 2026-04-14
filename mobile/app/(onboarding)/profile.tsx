@@ -3,6 +3,7 @@ import {
   Text,
   TextInput,
   Pressable,
+  TouchableOpacity,
   ActivityIndicator,
   SafeAreaView,
   ScrollView,
@@ -14,6 +15,7 @@ import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api'
 import { useTheme } from '@/lib/theme'
 import ProgressBar from '@/components/onboarding/ProgressBar'
+import UniversityPicker from '@/components/onboarding/UniversityPicker'
 
 /**
  * Onboarding Step 4 — Profile collection.
@@ -33,13 +35,31 @@ export default function Profile() {
   const [gradYear, setGradYear] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [sessionPhone, setSessionPhone] = useState('')
 
-  // Pre-fill name from session metadata
+  // Pre-fill from DB (resume after app reload) or fall back to session metadata.
+  // Also captures the E.164 phone from the session so the Back button can pass it
+  // to verify-phone — router.replace clears the stack so params must be explicit.
   useEffect(() => {
     ;(async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      const fullName = session?.user?.user_metadata?.full_name as string | undefined
-      if (fullName) setName(fullName)
+      if (!session?.user?.id) return
+
+      if (session.user.phone) setSessionPhone(session.user.phone)
+
+      const { data: user } = await supabase
+        .from('users')
+        .select('name, university, graduation_year')
+        .eq('id', session.user.id)
+        .single()
+
+      if (user?.name) setName(user.name)
+      else {
+        const fullName = session.user.user_metadata?.full_name as string | undefined
+        if (fullName) setName(fullName)
+      }
+      if (user?.university) setUniversity(user.university)
+      if (user?.graduation_year) setGradYear(String(user.graduation_year))
     })()
   }, [])
 
@@ -102,6 +122,9 @@ export default function Profile() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          <TouchableOpacity onPress={() => router.replace({ pathname: '/(onboarding)/verify-phone', params: { phone: sessionPhone } })} style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 16, color: accent }}>← Back</Text>
+          </TouchableOpacity>
           <Text style={{ fontSize: 28, fontWeight: '600', color: colors.textPrimary, marginBottom: 8 }}>
             Tell us about you
           </Text>
@@ -127,13 +150,10 @@ export default function Profile() {
 
           {/* University */}
           <Text style={labelStyle}>University</Text>
-          <TextInput
+          <UniversityPicker
             value={university}
-            onChangeText={setUniversity}
-            placeholder="e.g. Yale University"
-            placeholderTextColor={colors.textSecondary}
-            returnKeyType="next"
-            style={inputStyle}
+            onChange={setUniversity}
+            testID="university-picker"
           />
 
           {/* Graduation year */}

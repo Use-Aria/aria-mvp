@@ -40,6 +40,18 @@ jest.mock('expo-document-picker', () => ({
 // Mock ProgressBar (no-op)
 jest.mock('@/components/onboarding/ProgressBar', () => () => null)
 
+// Mock UniversityPicker — calls onChange('Yale University') when pressed
+jest.mock('@/components/onboarding/UniversityPicker', () => {
+  const { TouchableOpacity, Text } = require('react-native')
+  return function MockUniversityPicker({ value, onChange, testID }) {
+    return (
+      <TouchableOpacity testID={testID || 'university-picker'} onPress={() => onChange('Yale University')}>
+        <Text>{value || 'Select your university'}</Text>
+      </TouchableOpacity>
+    )
+  }
+})
+
 // Mock CanvasUrlInput — renders a simple TextInput + Validate button for test control
 jest.mock('@/components/onboarding/CanvasUrlInput', () => {
   const { TextInput, TouchableOpacity, Text } = require('react-native')
@@ -199,10 +211,10 @@ describe('Profile screen — no phone field', () => {
     expect(queryByPlaceholderText('+1 (555) 000-0000')).toBeNull()
   })
 
-  it('renders name, university, graduation year fields', () => {
-    const { getByPlaceholderText } = render(<Profile />)
+  it('renders name, university picker, and graduation year fields', () => {
+    const { getByPlaceholderText, getByTestId } = render(<Profile />)
     expect(getByPlaceholderText('Your name')).toBeTruthy()
-    expect(getByPlaceholderText('e.g. Yale University')).toBeTruthy()
+    expect(getByTestId('university-picker')).toBeTruthy()
     expect(getByPlaceholderText('e.g. 2027')).toBeTruthy()
   })
 
@@ -217,9 +229,9 @@ describe('Profile screen — no phone field', () => {
     const mockPush = jest.fn()
     jest.spyOn(require('expo-router'), 'useRouter').mockReturnValue({ push: mockPush })
 
-    const { getByPlaceholderText, getByText } = render(<Profile />)
+    const { getByPlaceholderText, getByTestId, getByText } = render(<Profile />)
     fireEvent.changeText(getByPlaceholderText('Your name'), 'Alice')
-    fireEvent.changeText(getByPlaceholderText('e.g. Yale University'), 'Yale University')
+    fireEvent.press(getByTestId('university-picker')) // mock calls onChange('Yale University')
     fireEvent.changeText(getByPlaceholderText('e.g. 2027'), '2027')
     fireEvent.press(getByText('Continue'))
 
@@ -237,6 +249,86 @@ describe('Profile screen — no phone field', () => {
   })
 })
 
+// ── TCPA screen ──────────────────────────────────────────────────────────────
+
+import Tcpa from '@/app/(onboarding)/tcpa'
+
+describe('TCPA screen — Option 2 (optional consent)', () => {
+  const mockFrom = supabase.from as jest.Mock
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    // Default: no existing preferences
+    mockFrom.mockImplementation(() => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn(() => ({ data: null, error: null })),
+      update: jest.fn().mockReturnThis(),
+    }))
+  })
+
+  it('shows warning message when toggle is OFF (default)', () => {
+    const { getByText } = render(<Tcpa />)
+    expect(
+      getByText(/won't send morning briefings or deadline alerts/i),
+    ).toBeTruthy()
+  })
+
+  it('hides warning message when toggle is turned ON', () => {
+    const { getByRole, queryByText } = render(<Tcpa />)
+    const toggle = getByRole('switch')
+    fireEvent(toggle, 'valueChange', true)
+    expect(
+      queryByText(/won't send morning briefings or deadline alerts/i),
+    ).toBeNull()
+  })
+
+  it('Continue button is enabled regardless of consent state', () => {
+    const { getByText } = render(<Tcpa />)
+    const btn = getByText('Continue')
+    expect(btn.parent?.props.disabled).toBeFalsy()
+  })
+
+  it('navigates to tools after confirming with toggle OFF', async () => {
+    const mockPush = jest.fn()
+    jest.spyOn(require('expo-router'), 'useRouter').mockReturnValue({ push: mockPush, replace: jest.fn() })
+
+    mockFrom.mockImplementation(() => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn(() => ({ data: null, error: null })),
+      update: jest.fn(() => ({ eq: jest.fn(() => ({ error: null })) })),
+    }))
+
+    const { getByText } = render(<Tcpa />)
+    fireEvent.press(getByText('Continue'))
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/(onboarding)/tools')
+    })
+  })
+
+  it('navigates to tools after confirming with toggle ON', async () => {
+    const mockPush = jest.fn()
+    jest.spyOn(require('expo-router'), 'useRouter').mockReturnValue({ push: mockPush, replace: jest.fn() })
+
+    mockFrom.mockImplementation(() => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn(() => ({ data: null, error: null })),
+      update: jest.fn(() => ({ eq: jest.fn(() => ({ error: null })) })),
+    }))
+
+    const { getByText, getByRole } = render(<Tcpa />)
+    fireEvent(getByRole('switch'), 'valueChange', true)
+    fireEvent.press(getByText('Continue'))
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/(onboarding)/tools')
+    })
+  })
+})
+
 // ── Tools screen ─────────────────────────────────────────────────────────────
 
 import Tools from '@/app/(onboarding)/tools'
@@ -245,9 +337,19 @@ const mockOpenBrowser = WebBrowser.openBrowserAsync as jest.Mock
 const mockValidateCanvasUrl = jest.mocked(api.validateCanvasUrl)
 
 describe('Tools screen — Canvas guide', () => {
-  beforeEach(() => jest.clearAllMocks())
+  const mockFrom = supabase.from as jest.Mock
 
-  it('renders the 3-step Canvas guide when not yet connected', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    // Default: all DB queries return null (unknown school, no existing integrations)
+    mockFrom.mockImplementation(() => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() => ({ data: null, error: null })),
+    }))
+  })
+
+  it('renders the Canvas guide when not yet connected', () => {
     const { getByText } = render(<Tools />)
     expect(getByText(/step 1/i)).toBeTruthy()
     expect(getByText(/step 2/i)).toBeTruthy()
@@ -259,14 +361,61 @@ describe('Tools screen — Canvas guide', () => {
     expect(getByText('Open Canvas')).toBeTruthy()
   })
 
-  it('tapping "Open Canvas" calls openBrowserAsync with Yale settings URL', async () => {
-    mockOpenBrowser.mockResolvedValue(undefined)
+  it('disables "Open Canvas" and shows hint when school is unknown and no URL typed', async () => {
     const { getByText } = render(<Tools />)
+    await waitFor(() => {
+      expect(getByText(/paste your canvas url/i)).toBeTruthy()
+    })
+  })
+
+  it('tapping "Open Canvas" uses university lookup for known school', async () => {
+    mockFrom.mockImplementation((table: string) => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() => ({
+        data: table === 'users' ? { university: 'Yale University' } : null,
+        error: null,
+      })),
+    }))
+    mockOpenBrowser.mockResolvedValue(undefined)
+    const { getByText, queryByText } = render(<Tools />)
+    // Wait for university state to resolve — hint text disappears when domain is known
+    await waitFor(() => {
+      expect(queryByText(/paste your canvas url/i)).toBeNull()
+    })
+    fireEvent.press(getByText('Open Canvas'))
+    await waitFor(() => {
+      expect(mockOpenBrowser).toHaveBeenCalledWith('https://yale.instructure.com/calendar')
+    })
+  })
+
+  it('tapping "Open Canvas" uses domain extracted from pasted iCal URL', async () => {
+    mockOpenBrowser.mockResolvedValue(undefined)
+    const { getByText, getByTestId } = render(<Tools />)
+    fireEvent.changeText(getByTestId('canvas-url-input'), 'https://harvard.instructure.com/feeds/calendars/user_abc.ics')
     fireEvent.press(getByText('Open Canvas'))
     await waitFor(() => {
       expect(mockOpenBrowser).toHaveBeenCalledWith(
-        'https://yale.instructure.com/profile/settings#feed_holder',
+        'https://harvard.instructure.com/calendar',
       )
+    })
+  })
+
+  it('URL domain takes priority over university lookup', async () => {
+    mockFrom.mockImplementation((table: string) => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() => ({
+        data: table === 'users' ? { university: 'Yale' } : null,
+        error: null,
+      })),
+    }))
+    mockOpenBrowser.mockResolvedValue(undefined)
+    const { getByText, getByTestId } = render(<Tools />)
+    fireEvent.changeText(getByTestId('canvas-url-input'), 'https://mit.instructure.com/feeds/calendars/user_abc.ics')
+    fireEvent.press(getByText('Open Canvas'))
+    await waitFor(() => {
+      expect(mockOpenBrowser).toHaveBeenCalledWith('https://mit.instructure.com/calendar')
     })
   })
 
