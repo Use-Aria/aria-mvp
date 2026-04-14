@@ -1,11 +1,48 @@
 # Aria — Session Progress
 
-> Last updated: 2026-04-12 (session 7)
+> Last updated: 2026-04-14 (session 8)
 > Use this file at the start of every session to restore context quickly.
 
 ---
 
 ## What We Accomplished This Session
+
+### OB-C4 + OB-C5 ✅ COMPLETE — Onboarding fully merged to main (2026-04-14 session 8)
+
+**Features + fixes shipped:**
+
+1. **LOCALDEV.md reset procedure** — removed Option A (partial reset), kept only full reset as a single 3-step procedure: (1) erase simulator, (2) delete from `public.users` + `auth.users`, (3) revoke Google OAuth at myaccount.google.com/permissions
+
+2. **TCPA screen — Option 2 (optional consent)**
+   - Heading/subtext updated to cover briefings + alerts (was narrow "quiet hours" framing)
+   - Toggle defaults OFF, Continue button always enabled (was blocked)
+   - Warning block shown when toggle is OFF: "Without this, Aria won't send morning briefings or deadline alerts. You'll need to text Aria to get updates."
+   - Warning hidden when toggle is ON
+   - Button renamed "Confirm" → "Continue"
+   - 5 new TCPA tests added; 23/23 tests passing
+
+3. **Success → home transition fix (`_layout.tsx`)**
+   - Root cause: segment change triggered `onboardingDone` reset to `null` → full-screen ActivityIndicator unmounted the Stack → home remounted → twitching/lag
+   - Fix: don't show spinner when `segments[0] === '(home)'` — Stack stays mounted, transition is smooth
+
+4. **OB-C4 code review findings fixed (all critical + important):**
+   - `src/app/api/sync/canvas/route.ts` — normalise `webcal://` → `https://` before `new URL()` (was crashing with 400)
+   - `mobile/app/(onboarding)/profile.tsx` — back button now reads phone from `supabase.auth.getSession()` and passes it as explicit param to verify-phone via `router.replace({ pathname, params: { phone } })`
+   - `src/app/api/onboarding/profile/route.ts` — graduation year lower bound corrected: `2020` → `2024`
+   - `mobile/components/onboarding/CanvasUrlInput.tsx` — removed dead 10-line comment block + duplicate `onValidate()` calls in `handleValidate`, removed unused `CANVAS_URL_REGEX`
+   - `mobile/app/_layout.tsx` — incomplete onboarding resume target changed from `tcpa` → `profile` (was skipping name/university/year collection)
+
+5. **OB-C5 — Merged `onboarding` → `main`, pushed to GitHub**
+   - `onboarding` branch deleted (local + remote)
+   - Celery/Docker env var fixes also committed: `SUPABASE_URL` fallback to `NEXT_PUBLIC_SUPABASE_URL` in all worker `_get_supabase()` helpers; `docker-compose.yml` switched to `env_file: .env.local`
+
+**Test status:** 23/23 passing. Lint clean on all changed files. Working tree clean on `main`.
+
+**Deferred (known, not blocking):**
+- Google OAuth `/api/auth/google` route accepts `user_id` query param with no auth check — architectural limitation of `WebBrowser.openBrowserAsync` (can't send headers). Track for OB-D1.
+- Success screen silently proceeds on API failure — user re-enters onboarding on next launch. Low priority hardening.
+
+---
 
 ### OB-C3 ✅ COMPLETE + Full Onboarding Redesign (2026-04-12 session 7)
 
@@ -122,17 +159,18 @@
 
 ## Current Status
 
-**OB-C3 COMPLETE ✅ + Full Onboarding Redesign Shipped.** All 18/18 tests passing. Complete university system with 51 Canvas instances, school-agnostic UI, syllabus removed, coming-soon integrations added. Branch is 4 commits ahead of origin, ready for code review (OB-C4).
+**ONBOARDING COMPLETE ✅ — Merged to `main` and pushed to GitHub (2026-04-14).** 23/23 tests passing. Working tree clean. `onboarding` branch deleted.
 
 ---
 
 ## Next Steps (in order)
 
-| Step      | What                                                                                                                                                                                                                                                                                                                                  | Who    |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| **OB-C4** | Code review all changed files on `onboarding` branch, fix findings. Affected files: `mobile/lib/universities.ts`, `mobile/components/onboarding/UniversityPicker.tsx`, `mobile/app/(onboarding)/{profile,tools,welcome}.tsx`, `mobile/__tests__/onboarding.test.tsx`, docs/onboarding-redesign-spec.md. 18 tests passing, lint clean. | Daniel |
-| **OB-C5** | Merge `onboarding` → `main`                                                                                                                                                                                                                                                                                                           | Daniel |
-| **OB-D1** | `mobile/app/(home)/preferences.tsx` — logout + integration management UI                                                                                                                                                                                                                                                              | Daniel |
+| Step | What | Who |
+| ---- | ---- | --- |
+| **OB-D1** | `mobile/app/(home)/preferences.tsx` — logout button + integration management UI (Google reconnect, Canvas URL edit, coming-soon placeholders). Read `docs/onboarding-redesign-spec.md` §Post-Onboarding for spec. | Daniel |
+| **PH10-02** | Fill Apple Developer credentials (`APPLE_ID`, `ASC_APP_ID`, team ID) in `.env.local`, run `eas build --platform ios --profile preview`, verify TestFlight install | Josh |
+| **PH11-01** | Deploy Next.js to Vercel, Celery workers to Railway, configure all production env vars (see `PRODUCTION.md`) | Josh |
+| **PH12-01** | Privacy Policy, Terms of Service, App Store Connect listing, screenshots, submit for review | Josh + Seb |
 
 ---
 

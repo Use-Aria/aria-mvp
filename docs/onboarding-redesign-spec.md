@@ -1,9 +1,9 @@
 # Onboarding Redesign — Spec
 
 > Created: 2026-04-10
-> Last updated: 2026-04-12 (session 7)
-> Status: **OB-C3 COMPLETE — full redesign shipped. 51-university system, school-agnostic UI, syllabus removed, coming-soon integrations added. 18/18 tests passing. Next: OB-C4 (code review) → OB-C5 (merge).**
-> Branch: `onboarding`
+> Last updated: 2026-04-14 (session 8)
+> Status: **COMPLETE ✅ — merged to `main` 2026-04-14. 23/23 tests passing. `onboarding` branch deleted. Next: OB-D1 (preferences screen).**
+> Branch: merged to `main`
 > Pivot plan: `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`
 
 ### Session 7 changes (2026-04-12)

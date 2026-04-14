@@ -8,7 +8,7 @@
 
 ## 🔒 Currently In Progress
 
-_Nothing claimed. Session 7 complete. OB-C3 ready for code review (OB-C4)._
+_Nothing claimed. Onboarding fully merged to main (session 8). Next: OB-D1._
 
 | Developer | Task | Branch | Claimed At |
 | --------- | ---- | ------ | ---------- |
@@ -18,18 +18,16 @@ _Nothing claimed. Session 7 complete. OB-C3 ready for code review (OB-C4)._
 
 ## 🎯 Up Next (Priority Order)
 
-### Onboarding Redesign (branch: `onboarding`) — PIVOTED 2026-04-11
+### Onboarding — COMPLETE ✅ (merged to `main` 2026-04-14)
 
-**Auth pivot:** Apple/Google OAuth replaced with Supabase phone OTP. Plan: `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`
-
-- [x] **OB-C1** — Fill `mobile/.env`: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` + `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` ✅ Done 2026-04-11
-- ~~**OB-C2**~~ — ~~Apple Sign-In Supabase config~~ **CANCELLED** — Apple auth removed from flow
-- [x] **OB-P0** ✅ DONE 2026-04-12 — Supabase phone auth enabled, Twilio Messaging Service `MGbf33d2d3327638ca21a7f05be5e138ba` configured, test phone + OTP `123456` added. Toll-free verification submitted (pending).
-- [x] **OB-P1** (ALL 10 TASKS DONE) — All code tasks committed to `onboarding` branch. Commit `7d3d8a5`. → **Daniel**
-- [x] **OB-C3** ✅ DONE 2026-04-12 — Full onboarding redesign complete: 51-university system with domain mapping, school-agnostic UI (welcome copy updated), syllabus PDF upload removed, coming-soon cards added (Todoist, iOS Reminders, Google Classroom). UniversityPicker component replaced TextInput on profile screen. Canvas domain resolution priority: (1) extract from typed URL, (2) university lookup, (3) null. 18/18 tests passing. → **Daniel**
-- [ ] **OB-C4** — Code review backend + mobile screens, fix findings → **Daniel**
-- [ ] **OB-C5** — Merge `onboarding` → `main` → **Daniel**
-- [ ] **OB-D1** — `mobile/app/(home)/preferences.tsx` integration management UI → **Daniel** (after merge)
+- [x] **OB-C1** ✅ 2026-04-11
+- ~~**OB-C2**~~ **CANCELLED** — Apple auth removed
+- [x] **OB-P0** ✅ 2026-04-12 — Supabase phone auth + Twilio Messaging Service configured
+- [x] **OB-P1** ✅ 2026-04-12 — All 10 code tasks committed
+- [x] **OB-C3** ✅ 2026-04-12 — Full redesign: 51-university system, school-agnostic UI, Canvas guide, 23/23 tests
+- [x] **OB-C4** ✅ 2026-04-14 — Code review complete, all critical + important findings fixed
+- [x] **OB-C5** ✅ 2026-04-14 — Merged `onboarding` → `main`, pushed, branch deleted
+- [ ] **OB-D1** — `mobile/app/(home)/preferences.tsx` — logout + integration management UI → **Daniel**
 
 ### v1.1 App Store Launch
 
@@ -60,6 +58,32 @@ _Nothing claimed. Session 7 complete. OB-C3 ready for code review (OB-C4)._
 ---
 
 ## 📋 Handoff Notes
+
+### 2026-04-14 — Daniel (OB-C4 + OB-C5 COMPLETE — session 8)
+
+**Done:** Onboarding fully shipped. Code review complete, all findings fixed, merged to `main`, pushed to GitHub. `onboarding` branch deleted.
+
+**Key fixes applied (OB-C4):**
+- `src/app/api/sync/canvas/route.ts` — `webcal://` normalised to `https://` before `new URL()` to prevent 400 crash
+- `mobile/app/(onboarding)/profile.tsx` — back button reads `session.user.phone` on mount, passes it as explicit param to `router.replace({ pathname: '/(onboarding)/verify-phone', params: { phone: sessionPhone } })`
+- `src/app/api/onboarding/profile/route.ts` — `graduation_year` lower bound corrected `2020` → `2024`
+- `mobile/components/onboarding/CanvasUrlInput.tsx` — dead comment block + duplicate `onValidate()` + unused `CANVAS_URL_REGEX` removed
+- `mobile/app/_layout.tsx` — (1) incomplete onboarding resume now routes to `profile` not `tcpa`; (2) spinner suppressed when `segments[0] === '(home)'` to prevent Stack unmount/remount flash on success→home transition
+
+**Other changes this session:**
+- `mobile/app/(onboarding)/tcpa.tsx` — TCPA Option 2: consent optional, warning shown when OFF, Continue always enabled, heading broadened to cover briefings + alerts
+- `LOCALDEV.md` — reset procedure simplified to single 3-step flow (erase simulator → delete Supabase rows → revoke Google OAuth)
+- `celery_worker/*.py` + `docker-compose.yml` — `SUPABASE_URL` fallback to `NEXT_PUBLIC_SUPABASE_URL`; docker-compose uses `env_file: .env.local`
+
+**Test status:** 23/23 passing (5 new TCPA tests added). Lint clean. Working tree clean on `main`.
+
+**Known deferred issues (non-blocking):**
+- `/api/auth/google` accepts `user_id` query param with no auth check — WebBrowser limitation, track for OB-D1
+- Success screen silently proceeds on API failure — low priority hardening
+
+**Next up:** OB-D1 — `mobile/app/(home)/preferences.tsx` (logout + Google reconnect + Canvas URL edit). Start a new branch off `main`.
+
+---
 
 ### 2026-04-12 — Daniel (OB-C3 COMPLETE + Full Redesign — session 7)
 

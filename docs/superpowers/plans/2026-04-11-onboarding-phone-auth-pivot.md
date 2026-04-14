@@ -1,8 +1,6 @@
 # Onboarding Phone Auth Pivot — Implementation Plan
 
-> **STATUS (2026-04-11): TASKS 1–10 ALL COMPLETE. Committed to `onboarding` branch.**
-> Task 0 (Supabase dashboard setup) is still PENDING — manual step required before simulator testing.
-> See PROGRESS.md for exact OB-P0 steps and next actions.
+> **STATUS: FULLY COMPLETE ✅ — merged to `main` 2026-04-14. All tasks done including OB-P0, OB-C3, OB-C4, OB-C5. Branch deleted.**
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
