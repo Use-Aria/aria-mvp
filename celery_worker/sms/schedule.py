@@ -37,7 +37,7 @@ def _get_supabase():
     """Create Supabase client using service role key."""
     from supabase import create_client
     return create_client(
-        os.environ["SUPABASE_URL"],
+        os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABASE_URL"],
         os.environ["SUPABASE_SERVICE_ROLE_KEY"],
     )
 

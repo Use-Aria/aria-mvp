@@ -176,7 +176,7 @@ def send_sms_alert(user_id: str, to_phone: str, body: str) -> bool:
 
 def _get_supabase():
     """Create Supabase client using service role key (bypasses RLS)."""
-    url = os.environ["SUPABASE_URL"]
+    url = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABASE_URL"]
     key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     return create_client(url, key)
 
