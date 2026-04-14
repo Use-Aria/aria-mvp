@@ -27,8 +27,6 @@ export default function CanvasUrlInput({
 }: CanvasUrlInputProps) {
   const { accent, colors } = useTheme()
 
-  const CANVAS_URL_REGEX = /^(webcal|https?):\/\/.*/
-
   const getBorderColor = (): string => {
     switch (status) {
       case 'validating': return accent
@@ -44,20 +42,6 @@ export default function CanvasUrlInput({
   }
 
   const handleValidate = () => {
-    if (!CANVAS_URL_REGEX.test(value.trim())) {
-      // Let parent know validation was attempted with invalid format
-      // onValidate will not be called — parent should handle this via the onValidate callback
-      // by checking the value themselves. We surface the error by calling onValidate with
-      // an expectation that the parent checks the regex too. However, for cleaner separation,
-      // the component can signal via a separate callback. Since the spec only provides onValidate,
-      // we call it only for valid formats and handle format errors by... calling onValidate
-      // anyway (parent checks the format). Actually, re-reading the spec: "Client-side regex
-      // before calling onValidate: URL must match ... — if not, set error". Since the component
-      // doesn't own error state (it's passed via errorMessage), we need the parent to handle it.
-      // The parent's onValidate should handle the regex check. We still call onValidate.
-      onValidate()
-      return
-    }
     onValidate()
   }
 
@@ -74,6 +58,21 @@ export default function CanvasUrlInput({
           </Text>
         )
     }
+  }
+
+  // Validated — show success row (same pattern as Google "Connected" state)
+  if (status === 'valid') {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Ionicons name="checkmark-circle" size={20} color="#34C759" />
+        <Text style={{ flex: 1, fontSize: 15, color: '#34C759', fontWeight: '600' }}>
+          Connected
+        </Text>
+        <TouchableOpacity onPress={() => onChangeText('')}>
+          <Text style={{ fontSize: 14, color: accent }}>Change</Text>
+        </TouchableOpacity>
+      </View>
+    )
   }
 
   return (

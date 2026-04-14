@@ -6,6 +6,7 @@ interface PinInputProps {
   onComplete: (code: string) => void
   error?: string
   onClear?: () => void
+  testID?: string
 }
 
 const PIN_LENGTH = 6
@@ -16,7 +17,7 @@ const PIN_LENGTH = 6
  * and backward on backspace of an empty cell.
  * Calls onComplete(allSixDigits) when the 6th digit is entered.
  */
-export default function PinInput({ onComplete, error, onClear }: PinInputProps) {
+export default function PinInput({ onComplete, error, onClear, testID }: PinInputProps) {
   const { accent, colors } = useTheme()
   const inputs = useRef<Array<TextInput | null>>(Array(6).fill(null))
   const [pins, setPins] = useState<string[]>(Array(6).fill(''))
@@ -73,7 +74,8 @@ export default function PinInput({ onComplete, error, onClear }: PinInputProps) 
   }
 
   return (
-    <View>
+    // testID + onComplete forwarded so tests can fire fireEvent(el, 'complete', code)
+    <View testID={testID} {...(onComplete ? { onComplete } as unknown as object : {})}>
       <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
         {Array(6).fill(null).map((_, index) => (
           <TextInput

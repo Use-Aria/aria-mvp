@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Redis from 'ioredis'
+import { createClient } from '@supabase/supabase-js'
 
 /**
  * GET /api/auth/google/callback?code=<code>&state=<state>
@@ -87,45 +88,87 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const accessToken = tokenData.access_token
     const refreshToken = tokenData.refresh_token || ''
 
-    // --- Dispatch encrypt_and_store_tokens Celery task via Redis ---
-    // Tokens exist only in this process's memory and transiently in Redis.
-    // The Celery task encrypts via Fernet BEFORE writing to Supabase.
-    const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379/0')
-    const taskId = crypto.randomUUID()
-    const taskMessage = JSON.stringify({
-      id: taskId,
-      task: 'tasks.encrypt_and_store_tokens',
-      args: [userId, accessToken, refreshToken],
-      kwargs: {},
-      retries: 0,
-    })
+    // --- Store tokens ---
+    // Dev: write directly to Supabase (unencrypted — Celery not running locally).
+    // Production: dispatch encrypt_and_store_tokens Celery task via Redis so tokens
+    //   are Fernet-encrypted before any Supabase write.
+    const isDev = process.env.NODE_ENV !== 'production'
 
-    await redis.lpush(
-      'celery',
-      JSON.stringify({
-        'content-type': 'application/json',
-        'content-encoding': 'utf-8',
-        headers: {
+    if (isDev) {
+      const adminClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      )
+      const { data: existing } = await adminClient
+        .from('integrations')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('platform', 'google')
+        .maybeSingle()
+
+      const tokenPayload = {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        connected_at: new Date().toISOString(),
+      }
+
+      const { error: writeError } = existing
+        ? await adminClient.from('integrations').update(tokenPayload).eq('id', existing.id)
+        : await adminClient.from('integrations').insert({ user_id: userId, platform: 'google', ...tokenPayload })
+
+      if (writeError) {
+        console.error('[auth/google/callback] dev Supabase write failed:', writeError)
+        return NextResponse.json({ error: 'Failed to store tokens' }, { status: 500 })
+      }
+    } else {
+      // Production: Celery task encrypts via Fernet BEFORE writing to Supabase.
+      // Tokens travel as plaintext ONLY in this process's memory and transiently in Redis.
+      const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379/0', {
+        maxRetriesPerRequest: 1,
+        connectTimeout: 2000,
+        lazyConnect: true,
+      })
+      try {
+        await redis.connect()
+        const taskId = crypto.randomUUID()
+        const taskMessage = JSON.stringify({
           id: taskId,
           task: 'tasks.encrypt_and_store_tokens',
-          lang: 'py',
-          root_id: taskId,
-          parent_id: null,
-          group: null,
-        },
-        properties: {
-          correlation_id: taskId,
-          reply_to: '',
-          delivery_mode: 2,
-          delivery_tag: taskId,
-          body_encoding: 'utf-8',
-          priority: 9, // high priority — user is waiting on confirmation SMS
-        },
-        body: Buffer.from(taskMessage).toString('base64'),
-      }),
-    )
-
-    await redis.quit()
+          args: [userId, accessToken, refreshToken],
+          kwargs: {},
+          retries: 0,
+        })
+        await redis.lpush(
+          'celery',
+          JSON.stringify({
+            'content-type': 'application/json',
+            'content-encoding': 'utf-8',
+            headers: {
+              id: taskId,
+              task: 'tasks.encrypt_and_store_tokens',
+              lang: 'py',
+              root_id: taskId,
+              parent_id: null,
+              group: null,
+            },
+            properties: {
+              correlation_id: taskId,
+              reply_to: '',
+              delivery_mode: 2,
+              delivery_tag: taskId,
+              body_encoding: 'utf-8',
+              priority: 9,
+            },
+            body: Buffer.from(taskMessage).toString('base64'),
+          }),
+        )
+      } catch (redisErr) {
+        console.error('[auth/google/callback] Redis enqueue failed in production:', redisErr)
+        return NextResponse.json({ error: 'Failed to enqueue token storage' }, { status: 500 })
+      } finally {
+        try { await redis.quit() } catch { /* ignore */ }
+      }
+    }
 
     // --- Clear oauth_state cookie ---
     const html = `<!DOCTYPE html>

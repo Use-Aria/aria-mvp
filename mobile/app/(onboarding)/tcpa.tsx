@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -26,6 +26,23 @@ export default function TcpaConsent() {
 
   const [hasConsent, setHasConsent] = useState(false) // MUST default OFF per TCPA requirement
   const [saving, setSaving] = useState(false)
+
+  // Restore previously saved consent value on mount
+  useEffect(() => {
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user?.id) return
+      const { data: user } = await supabase
+        .from('users')
+        .select('preferences_json')
+        .eq('id', session.user.id)
+        .single()
+      const prefs = user?.preferences_json as Record<string, unknown> | null
+      if (prefs && typeof prefs.has_alert_consent === 'boolean') {
+        setHasConsent(prefs.has_alert_consent)
+      }
+    })()
+  }, [])
 
   /**
    * Reads current preferences_json to preserve existing fields, then merges
@@ -60,7 +77,7 @@ export default function TcpaConsent() {
 
     setSaving(false)
     if (!error) {
-      router.push('/(onboarding)/preview')
+      router.push('/(onboarding)/tools')
     }
   }
 
@@ -70,6 +87,9 @@ export default function TcpaConsent() {
 
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
         {/* Heading */}
+        <TouchableOpacity onPress={() => router.replace('/(onboarding)/profile')} style={{ marginBottom: 24 }}>
+          <Text style={{ fontSize: 16, color: accent }}>← Back</Text>
+        </TouchableOpacity>
         <Text
           style={{
             fontSize: 28,
@@ -78,7 +98,7 @@ export default function TcpaConsent() {
             marginBottom: 8,
           }}
         >
-          Time-sensitive alerts
+          SMS briefings & alerts
         </Text>
 
         {/* Subheading */}
@@ -90,7 +110,7 @@ export default function TcpaConsent() {
             marginBottom: 32,
           }}
         >
-          Aria can alert you about critical deadline changes outside normal hours.
+          Aria sends you a daily morning briefing and notifies you when deadlines change.
         </Text>
 
         {/* Toggle row */}
@@ -110,7 +130,7 @@ export default function TcpaConsent() {
               paddingRight: 12,
             }}
           >
-            I agree to receive time-sensitive deadline alerts at any hour.
+            I agree to receive SMS briefings and deadline alerts from Aria.
           </Text>
 
           {/* Switch — defaults OFF per TCPA requirement */}
@@ -131,11 +151,35 @@ export default function TcpaConsent() {
             marginTop: 8,
           }}
         >
-          Aria will only bypass quiet hours for critical deadline changes. Standard SMS rates apply.
+          Standard SMS rates apply. You can change this at any time in settings.
         </Text>
+
+        {/* Warning — shown when user has not given consent */}
+        {!hasConsent && (
+          <View
+            style={{
+              marginTop: 20,
+              backgroundColor: colors.secondary,
+              borderRadius: 10,
+              padding: 14,
+              borderLeftWidth: 3,
+              borderLeftColor: '#FF9500',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 14,
+                color: colors.textSecondary,
+                lineHeight: 20,
+              }}
+            >
+              Without this, Aria won't send morning briefings or deadline alerts. You'll need to text Aria to get updates.
+            </Text>
+          </View>
+        )}
       </View>
 
-      {/* Confirm CTA — always enabled (user can confirm with toggle OFF) */}
+      {/* Continue CTA — always enabled (user can continue with toggle OFF) */}
       <View style={{ paddingHorizontal: 24, paddingBottom: 32 }}>
         <TouchableOpacity
           onPress={handleConfirm}
@@ -153,7 +197,7 @@ export default function TcpaConsent() {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
-              Confirm
+              Continue
             </Text>
           )}
         </TouchableOpacity>

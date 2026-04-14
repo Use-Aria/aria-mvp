@@ -5,14 +5,14 @@ import { useTheme } from '@/lib/theme'
 
 const STEPS = [
   {
+    icon: 'mail-outline' as const,
+    title: 'Link Gmail + Google Calendar',
+    description: 'Aria watches for professor emails and syncs your schedule automatically.',
+  },
+  {
     icon: 'school-outline' as const,
     title: 'Connect Canvas',
     description: 'Paste your iCal link — Aria imports all your deadlines instantly.',
-  },
-  {
-    icon: 'mail-outline' as const,
-    title: 'Link Gmail',
-    description: 'Aria watches for professor emails so nothing slips through.',
   },
   {
     icon: 'chatbubble-ellipses-outline' as const,
@@ -34,10 +34,10 @@ export default function Welcome() {
           ARIA · AI PERSONAL ASSISTANT
         </Text>
         <Text style={{ fontSize: 34, fontWeight: '800', color: colors.textPrimary, lineHeight: 40, marginBottom: 12 }}>
-          Your Yale life,{'\n'}under control.
+          Your academic life,{'\n'}under control.
         </Text>
         <Text style={{ fontSize: 16, color: colors.textSecondary, lineHeight: 24, marginBottom: 40 }}>
-          Aria unifies your deadlines, inbox, and calendar into one daily SMS briefing. Setup takes 90 seconds.
+          Aria unifies your deadlines, inbox, and calendar into one daily SMS briefing.
         </Text>
 
         {/* Steps */}
@@ -86,15 +86,12 @@ export default function Welcome() {
             alignItems: 'center',
             marginBottom: 14,
           }}
-          onPress={() => router.push('/(onboarding)/phone')}
+          onPress={() => router.push('/(onboarding)/auth')}
         >
           <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
-            Get started — 90 seconds
+            Get started
           </Text>
         </TouchableOpacity>
-        <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: 'center' }}>
-          Yale students only · Closed beta
-        </Text>
       </View>
 
     </View>

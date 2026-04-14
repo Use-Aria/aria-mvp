@@ -53,6 +53,5 @@ ALTER TABLE public.integrations
 -- Add unique constraint on calendar_events for GCal upsert idempotency
 -- Required by store_calendar_events() ON CONFLICT(user_id, google_event_id)
 -- ─────────────────────────────────────────────────────────────────────────────
-ALTER TABLE public.calendar_events
-  ADD CONSTRAINT IF NOT EXISTS calendar_events_user_event_unique
-  UNIQUE (user_id, google_event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS calendar_events_user_event_unique
+  ON public.calendar_events (user_id, google_event_id);
