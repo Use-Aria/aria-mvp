@@ -59,6 +59,29 @@ _Nothing claimed. Onboarding fully merged to main (session 8). Next: OB-D1._
 
 ## 📋 Handoff Notes
 
+### 2026-09-24 — Daniel (codebase audit + fixes — session 9)
+
+**Josh + Seb: please read — this touches both of your areas.** Three commits on `main`: `0c80edb` (api), `74e7f2e` (worker), `317bafc` (mobile).
+
+**Most important:** no Celery task enqueued from Next.js had ever executed. The hand-built envelopes declared `body_encoding: 'utf-8'` on a base64 body, so kombu dropped them. All 6 routes now use `src/lib/celery/enqueue.ts` (verified against a real Celery worker). **Do not hand-build Celery messages again — use `enqueueCeleryTask()`.** Now that tasks actually run, previously dormant paths (welcome SMS, inbound SMS replies, Gmail/GCal webhooks) will fire for the first time — test end-to-end before launch.
+
+**Behavior changes to know:**
+- `/api/upload/syllabus` now requires Bearer JWT; `user_id` form field removed
+- `users.phone` now stored as `+E.164`; SMS webhook matches both forms
+- `send_sms_safe(is_proactive=False)` (replies/command confirmations) skips pause + quiet hours; opt-out still enforced
+- Daily briefing beat now runs hourly (per-user 8am window + local-day dedupe)
+- `welcome_briefing` only fires from `/api/onboarding/complete` and is idempotent
+- Root `tsconfig.json`/`eslint.config.mjs` exclude `mobile/` + `celery_worker/` — `npm run build` was failing
+
+**Open (not fixed — need decisions / migrations):**
+- 🔴 Gmail webhook fans out every notification to every Google user with the wrong historyId, no Pub/Sub auth — must fix before launch (needs `google_email` column)
+- 🔴 `/api/auth/google?user_id=`, Todoist `state=user_id`, GCal channel token all trust raw UUIDs — need signed state
+- Todoist token stored plaintext; Gmail+GCal share `watch_expires_at` (Gmail watch lapses after 7d)
+- `/api/deadlines`, `/api/chat` don't exist → home always empty (Seb)
+- `mobile/` has no ESLint config
+
+**Tests:** worker 327 passing, mobile 23 passing, `next build` passing.
+
 ### 2026-04-14 — Daniel (OB-C4 + OB-C5 COMPLETE — session 8)
 
 **Done:** Onboarding fully shipped. Code review complete, all findings fixed, merged to `main`, pushed to GitHub. `onboarding` branch deleted.
