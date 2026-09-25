@@ -18,8 +18,6 @@
         "NSPhotoLibraryUsageDescription": "Aria accesses your files to upload course syllabi.",
         "UIBackgroundModes": [
           "fetch",
-          "remote-notification",
-          "fetch",
           "remote-notification"
         ],
         "ITSAppUsesNonExemptEncryption": false
