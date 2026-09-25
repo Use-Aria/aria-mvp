@@ -8,7 +8,7 @@ type QuickAccessBarProps = {
   onPressNotifications?: () => void
 }
 
-const DEMO_USER = 'Seb'
+const DEMO_USER = 'Daniel'
 
 export function QuickAccessBar({ onPressTodo, onPressNotifications }: QuickAccessBarProps) {
   const { colors, accent } = useTheme()
