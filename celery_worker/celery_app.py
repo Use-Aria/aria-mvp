@@ -24,7 +24,9 @@ celery_app.conf.update(
         },
         "generate-daily-briefings": {
             "task": "tasks.generate_daily_briefings_all",
-            "schedule": crontab(minute="*/15", hour="6-12"),
+            # Every hour: per-user task only sends in the user's local 8am hour
+            # (is_in_briefing_window) and dedupes via briefing_sent_today.
+            "schedule": crontab(minute="*/15", hour="*"),
         },
         "renew-watch-channels": {
             "task": "tasks.renew_watch_channels",

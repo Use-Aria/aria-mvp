@@ -140,12 +140,17 @@ def get_conversation_history(user_id: str, limit: int = 10) -> list[dict]:
     return result.data
 
 
-def briefing_sent_today(user_id: str, user_local_date_str: str) -> bool:
+def briefing_sent_today(
+    user_id: str, user_local_date_str: str, tz_name: str | None = None
+) -> bool:
     """Check if a briefing or welcome_briefing was already sent today.
 
     Args:
         user_id: UUID of the user.
         user_local_date_str: Today's date in user's local TZ, ISO format (YYYY-MM-DD).
+        tz_name: User's IANA timezone. When given, the day window is the user's
+            local midnight-to-midnight converted to UTC (so hourly Beat runs
+            dedupe correctly for any offset). When None, UTC day bounds are used.
 
     Returns:
         True if a message with trigger_type in ('briefing', 'welcome_briefing')
@@ -153,8 +158,18 @@ def briefing_sent_today(user_id: str, user_local_date_str: str) -> bool:
     """
     client = _get_supabase()
     # Query messages sent today with briefing trigger types
-    start = f"{user_local_date_str}T00:00:00+00:00"
-    end = f"{user_local_date_str}T23:59:59+00:00"
+    if tz_name:
+        from datetime import date, time
+        from zoneinfo import ZoneInfo
+
+        local_day = date.fromisoformat(user_local_date_str)
+        local_start = datetime.combine(local_day, time.min, tzinfo=ZoneInfo(tz_name))
+        local_end = local_start + timedelta(days=1) - timedelta(seconds=1)
+        start = local_start.astimezone(timezone.utc).isoformat()
+        end = local_end.astimezone(timezone.utc).isoformat()
+    else:
+        start = f"{user_local_date_str}T00:00:00+00:00"
+        end = f"{user_local_date_str}T23:59:59+00:00"
     result = (
         client.table("messages")
         .select("id")
@@ -162,6 +177,27 @@ def briefing_sent_today(user_id: str, user_local_date_str: str) -> bool:
         .in_("trigger_type", ["briefing", "welcome_briefing"])
         .gte("sent_at", start)
         .lte("sent_at", end)
+        .limit(1)
+        .execute()
+    )
+    return len(result.data) > 0
+
+
+def welcome_briefing_sent(user_id: str) -> bool:
+    """Check if a welcome briefing was ever sent to this user.
+
+    Args:
+        user_id: UUID of the user.
+
+    Returns:
+        True if a messages row with trigger_type='welcome_briefing' exists.
+    """
+    client = _get_supabase()
+    result = (
+        client.table("messages")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("trigger_type", "welcome_briefing")
         .limit(1)
         .execute()
     )

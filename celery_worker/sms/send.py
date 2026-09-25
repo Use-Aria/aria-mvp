@@ -34,7 +34,11 @@ def send_sms_safe(
 ) -> bool:
     """Send an SMS through TCPA compliance guards.
 
-    Checks (in order): opt-out, pause, quiet hours, daily cap (proactive only).
+    Checks (in order): opt-out, pause, quiet hours, daily cap.
+    Opt-out is always enforced. Pause, quiet hours and the daily cap apply to
+    proactive messages only — a direct response to a user-initiated inbound
+    message (is_proactive=False: command confirmations, conversational replies)
+    is not suppressed by pause or quiet hours.
     If all guards pass, calls Twilio client.messages.create() and returns True.
     If any guard blocks, logs a suppressed event (no PII) and returns False.
 
@@ -42,8 +46,8 @@ def send_sms_safe(
         user_id: UUID of the recipient user (used for DB lookup and hashed logging).
         to_phone: Recipient E.164 phone number. Never logged in plaintext.
         body: Message body text.
-        is_proactive: True for briefings/alerts (counts toward daily cap of 3).
-                      False for replies to user-initiated messages (uncapped).
+        is_proactive: True for briefings/alerts (pause, quiet hours, daily cap of 3).
+                      False for replies to user-initiated messages (only opt-out applies).
 
     Returns:
         True if message was sent, False if suppressed by any guard.
@@ -56,30 +60,33 @@ def send_sms_safe(
         _log_suppressed(hashed_id, "opted_out")
         return False
 
-    # Guard 2: Pause — user requested temporary silence.
-    paused_until = user.get("sms_paused_until")
-    if paused_until is not None:
-        paused_dt = datetime.fromisoformat(str(paused_until))
-        if datetime.now(timezone.utc) < paused_dt:
-            _log_suppressed(hashed_id, "paused")
+    # Guards 2-4 apply to proactive messages only. Replies to a user-initiated
+    # inbound message (commands, conversational replies) are responses, not
+    # unsolicited messages, so pause / quiet hours / daily cap do not apply.
+    if is_proactive:
+        # Guard 2: Pause — user requested temporary silence.
+        paused_until = user.get("sms_paused_until")
+        if paused_until is not None:
+            paused_dt = datetime.fromisoformat(str(paused_until))
+            if datetime.now(timezone.utc) < paused_dt:
+                _log_suppressed(hashed_id, "paused")
+                return False
+
+        # Guard 3: Quiet hours — no SMS during user's local 10pm–8am window.
+        tz_name = (user.get("preferences_json") or {}).get("timezone", "America/New_York")
+        user_tz = ZoneInfo(tz_name)
+        local_now = datetime.now(user_tz)
+        local_time = local_now.time()
+        qs = time.fromisoformat(str(user["quiet_hours_start"]))  # e.g. "22:00"
+        qe = time.fromisoformat(str(user["quiet_hours_end"]))    # e.g. "08:00"
+        # Midnight-spanning window: quiet if AFTER start OR BEFORE end.
+        # (naive range check 22:00 <= t < 08:00 always evaluates False — DO NOT USE)
+        in_quiet = (local_time >= qs) or (local_time < qe)
+        if in_quiet:
+            _log_suppressed(hashed_id, "quiet_hours")
             return False
 
-    # Guard 3: Quiet hours — no SMS during user's local 10pm–8am window.
-    tz_name = (user.get("preferences_json") or {}).get("timezone", "America/New_York")
-    user_tz = ZoneInfo(tz_name)
-    local_now = datetime.now(user_tz)
-    local_time = local_now.time()
-    qs = time.fromisoformat(str(user["quiet_hours_start"]))  # e.g. "22:00"
-    qe = time.fromisoformat(str(user["quiet_hours_end"]))    # e.g. "08:00"
-    # Midnight-spanning window: quiet if AFTER start OR BEFORE end.
-    # (naive range check 22:00 <= t < 08:00 always evaluates False — DO NOT USE)
-    in_quiet = (local_time >= qs) or (local_time < qe)
-    if in_quiet:
-        _log_suppressed(hashed_id, "quiet_hours")
-        return False
-
-    # Guard 4: Daily proactive cap — max 3 unsolicited messages per day.
-    if is_proactive:
+        # Guard 4: Daily proactive cap — max 3 unsolicited messages per day.
         local_date_str = local_now.date().isoformat()
         if user["daily_sms_date"] == local_date_str:
             if user["daily_sms_count"] >= 3:

@@ -23,7 +23,7 @@ def flush_sms_batch(user_id: str) -> dict:
 
     Called via countdown from send_priority_alert when the first alert is enqueued.
     Pops all queued alerts, sorts by priority descending, caps at 3 (SMS-11),
-    and sends one combined SMS via send_sms_alert().
+    and sends one combined SMS (see sms.batch.flush_batch for guard routing).
 
     Args:
         user_id: UUID of the user whose batch to flush.
@@ -277,13 +277,13 @@ def canvas_sync_user(self, user_id: str, ical_url: str) -> dict:
 
     Uses exponential backoff on HTTP errors (including 429 rate limit).
     synced_at is only written after apply_diff succeeds.
-    Triggers welcome_briefing on the first sync (synced_at was NULL).
+    Does NOT trigger welcome_briefing — /api/onboarding/complete is the only
+    place that fires it (see src/app/api/onboarding/complete/route.ts).
     """
     from canvas.fetch import fetch_ical
     from canvas.parse import parse_vevents
     from canvas.diff import compute_diff
     from canvas.db import load_current_deadlines, apply_diff, mark_synced
-    from canvas.db import _get_supabase as _get_canvas_supabase
 
     raw = fetch_ical(ical_url)
     events = parse_vevents(raw)
@@ -307,22 +307,7 @@ def canvas_sync_user(self, user_id: str, ical_url: str) -> dict:
     # Trigger conflict detection after Canvas sync (deadline dates may have changed)
     detect_conflicts_user.delay(user_id)
 
-    # Check if this is the first sync (synced_at is NULL) before updating
-    db = _get_canvas_supabase()
-    integration = (
-        db.table("integrations")
-        .select("synced_at")
-        .eq("user_id", user_id)
-        .eq("platform", "canvas")
-        .single()
-        .execute()
-    )
-    is_first_sync = integration.data.get("synced_at") is None
-
     mark_synced(user_id)
-
-    if is_first_sync:
-        welcome_briefing.delay(user_id)
 
     return {
         "user_id": user_id,
@@ -464,7 +449,7 @@ def process_inbound_sms(self, message_sid: str, body: str, user_id: str) -> dict
 def generate_daily_briefings_all():
     """Fan-out: dispatch one briefing task per user with Canvas integration.
 
-    Called by Beat every 15 min between 6am-12pm UTC.
+    Called by Beat every 15 min, every hour (UTC) so every timezone's 8am is covered.
     Each per-user task checks if the user's local time is in the 8am window.
     """
     from canvas.db import get_all_canvas_integrations
@@ -507,7 +492,7 @@ def generate_daily_briefing_user(self, user_id: str) -> dict:
     tz_name = prefs.get("timezone", "America/New_York")
     user_tz = ZoneInfo(tz_name)
     local_date = datetime.now(user_tz).date().isoformat()
-    if briefing_sent_today(user_id, local_date):
+    if briefing_sent_today(user_id, local_date, tz_name):
         return {"user_id": user_id, "status": "skipped", "reason": "already_sent"}
 
     # Determine if Monday
@@ -559,14 +544,18 @@ def generate_daily_briefing_user(self, user_id: str) -> dict:
 def welcome_briefing(self, user_id: str) -> dict:
     """Generate and send welcome briefing for a new user.
 
-    Triggered from canvas_sync_user when synced_at was NULL (first sync).
+    Triggered only from /api/onboarding/complete. Idempotent: skips if a
+    welcome_briefing message was already sent to this user.
     Sends via send_sms_safe(is_proactive=True) and writes to messages table
     with trigger_type='welcome_briefing'.
     """
     from ai.briefing import generate_briefing
-    from ai.db import get_events_for_briefing, write_outbound_message
+    from ai.db import get_events_for_briefing, write_outbound_message, welcome_briefing_sent
     from sms.send import _get_user_sms_state, send_sms_safe
     from zoneinfo import ZoneInfo
+
+    if welcome_briefing_sent(user_id):
+        return {"user_id": user_id, "status": "skipped", "reason": "already_sent"}
 
     user = _get_user_sms_state(user_id)
     to_phone = user.get("phone", "")
@@ -760,11 +749,12 @@ def gmail_process_notification(user_id: str, new_history_id: str) -> dict:
         update_history_id(user_id, new_history_id)
         return {"user_id": user_id, "status": "initialized_history_id"}
 
+    # fetch_new_messages raises on non-404 errors — the cursor is then NOT
+    # advanced, so the next notification re-fetches from the stored historyId.
     messages = fetch_new_messages(user_id, stored_history_id)
-    # Advance cursor to new historyId after fetching
-    update_history_id(user_id, new_history_id)
 
     if not messages:
+        update_history_id(user_id, new_history_id)
         return {"user_id": user_id, "processed": 0}
 
     # Get user's Canvas deadlines for cross-reference (GMAI-05)
@@ -832,6 +822,9 @@ def gmail_process_notification(user_id: str, new_history_id: str) -> dict:
             alerts_fired += 1
 
         processed += 1
+
+    # Advance cursor only after every message was processed successfully.
+    update_history_id(user_id, new_history_id)
 
     return {"user_id": user_id, "processed": processed, "alerts_fired": alerts_fired}
 

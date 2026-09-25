@@ -306,11 +306,16 @@ def test_fetch_new_messages_returns_expected_fields(mock_build):
 
 @patch("gmail.auth.build_gmail_service")
 def test_fetch_new_messages_returns_empty_on_api_error(mock_build):
-    """fetch_new_messages returns [] when history.list raises (e.g. 404 expired historyId)."""
+    """fetch_new_messages returns [] when history.list returns 404 (expired historyId).
+    Other errors propagate — see tests/gmail/test_fetch.py."""
+    import httplib2
+    from googleapiclient.errors import HttpError
     from gmail.fetch import fetch_new_messages
 
     service = MagicMock()
-    service.users().history().list().execute.side_effect = Exception("404 Not Found")
+    service.users().history().list().execute.side_effect = HttpError(
+        httplib2.Response({"status": 404}), b"Not Found"
+    )
     mock_build.return_value = service
 
     result = fetch_new_messages("user-123", "expired-hist-id")

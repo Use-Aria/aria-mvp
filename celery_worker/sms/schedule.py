@@ -12,8 +12,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, time, timedelta, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import dateparser
 import redis
@@ -300,8 +301,12 @@ def _fetch_slots(user_id: str, target: datetime, duration_hours: int, preference
     from gcal.db import get_calendar_events
     from gcal.slots import find_free_slots
 
-    day_start = target.strftime("%Y-%m-%dT00:00:00+00:00")
-    day_end   = target.strftime("%Y-%m-%dT23:59:59+00:00")
+    # Bound the query by the user's LOCAL day (converted to UTC), not the UTC day,
+    # so evening events that fall on the next UTC date are not missed.
+    local_start = datetime.combine(target.date(), time.min, tzinfo=ZoneInfo(user_tz))
+    local_end = local_start + timedelta(days=1) - timedelta(seconds=1)
+    day_start = local_start.astimezone(timezone.utc).isoformat()
+    day_end   = local_end.astimezone(timezone.utc).isoformat()
     events = get_calendar_events(user_id, day_start, day_end)
     return find_free_slots(
         events=events,
@@ -383,9 +388,15 @@ def handle_schedule_request(
     else:
         title = activity_type.replace("_", " ").title()
 
-    # Store pending (top slot + up to 2 alternatives)
-    top = slots[0]
-    alts = slots[1:3]
+    # Store pending (top slot + up to 2 alternatives). Free slots span the whole
+    # gap; book only the requested duration from the slot start
+    # (matches gcal.writeback.schedule_study_block).
+    def _trim(slot: dict) -> dict:
+        start_dt = datetime.fromisoformat(slot["start"])
+        return {**slot, "end": (start_dt + timedelta(hours=dur)).isoformat(), "duration_hours": dur}
+
+    top = _trim(slots[0])
+    alts = [_trim(s) for s in slots[1:3]]
     store_pending_schedule(user_id, {
         "activity_type": activity_type,
         "subject": subject,

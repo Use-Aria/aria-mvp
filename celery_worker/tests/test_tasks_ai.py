@@ -97,6 +97,7 @@ def test_welcome_briefing_sends_with_welcome_flag():
              "phone": "+15551234567",
              "preferences_json": {"timezone": "America/New_York"},
          }), \
+         patch("ai.db.welcome_briefing_sent", return_value=False), \
          patch("ai.db.get_events_for_briefing", return_value=[]), \
          patch("ai.briefing.generate_briefing", return_value="Hey, I'm Aria! Here's what I see...") as mock_gen, \
          patch("sms.send.send_sms_safe", return_value=True), \
@@ -115,6 +116,7 @@ def test_welcome_briefing_writes_welcome_trigger_type():
              "phone": "+15551234567",
              "preferences_json": {"timezone": "America/New_York"},
          }), \
+         patch("ai.db.welcome_briefing_sent", return_value=False), \
          patch("ai.db.get_events_for_briefing", return_value=[]), \
          patch("ai.briefing.generate_briefing", return_value="Hey, I'm Aria! Here's what I see..."), \
          patch("sms.send.send_sms_safe", return_value=True), \
@@ -132,50 +134,57 @@ def test_welcome_briefing_writes_welcome_trigger_type():
 # ---------------------------------------------------------------------------
 
 
-def test_canvas_sync_user_triggers_welcome_on_first_sync():
-    """Mock integration query returning synced_at=None; verify welcome_briefing.delay called."""
-    mock_integration_result = MagicMock()
-    mock_integration_result.data = {"synced_at": None}
-
-    mock_db = MagicMock()
-    mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = mock_integration_result
-
+def test_canvas_sync_user_never_triggers_welcome_briefing():
+    """Regression: welcome briefing is fired only by /api/onboarding/complete,
+    never by Canvas sync (even on the first sync)."""
     with patch("canvas.fetch.fetch_ical", return_value=b"BEGIN:VCALENDAR\nEND:VCALENDAR"), \
          patch("canvas.parse.parse_vevents", return_value=[]), \
          patch("canvas.db.load_current_deadlines", return_value={}), \
          patch("canvas.diff.compute_diff", return_value={"added": [], "changed": [], "removed": []}), \
          patch("canvas.db.apply_diff"), \
-         patch("canvas.db._get_supabase", return_value=mock_db), \
-         patch("canvas.db.mark_synced"), \
+         patch("canvas.db.mark_synced") as mock_mark, \
          patch("tasks.detect_conflicts_user"), \
          patch("tasks.welcome_briefing") as mock_welcome:
         from tasks import canvas_sync_user
         canvas_sync_user("user-new-001", "https://canvas.yale.edu/feeds/calendars/user_abc.ics")
 
-    mock_welcome.delay.assert_called_once_with("user-new-001")
-
-
-def test_canvas_sync_user_no_welcome_on_subsequent_sync():
-    """Mock integration query returning synced_at='2026-03-19T...'; verify welcome_briefing.delay NOT called."""
-    mock_integration_result = MagicMock()
-    mock_integration_result.data = {"synced_at": "2026-03-18T08:00:00Z"}
-
-    mock_db = MagicMock()
-    mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = mock_integration_result
-
-    with patch("canvas.fetch.fetch_ical", return_value=b"BEGIN:VCALENDAR\nEND:VCALENDAR"), \
-         patch("canvas.parse.parse_vevents", return_value=[]), \
-         patch("canvas.db.load_current_deadlines", return_value={}), \
-         patch("canvas.diff.compute_diff", return_value={"added": [], "changed": [], "removed": []}), \
-         patch("canvas.db.apply_diff"), \
-         patch("canvas.db._get_supabase", return_value=mock_db), \
-         patch("canvas.db.mark_synced"), \
-         patch("tasks.detect_conflicts_user"), \
-         patch("tasks.welcome_briefing") as mock_welcome:
-        from tasks import canvas_sync_user
-        canvas_sync_user("user-returning-001", "https://canvas.yale.edu/feeds/calendars/user_abc.ics")
-
     mock_welcome.delay.assert_not_called()
+    mock_mark.assert_called_once_with("user-new-001")
+
+
+def test_welcome_briefing_is_idempotent():
+    """Regression: a second welcome_briefing call for the same user sends nothing."""
+    with patch("ai.db.welcome_briefing_sent", return_value=True), \
+         patch("sms.send._get_user_sms_state") as mock_state, \
+         patch("ai.briefing.generate_briefing") as mock_gen, \
+         patch("sms.send.send_sms_safe") as mock_send, \
+         patch("ai.db.write_outbound_message") as mock_write:
+        from tasks import welcome_briefing
+        result = welcome_briefing("user-new-001")
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "already_sent"
+    mock_gen.assert_not_called()
+    mock_send.assert_not_called()
+    mock_write.assert_not_called()
+
+
+def test_welcome_briefing_sent_queries_welcome_trigger_type():
+    """welcome_briefing_sent checks messages for trigger_type='welcome_briefing'."""
+    chain = MagicMock()
+    chain.select.return_value = chain
+    chain.eq.return_value = chain
+    chain.limit.return_value = chain
+    chain.execute.return_value = MagicMock(data=[{"id": "m1"}])
+    client = MagicMock()
+    client.table.return_value = chain
+
+    with patch("ai.db._get_supabase", return_value=client):
+        from ai.db import welcome_briefing_sent
+        assert welcome_briefing_sent("user-1") is True
+
+    client.table.assert_called_with("messages")
+    chain.eq.assert_any_call("trigger_type", "welcome_briefing")
 
 
 # ---------------------------------------------------------------------------

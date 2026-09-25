@@ -67,11 +67,12 @@ def _handle_stop(user_id: str, to_phone: str) -> None:
 
 
 def _handle_start(user_id: str, to_phone: str) -> None:
-    """Process START command — re-opt user in and confirm."""
+    """Process START command — re-opt user in, clear any PAUSE, and confirm."""
     _get_supabase().table("users").update(
         {
             "sms_opted_out": False,
             "sms_opted_out_at": None,
+            "sms_paused_until": None,
         }
     ).eq("id", user_id).execute()
 
@@ -84,7 +85,11 @@ def _handle_start(user_id: str, to_phone: str) -> None:
 
 
 def _handle_pause(user_id: str, to_phone: str) -> None:
-    """Process PAUSE command — silence proactive messages for 24 hours."""
+    """Process PAUSE command — silence proactive messages for 24 hours.
+
+    The confirmation is a reply (is_proactive=False), so send_sms_safe does not
+    suppress it via the pause that was just set.
+    """
     paused_until = datetime.now(timezone.utc) + timedelta(hours=24)
 
     _get_supabase().table("users").update(

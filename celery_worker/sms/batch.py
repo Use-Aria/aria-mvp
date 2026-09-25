@@ -11,7 +11,10 @@ Usage:
        flush_sms_batch.apply_async(args=[user_id], countdown=BATCH_TTL).
     2. flush_sms_batch (Celery task in tasks.py) calls flush_batch() after BATCH_TTL.
     3. flush_batch() reads all queued items, sorts by priority descending, caps at 3,
-       formats the body, and sends via send_sms_alert().
+       formats the body, and sends it. Pause is always honored; quiet hours and
+       the daily cap are bypassed (send_sms_alert) only when the top item is in
+       the immediate tier (>= 80) AND the user has given alert consent —
+       otherwise the TCPA-guarded send_sms_safe() path is used.
 """
 import json
 import logging
@@ -23,6 +26,10 @@ logger = logging.getLogger(__name__)
 
 BATCH_TTL = 600  # 10 minutes in seconds
 MAX_TEXTS_PER_WINDOW = 3  # SMS-11: max alerts per 10-minute window
+# The batch list must outlive the flush countdown (BATCH_TTL), otherwise the key
+# expires right before flush_sms_batch runs and the alerts are silently dropped.
+BATCH_KEY_TTL = BATCH_TTL * 2
+IMMEDIATE_PRIORITY_THRESHOLD = 80  # matches priority/router.py 'immediate' tier
 
 
 def _get_redis() -> redis.Redis:
@@ -54,7 +61,7 @@ def enqueue_alert(user_id: str, text: str, priority_score: int) -> bool:
 
     item = json.dumps({"text": text, "priority": priority_score})
     r.rpush(key, item)
-    r.expire(key, BATCH_TTL)
+    r.expire(key, BATCH_KEY_TTL)
 
     # Atomic lock: SET lock_key "1" NX EX BATCH_TTL
     # Returns truthy only if the key was newly set (first enqueuer in this window).
@@ -76,8 +83,9 @@ def flush_batch(user_id: str) -> str | None:
         user_id: UUID of the user whose batch to flush.
 
     Returns:
-        The SMS body string that was sent, or None if queue was empty or user
-        state could not be retrieved.
+        The SMS body string that was sent, or None if queue was empty, user
+        state could not be retrieved, or the send was suppressed (pause,
+        opt-out, quiet hours, daily cap).
     """
     r = _get_redis()
     key = f"sms_batch:{user_id}"
@@ -107,12 +115,28 @@ def flush_batch(user_id: str) -> str | None:
         lines = "\n".join(f"{i + 1}) {item['text']}" for i, item in enumerate(items))
         body = f"{len(items)} updates:\n{lines}"
 
-    from sms.send import send_sms_alert, _get_user_sms_state
+    from datetime import datetime, timezone
+
+    from sms.send import send_sms_alert, send_sms_safe, _get_user_sms_state
 
     user_state = _get_user_sms_state(user_id)
     if not user_state:
         logger.warning("flush_batch: no user state for user %s — skipping send", user_id[:8])
         return None
 
-    send_sms_alert(user_id, user_state["phone"], body)
-    return body
+    # PAUSE is always honored, even for immediate-tier alerts.
+    paused_until = user_state.get("sms_paused_until")
+    if paused_until is not None:
+        if datetime.now(timezone.utc) < datetime.fromisoformat(str(paused_until)):
+            logger.info("flush_batch: user %s is paused — skipping send", user_id[:8])
+            return None
+
+    prefs = user_state.get("preferences_json") or {}
+    top_priority = items[0]["priority"]
+    if top_priority >= IMMEDIATE_PRIORITY_THRESHOLD and prefs.get("has_alert_consent") is True:
+        # Immediate tier + explicit consent: bypass quiet hours / daily cap (opt-out still checked).
+        sent = send_sms_alert(user_id, user_state["phone"], body)
+    else:
+        sent = send_sms_safe(user_id, user_state["phone"], body, is_proactive=True)
+
+    return body if sent else None

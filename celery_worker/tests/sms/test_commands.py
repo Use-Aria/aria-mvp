@@ -106,6 +106,21 @@ class TestStartCommand:
         assert data["sms_opted_out"] is False
         assert data["sms_opted_out_at"] is None
 
+    def test_start_clears_pause(self):
+        """Regression: START also clears sms_paused_until (resumes a PAUSE)."""
+        mock_sb = _make_mock_supabase()
+        with (
+            patch("sms.commands._get_supabase", return_value=mock_sb),
+            patch("sms.commands.send_sms_direct"),
+            patch("sms.commands.send_sms_safe"),
+        ):
+            from sms.commands import dispatch_command
+            dispatch_command("START", USER_ID, PHONE)
+
+        data = mock_sb.table.return_value.update.call_args.args[0]
+        assert "sms_paused_until" in data
+        assert data["sms_paused_until"] is None
+
     def test_start_sends_confirmation(self):
         """START calls send_sms_safe with is_proactive=False and 'Welcome back'."""
         mock_sb = _make_mock_supabase()
@@ -183,6 +198,8 @@ class TestPauseCommand:
         mock_safe.assert_called_once()
         body = mock_safe.call_args.args[2]
         assert "24 hours" in body
+        # Confirmation is a reply, so the just-set pause must not suppress it.
+        assert mock_safe.call_args.kwargs.get("is_proactive") is False
 
     def test_pause_returns_true(self):
         """dispatch_command returns True for PAUSE."""

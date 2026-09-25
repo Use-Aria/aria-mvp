@@ -44,25 +44,44 @@ def fetch_new_messages(user_id: str, start_history_id: str) -> list[dict]:
     Returns:
         List of dicts with keys: subject, sender, snippet, message_id.
         Only messages from .edu senders are included.
-        Returns [] on any API error (e.g. 404 expired historyId).
+        Returns [] only when history.list returns 404 (expired historyId).
+        Follows nextPageToken so no history pages are skipped.
+
+    Raises:
+        googleapiclient.errors.HttpError (non-404) and any other error, so the
+        caller does not advance the history cursor past unprocessed messages.
     """
+    from googleapiclient.errors import HttpError
+
     from gmail.auth import build_gmail_service
 
     service = build_gmail_service(user_id)
-    try:
-        result = service.users().history().list(
-            userId="me",
-            startHistoryId=start_history_id,
-            historyTypes=["messageAdded"],
-            labelId="INBOX",
-        ).execute()
-    except Exception as e:
-        # 404 means historyId is too old — need full re-sync
-        logger.error("Gmail history.list failed for %s: %s", user_id, e)
-        return []
+    history_records: list[dict] = []
+    page_token = None
+    while True:
+        params = {
+            "userId": "me",
+            "startHistoryId": start_history_id,
+            "historyTypes": ["messageAdded"],
+            "labelId": "INBOX",
+        }
+        if page_token:
+            params["pageToken"] = page_token
+        try:
+            result = service.users().history().list(**params).execute()
+        except HttpError as e:
+            # 404 means historyId is too old — need full re-sync
+            if getattr(getattr(e, "resp", None), "status", None) == 404:
+                logger.error("Gmail history.list 404 (expired historyId) for %s: %s", user_id, e)
+                return []
+            raise
+        history_records.extend(result.get("history", []))
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            break
 
     messages = []
-    for history in result.get("history", []):
+    for history in history_records:
         for msg_added in history.get("messagesAdded", []):
             msg_id = msg_added["message"]["id"]
             # Fetch metadata only — NEVER store full body

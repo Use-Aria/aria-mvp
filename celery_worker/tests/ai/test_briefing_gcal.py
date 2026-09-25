@@ -284,3 +284,42 @@ def test_generate_briefing_works_without_gcal_context():
                 result = generate_briefing("user-123", [], is_monday=True, gcal_context=None)
 
     assert result == "Looking good!"
+
+
+@patch("gcal.slots.find_free_slots")
+@patch("gcal.db.get_calendar_events")
+@patch("ai.db._get_supabase")
+def test_gcal_context_reads_timezone_from_preferences_json(mock_get_sb, mock_get_events, mock_find_slots):
+    """Regression: users.timezone column does not exist — timezone must come from
+    preferences_json and the users select must not reference a 'timezone' column."""
+    from ai.briefing import get_briefing_gcal_context
+
+    client = _make_supabase_mock(
+        has_google=True,
+        users=[{"preferences_json": {"study_preference": "morning", "timezone": "America/Los_Angeles"}}],
+    )
+    user_selects = []
+    original_table = client.table.side_effect
+
+    def _table(name):
+        t = original_table(name)
+        if name == "users":
+            real_select = t.select
+
+            def _select(cols, *a, **kw):
+                user_selects.append(cols)
+                return real_select(cols, *a, **kw)
+
+            t.select = _select
+        return t
+
+    client.table.side_effect = _table
+    mock_get_sb.return_value = client
+    mock_get_events.return_value = []
+    mock_find_slots.return_value = []
+
+    get_briefing_gcal_context("user-123")
+
+    assert user_selects == ["preferences_json"]
+    assert mock_find_slots.call_args.kwargs["user_tz"] == "America/Los_Angeles"
+    assert mock_find_slots.call_args.kwargs["study_preference"] == "morning"

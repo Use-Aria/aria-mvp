@@ -492,3 +492,59 @@ def test_alert_bypasses_guards(mock_client_cls, mock_get_state):
 
     assert result is True
     mock_client_cls.return_value.messages.create.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Regression: replies to inbound messages are not suppressed by pause/quiet hours
+# ---------------------------------------------------------------------------
+
+@patch.dict(os.environ, _TWILIO_ENV)
+@patch("sms.send._increment_daily_count")
+@patch("sms.send._get_user_sms_state")
+@patch("sms.send.Client")
+def test_reply_sent_while_paused(mock_client_cls, mock_get_state, mock_increment):
+    """is_proactive=False (e.g. PAUSE confirmation) is sent even though paused."""
+    from sms.send import send_sms_safe
+
+    future = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
+    mock_get_state.return_value = _base_state(sms_paused_until=future)
+    mock_client_cls.return_value.messages.create.return_value = MagicMock(sid="SM_pause_ack")
+
+    result = send_sms_safe("user-1", "+12025551234", "Aria is paused", is_proactive=False)
+
+    assert result is True
+    mock_client_cls.return_value.messages.create.assert_called_once()
+    mock_increment.assert_not_called()
+
+
+@patch.dict(os.environ, _TWILIO_ENV)
+@patch("sms.send._increment_daily_count")
+@patch("sms.send._get_user_sms_state")
+@patch("sms.send.Client")
+def test_reply_sent_during_quiet_hours(mock_client_cls, mock_get_state, mock_increment):
+    """is_proactive=False (HELP / conversational reply) is sent at 11pm local."""
+    from sms.send import send_sms_safe
+
+    mock_get_state.return_value = _base_state()
+    mock_client_cls.return_value.messages.create.return_value = MagicMock(sid="SM_help")
+    with patch("sms.send.datetime") as mock_dt:
+        mock_dt.now.return_value = _make_local_now(23)
+        mock_dt.fromisoformat = datetime.fromisoformat
+        result = send_sms_safe("user-1", "+12025551234", "help text", is_proactive=False)
+
+    assert result is True
+    mock_client_cls.return_value.messages.create.assert_called_once()
+
+
+@patch("sms.send._get_user_sms_state")
+@patch("sms.send.Client")
+def test_reply_blocked_when_opted_out(mock_client_cls, mock_get_state):
+    """Opt-out (STOP) still blocks replies — nothing is sent after STOP."""
+    from sms.send import send_sms_safe
+
+    mock_get_state.return_value = _base_state(sms_opted_out=True)
+
+    result = send_sms_safe("user-1", "+12025551234", "reply", is_proactive=False)
+
+    assert result is False
+    mock_client_cls.return_value.messages.create.assert_not_called()

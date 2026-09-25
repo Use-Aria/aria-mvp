@@ -183,7 +183,7 @@ def get_briefing_gcal_context(user_id: str) -> dict:
     # Get user preferences
     user = (
         client.table("users")
-        .select("preferences_json, timezone")
+        .select("preferences_json")
         .eq("id", user_id)
         .execute()
     ).data
@@ -192,7 +192,7 @@ def get_briefing_gcal_context(user_id: str) -> dict:
     if user:
         prefs = user[0].get("preferences_json") or {}
         study_pref = prefs.get("study_preference", "evening")
-        user_tz_str = user[0].get("timezone") or "America/New_York"
+        user_tz_str = prefs.get("timezone") or "America/New_York"
 
     # Find best study windows across the week (top 3, deterministic from calendar data)
     events = get_calendar_events(

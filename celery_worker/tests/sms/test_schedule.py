@@ -339,6 +339,44 @@ def test_handle_schedule_request_returns_confirmation_prompt():
     mock_store.assert_called_once()
 
 
+def test_handle_schedule_request_books_requested_duration_not_whole_gap():
+    """Regression: pending end = slot start + requested duration (not end of free gap)."""
+    from sms.schedule import handle_schedule_request
+    slots = [_make_slot(17, 23), _make_slot(8, 12), _make_slot(13, 16)]
+    with patch("sms.schedule.get_user_tz", return_value="America/New_York"), \
+         patch("sms.schedule.parse_target_date", return_value=datetime(2026, 3, 22, tzinfo=ZoneInfo("America/New_York"))), \
+         patch("sms.schedule._check_gcal_connected", return_value=True), \
+         patch("sms.schedule.get_activity_preference", return_value="evening"), \
+         patch("sms.schedule._fetch_slots", return_value=slots), \
+         patch("sms.schedule.store_pending_schedule") as mock_store:
+
+        result = handle_schedule_request("user-123", "study", None, "tomorrow", 2)
+
+    stored = mock_store.call_args.args[1]
+    assert datetime.fromisoformat(stored["start"]) == datetime.fromisoformat("2026-03-22T17:00:00-05:00")
+    assert datetime.fromisoformat(stored["end"]) == datetime.fromisoformat("2026-03-22T19:00:00-05:00")
+    alt_ends = [datetime.fromisoformat(a["end"]) for a in stored["alternative_slots"]]
+    assert alt_ends == [
+        datetime.fromisoformat("2026-03-22T10:00:00-05:00"),
+        datetime.fromisoformat("2026-03-22T15:00:00-05:00"),
+    ]
+    assert "5:00pm–7:00pm" in result
+
+
+def test_fetch_slots_queries_user_local_day_bounds():
+    """Regression: calendar query is bounded by the user's local day converted to UTC."""
+    from sms.schedule import _fetch_slots
+    target = datetime(2026, 3, 22, 9, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+    with patch("gcal.db.get_calendar_events", return_value=[]) as mock_events, \
+         patch("gcal.slots.find_free_slots", return_value=[]):
+        _fetch_slots("user-123", target, 2, "evening", "America/Los_Angeles")
+
+    start, end = mock_events.call_args.args[1], mock_events.call_args.args[2]
+    # PDT is UTC-7: local 2026-03-22 00:00 → 07:00 UTC; 23:59:59 → next day 06:59:59 UTC
+    assert datetime.fromisoformat(start) == datetime.fromisoformat("2026-03-22T07:00:00+00:00")
+    assert datetime.fromisoformat(end) == datetime.fromisoformat("2026-03-23T06:59:59+00:00")
+
+
 def test_handle_schedule_request_no_slots_returns_flow_c():
     """When calendar is full, returns the Flow C message."""
     from sms.schedule import handle_schedule_request

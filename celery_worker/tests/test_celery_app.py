@@ -29,3 +29,10 @@ class TestCeleryAppConfig:
         assert canvas_entry["task"] == "tasks.canvas_sync_all", (
             f"Expected task='tasks.canvas_sync_all', got {canvas_entry['task']}"
         )
+
+    def test_daily_briefing_runs_every_hour(self):
+        """Regression: briefing beat must fire in every UTC hour so each user's
+        local 8am (e.g. 12/13 UTC for ET, 15/16 UTC for PT) is covered."""
+        entry = celery_app.conf.beat_schedule["generate-daily-briefings"]
+        assert entry["schedule"].hour == set(range(24))
+        assert entry["schedule"].minute == {0, 15, 30, 45}

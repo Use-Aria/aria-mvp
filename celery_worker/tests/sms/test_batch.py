@@ -43,6 +43,8 @@ def user_state():
     return {
         "phone": "+12025551234",
         "sms_opted_out": False,
+        "sms_paused_until": None,
+        "preferences_json": {"has_alert_consent": True},
     }
 
 
@@ -114,15 +116,15 @@ def test_enqueue_items_stored_in_redis(patched_redis):
     assert items[1]["priority"] == 70
 
 
-def test_enqueue_batch_key_has_ttl(patched_redis):
-    """sms_batch:{user_id} key has a TTL of 600 seconds (SMS-10: 10-minute window)."""
+def test_enqueue_batch_key_outlives_flush_countdown(patched_redis):
+    """sms_batch:{user_id} TTL must exceed the flush countdown (BATCH_TTL) so a
+    lone alert is still present when flush_sms_batch runs (regression)."""
     from sms.batch import enqueue_alert, BATCH_TTL
 
     enqueue_alert("user-1", "Alert text", 80)
 
     ttl = patched_redis.ttl("sms_batch:user-1")
-    assert ttl > 0
-    assert ttl <= BATCH_TTL
+    assert ttl > BATCH_TTL
 
 
 def test_enqueue_lock_key_has_ttl(patched_redis):
@@ -268,3 +270,76 @@ def test_flush_batch_no_user_state_returns_none(patched_redis):
 
     assert result is None
     mock_send.assert_not_called()
+
+
+def test_lone_alert_survives_until_flush(patched_redis, user_state):
+    """Regression: a single batched alert is still delivered when flush runs at
+    countdown=BATCH_TTL (key must not expire first)."""
+    from sms.batch import enqueue_alert, flush_batch, BATCH_TTL
+
+    enqueue_alert("user-1", "Lone alert", 90)
+    # Advance fake time to the flush moment.
+    patched_redis.expire("sms_batch:user-1", patched_redis.ttl("sms_batch:user-1") - BATCH_TTL)
+    assert patched_redis.exists("sms_batch:user-1") == 1
+
+    with patch("sms.send.send_sms_alert", return_value=True) as mock_send, \
+         patch("sms.send._get_user_sms_state", return_value=user_state):
+        result = flush_batch("user-1")
+
+    assert result == "Lone alert"
+    mock_send.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Tests: flush_batch TCPA guard routing (regression)
+# ---------------------------------------------------------------------------
+
+def test_flush_batch_paused_user_sends_nothing(patched_redis, user_state):
+    """PAUSE is honored even for immediate-tier alerts with consent."""
+    from datetime import datetime, timedelta, timezone
+    from sms.batch import enqueue_alert, flush_batch
+
+    user_state["sms_paused_until"] = (datetime.now(timezone.utc) + timedelta(hours=5)).isoformat()
+    enqueue_alert("user-1", "Urgent", 95)
+
+    with patch("sms.send.send_sms_alert") as mock_alert, \
+         patch("sms.send.send_sms_safe") as mock_safe, \
+         patch("sms.send._get_user_sms_state", return_value=user_state):
+        result = flush_batch("user-1")
+
+    assert result is None
+    mock_alert.assert_not_called()
+    mock_safe.assert_not_called()
+
+
+def test_flush_batch_below_immediate_tier_uses_safe_path(patched_redis, user_state):
+    """Top priority < 80 routes through send_sms_safe (quiet hours / daily cap apply)."""
+    from sms.batch import enqueue_alert, flush_batch
+
+    enqueue_alert("user-1", "Gap analysis digest", 75)
+
+    with patch("sms.send.send_sms_alert") as mock_alert, \
+         patch("sms.send.send_sms_safe", return_value=True) as mock_safe, \
+         patch("sms.send._get_user_sms_state", return_value=user_state):
+        result = flush_batch("user-1")
+
+    assert result == "Gap analysis digest"
+    mock_alert.assert_not_called()
+    mock_safe.assert_called_once_with("user-1", user_state["phone"], "Gap analysis digest", is_proactive=True)
+
+
+def test_flush_batch_immediate_tier_without_consent_uses_safe_path(patched_redis, user_state):
+    """Top priority >= 80 but no alert consent → no quiet-hours bypass."""
+    from sms.batch import enqueue_alert, flush_batch
+
+    user_state["preferences_json"] = {}
+    enqueue_alert("user-1", "Urgent", 95)
+
+    with patch("sms.send.send_sms_alert") as mock_alert, \
+         patch("sms.send.send_sms_safe", return_value=False) as mock_safe, \
+         patch("sms.send._get_user_sms_state", return_value=user_state):
+        result = flush_batch("user-1")
+
+    assert result is None  # suppressed by guard
+    mock_alert.assert_not_called()
+    mock_safe.assert_called_once()
