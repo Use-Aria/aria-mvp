@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Redis from 'ioredis'
+import { enqueueCeleryTask } from '@/lib/celery/enqueue'
 
 /**
  * POST /api/gcal/webhook
@@ -39,40 +40,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (channelToken) {
       const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379/0')
 
-      const taskId = crypto.randomUUID()
-      const taskMessage = JSON.stringify({
-        id: taskId,
-        task: 'tasks.gcal_sync_user',
-        args: [channelToken], // user_id
-        kwargs: {},
-        retries: 0,
-      })
-
-      await redis.lpush(
-        'celery',
-        JSON.stringify({
-          'content-type': 'application/json',
-          'content-encoding': 'utf-8',
-          headers: {
-            id: taskId,
-            task: 'tasks.gcal_sync_user',
-            lang: 'py',
-            root_id: taskId,
-            parent_id: null,
-            group: null,
-          },
-          properties: {
-            correlation_id: taskId,
-            reply_to: '',
-            delivery_mode: 2,
-            delivery_tag: taskId,
-            body_encoding: 'utf-8',
-          },
-          body: Buffer.from(taskMessage).toString('base64'),
-        }),
-      )
-
-      await redis.quit()
+      try {
+        await enqueueCeleryTask(redis, 'tasks.gcal_sync_user', [channelToken]) // user_id
+      } finally {
+        await redis.quit()
+      }
 
       console.log('[gcal/webhook] enqueued gcal_sync_user for channel', channelId)
     } else {

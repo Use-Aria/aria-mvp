@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Redis from 'ioredis'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { enqueueCeleryTask } from '@/lib/celery/enqueue'
 
 /**
  * POST /api/upload/syllabus
  * Accepts a multipart FormData upload of a syllabus PDF and enqueues a
  * Celery parse_syllabus_task via Redis for background Claude Opus parsing.
  *
+ * Auth: JWT required (Bearer token from mobile). The user is resolved from the token —
+ * never from the request body, so one user can't queue parses into another's account.
+ *
  * FormData fields:
  *   - file: PDF file (required, max 4MB)
  *   - course_name: string (required)
- *   - user_id: UUID string (required — Phase 7 bypass; replaced with Supabase session in Phase 8)
  *
  * Returns 202 with taskId on success. PDF bytes are NOT persisted — only
  * the base64-encoded bytes pass through the transient Redis queue.
@@ -19,11 +23,27 @@ import Redis from 'ioredis'
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // --- Auth (Bearer token from mobile) ---
+    const authHeader = request.headers.get('Authorization')
+    const jwt = authHeader?.replace('Bearer ', '').trim()
+    if (!jwt) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const adminClient = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+    const { data: { user }, error: authError } = await adminClient.auth.getUser(jwt)
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    const userId = user.id
+
     const formData = await request.formData()
 
     const file = formData.get('file') as File | null
     const courseName = formData.get('course_name') as string | null
-    const userId = formData.get('user_id') as string | null
 
     // Validate required fields
     if (!file) {
@@ -32,10 +52,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!courseName || courseName.trim() === '') {
       return NextResponse.json({ error: 'course_name is required' }, { status: 400 })
-    }
-
-    if (!userId) {
-      return NextResponse.json({ error: 'user_id is required' }, { status: 400 })
     }
 
     // Validate file size: max 4MB
@@ -53,40 +69,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379/0')
 
-    const taskId = crypto.randomUUID()
-    const taskMessage = JSON.stringify({
-      id: taskId,
-      task: 'tasks.parse_syllabus_task',
-      args: [userId, pdfB64, courseName.trim()],
-      kwargs: {},
-      retries: 0,
-    })
-
-    await redis.lpush(
-      'celery',
-      JSON.stringify({
-        'content-type': 'application/json',
-        'content-encoding': 'utf-8',
-        headers: {
-          id: taskId,
-          task: 'tasks.parse_syllabus_task',
-          lang: 'py',
-          root_id: taskId,
-          parent_id: null,
-          group: null,
-        },
-        properties: {
-          correlation_id: taskId,
-          reply_to: '',
-          delivery_mode: 2,
-          delivery_tag: taskId,
-          body_encoding: 'utf-8',
-        },
-        body: Buffer.from(taskMessage).toString('base64'),
-      }),
-    )
-
-    await redis.quit()
+    let taskId: string
+    try {
+      taskId = await enqueueCeleryTask(redis, 'tasks.parse_syllabus_task', [userId, pdfB64, courseName.trim()])
+    } finally {
+      await redis.quit()
+    }
 
     console.log('[upload/syllabus] enqueued parse_syllabus_task', taskId, 'for course:', courseName)
 

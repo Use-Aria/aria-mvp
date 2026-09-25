@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import Redis from 'ioredis'
-import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
+import { enqueueCeleryTask } from '@/lib/celery/enqueue'
 
 /**
  * POST /api/gmail/webhook
@@ -61,42 +61,16 @@ export async function POST(request: Request) {
     if (integrations && integrations.length > 0) {
       const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379/0')
 
-      for (const integration of integrations) {
-        const taskId = crypto.randomUUID()
-        const taskMessage = JSON.stringify({
-          id: taskId,
-          task: 'tasks.gmail_process_notification',
-          args: [integration.user_id, String(historyId)],
-          kwargs: {},
-          retries: 0,
-        })
-
-        await redis.lpush(
-          'celery',
-          JSON.stringify({
-            'content-type': 'application/json',
-            'content-encoding': 'utf-8',
-            headers: {
-              id: taskId,
-              task: 'tasks.gmail_process_notification',
-              lang: 'py',
-              root_id: taskId,
-              parent_id: null,
-              group: null,
-            },
-            properties: {
-              correlation_id: taskId,
-              reply_to: '',
-              delivery_mode: 2,
-              delivery_tag: taskId,
-              body_encoding: 'utf-8',
-            },
-            body: Buffer.from(taskMessage).toString('base64'),
-          }),
-        )
+      try {
+        for (const integration of integrations) {
+          await enqueueCeleryTask(redis, 'tasks.gmail_process_notification', [
+            integration.user_id,
+            String(historyId),
+          ])
+        }
+      } finally {
+        await redis.quit()
       }
-
-      await redis.quit()
       console.log('[gmail/webhook] dispatched gmail_process_notification for', integrations.length, 'users, historyId:', historyId)
     }
   } catch (e) {

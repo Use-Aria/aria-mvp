@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import twilio from 'twilio'
 import { createClient } from '@supabase/supabase-js'
 import Redis from 'ioredis'
+import { enqueueCeleryTask } from '@/lib/celery/enqueue'
 
 /**
  * POST /api/sms/webhook
@@ -45,10 +46,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
 
+    // Twilio sends E.164 (+15551234567). Rows written before phone normalization hold the
+    // Supabase Auth digits-only form (15551234567) — match either.
+    const from = params['From'] || ''
+    const fromDigits = from.replace(/^\+/, '')
+    if (!fromDigits) {
+      return new NextResponse('', { status: 200 })
+    }
     const { data: userRow, error: userError } = await supabase
       .from('users')
       .select('id')
-      .eq('phone', params['From'])
+      .in('phone', [`+${fromDigits}`, fromDigits])
+      .limit(1)
       .single()
 
     if (userError || !userRow) {
@@ -79,41 +88,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // --- Step 4: Enqueue process_inbound_sms Celery task via Redis ---
     const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379/0')
 
-    const taskId = crypto.randomUUID()
-    const taskMessage = JSON.stringify({
-      id: taskId,
-      task: 'tasks.process_inbound_sms',
+    try {
       // Args: [message_sid, body, user_id] — user_id is UUID, never phone number
-      args: [params['MessageSid'] || '', params['Body'] || '', userId],
-      kwargs: {},
-      retries: 0,
-    })
-
-    await redis.lpush(
-      'celery',
-      JSON.stringify({
-        'content-type': 'application/json',
-        'content-encoding': 'utf-8',
-        headers: {
-          id: taskId,
-          task: 'tasks.process_inbound_sms',
-          lang: 'py',
-          root_id: taskId,
-          parent_id: null,
-          group: null,
-        },
-        properties: {
-          correlation_id: taskId,
-          reply_to: '',
-          delivery_mode: 2,
-          delivery_tag: taskId,
-          body_encoding: 'utf-8',
-        },
-        body: Buffer.from(taskMessage).toString('base64'),
-      }),
-    )
-
-    await redis.quit()
+      await enqueueCeleryTask(redis, 'tasks.process_inbound_sms', [
+        params['MessageSid'] || '',
+        params['Body'] || '',
+        userId,
+      ])
+    } finally {
+      await redis.quit()
+    }
 
     // --- Step 5: Return 200 to Twilio ---
     return new NextResponse('', { status: 200 })

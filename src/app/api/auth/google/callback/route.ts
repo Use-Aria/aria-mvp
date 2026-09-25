@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Redis from 'ioredis'
 import { createClient } from '@supabase/supabase-js'
+import { enqueueCeleryTask } from '@/lib/celery/enqueue'
 
 /**
  * GET /api/auth/google/callback?code=<code>&state=<state>
@@ -130,37 +131,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       })
       try {
         await redis.connect()
-        const taskId = crypto.randomUUID()
-        const taskMessage = JSON.stringify({
-          id: taskId,
-          task: 'tasks.encrypt_and_store_tokens',
-          args: [userId, accessToken, refreshToken],
-          kwargs: {},
-          retries: 0,
-        })
-        await redis.lpush(
-          'celery',
-          JSON.stringify({
-            'content-type': 'application/json',
-            'content-encoding': 'utf-8',
-            headers: {
-              id: taskId,
-              task: 'tasks.encrypt_and_store_tokens',
-              lang: 'py',
-              root_id: taskId,
-              parent_id: null,
-              group: null,
-            },
-            properties: {
-              correlation_id: taskId,
-              reply_to: '',
-              delivery_mode: 2,
-              delivery_tag: taskId,
-              body_encoding: 'utf-8',
-              priority: 9,
-            },
-            body: Buffer.from(taskMessage).toString('base64'),
-          }),
+        await enqueueCeleryTask(
+          redis,
+          'tasks.encrypt_and_store_tokens',
+          [userId, accessToken, refreshToken],
+          { priority: 9 },
         )
       } catch (redisErr) {
         console.error('[auth/google/callback] Redis enqueue failed in production:', redisErr)

@@ -8,6 +8,11 @@ const REQUIRED_ENV_VARS = [
   'TWILIO_AUTH_TOKEN',
   'TWILIO_PHONE_NUMBER',
   'ANTHROPIC_API_KEY',
+  'TWILIO_WEBHOOK_URL', // without it every inbound SMS fails signature validation
+  'REDIS_URL', // without it every Celery enqueue targets localhost
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'GOOGLE_REDIRECT_URI',
 ]
 
 /**

@@ -1,6 +1,7 @@
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import Redis from 'ioredis'
+import { enqueueCeleryTask } from '@/lib/celery/enqueue'
 
 /**
  * POST /api/onboarding/complete
@@ -10,7 +11,7 @@ import Redis from 'ioredis'
  *
  * Side effects:
  *   1. Sets onboarding_completed_at = now() in users table (idempotent — safe to call twice)
- *   2. Enqueues tasks.welcome_briefing Celery task via Redis
+ *   2. Enqueues tasks.welcome_briefing Celery task via Redis (best-effort — failure is logged, not returned)
  *
  * Per spec: welcome SMS is decoupled from Canvas sync. This is the only place that
  * fires the welcome briefing. Do NOT re-couple to Canvas sync.
@@ -48,43 +49,19 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     // --- Enqueue welcome_briefing Celery task via Redis ---
-    const taskId = crypto.randomUUID()
-    const taskMessage = JSON.stringify({
-      id: taskId,
-      task: 'tasks.welcome_briefing',
-      args: [user.id],
-      kwargs: {},
-      retries: 0,
+    // Onboarding is already complete in the DB at this point. An enqueue failure must not
+    // return an error — the app would show a failure and loop the user back into onboarding.
+    // welcome_briefing is idempotent in the worker, so repeat calls don't double-send.
+    const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379/0', {
+      maxRetriesPerRequest: 1,
+      connectTimeout: 2000,
     })
-
-    const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379/0')
-
     try {
-      await redis.lpush(
-        'celery',
-        JSON.stringify({
-          'content-type': 'application/json',
-          'content-encoding': 'utf-8',
-          headers: {
-            id: taskId,
-            task: 'tasks.welcome_briefing',
-            lang: 'py',
-            root_id: taskId,
-            parent_id: null,
-            group: null,
-          },
-          properties: {
-            correlation_id: taskId,
-            reply_to: '',
-            delivery_mode: 2,
-            delivery_tag: taskId,
-            body_encoding: 'utf-8',
-          },
-          body: Buffer.from(taskMessage).toString('base64'),
-        }),
-      )
+      await enqueueCeleryTask(redis, 'tasks.welcome_briefing', [user.id])
+    } catch (enqueueErr) {
+      console.error('[onboarding/complete] welcome_briefing enqueue failed:', enqueueErr)
     } finally {
-      await redis.quit()
+      try { await redis.quit() } catch { /* ignore */ }
     }
 
     console.log('[onboarding/complete] onboarding complete, welcome briefing enqueued for user:', user.id)

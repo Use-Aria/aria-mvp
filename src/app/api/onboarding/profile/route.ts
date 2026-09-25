@@ -52,8 +52,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       )
     }
 
-    // Phone comes from Supabase session (set by phone OTP auth — already E.164)
-    const phone = user.phone ?? ''
+    // Phone comes from the Supabase session (phone OTP auth). Supabase Auth stores it as
+    // digits only (e.g. 15551234567), but Twilio sends and expects E.164 (+15551234567) —
+    // normalize so inbound-SMS lookup and outbound sends both work. If the session has no
+    // phone, leave the column out so an existing value isn't blanked.
+    const phone = user.phone ? `+${user.phone.replace(/^\+/, '')}` : null
 
     // --- Write to DB using service role (bypasses RLS) ---
     const { error: upsertError } = await adminClient
@@ -62,7 +65,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         {
           id: user.id,
           name: name.trim(),
-          phone,
+          ...(phone ? { phone } : {}),
           university: university.trim(),
           graduation_year,
         },

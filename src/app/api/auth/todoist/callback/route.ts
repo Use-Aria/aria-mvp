@@ -27,7 +27,9 @@ export async function GET(req: NextRequest) {
       client_id: process.env.TODOIST_CLIENT_ID!,
       client_secret: process.env.TODOIST_CLIENT_SECRET!,
       code,
-      redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/todoist/callback`,
+      // Must match the authorize request, which the app builds from its API base (this host).
+      // NEXT_PUBLIC_APP_URL was never defined anywhere, which produced 'undefined/api/...'.
+      redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL ?? req.nextUrl.origin}/api/auth/todoist/callback`,
     }),
   })
 

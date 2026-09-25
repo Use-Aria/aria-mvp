@@ -65,6 +65,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 })
     }
 
+    // The server fetches this URL, so block anything that isn't a public HTTPS host —
+    // otherwise any signed-in user could probe internal services (localhost, cloud
+    // metadata at 169.254.169.254, private ranges) and read back the HTTP status.
+    if (parsedUrl.protocol !== 'https:' || isDisallowedHost(parsedUrl.hostname)) {
+      return NextResponse.json(
+        { error: 'Canvas iCal URL must be a public https:// address' },
+        { status: 400 },
+      )
+    }
+
     // Canvas iCal URLs always end in .ics and contain a feed token
     if (!parsedUrl.pathname.endsWith('.ics')) {
       return NextResponse.json(
@@ -174,4 +184,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.error('[sync/canvas] unexpected error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
+}
+
+/**
+ * Returns true for hostnames the Canvas validator must never fetch: localhost,
+ * single-label/internal names, and IP literals (Canvas feeds are always on a
+ * public domain name, so no legitimate feed uses a raw IP).
+ */
+function isDisallowedHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.internal') || host.endsWith('.local')) {
+    return true
+  }
+  if (!host.includes('.')) return true // single-label names resolve inside the network
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return true // IPv4 literal
+  if (host.includes(':')) return true // IPv6 literal
+  return false
 }
