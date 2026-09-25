@@ -131,7 +131,7 @@ export default function UniversityPicker({ value, onChange, testID }: Props) {
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: colors.cardBackground,
+                backgroundColor: colors.secondary,
                 borderRadius: 10,
                 paddingHorizontal: 12,
                 height: 40,

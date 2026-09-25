@@ -15,7 +15,8 @@ const PIN_LENGTH = 6
  * 6-cell PIN input with auto-advance focus and auto-submit on final digit.
  * Each cell is an individual TextInput that advances focus forward on digit entry
  * and backward on backspace of an empty cell.
- * Calls onComplete(allSixDigits) when the 6th digit is entered.
+ * Calls onComplete(allSixDigits) whenever all six cells are filled, including via
+ * a pasted or SMS-autofilled code.
  */
 export default function PinInput({ onComplete, error, onClear, testID }: PinInputProps) {
   const { accent, colors } = useTheme()
@@ -46,20 +47,31 @@ export default function PinInput({ onComplete, error, onClear, testID }: PinInpu
   }
 
   const handleChange = (text: string, index: number) => {
-    // Only allow single digit
-    const digit = text.replace(/\D/g, '').slice(-1)
+    const digits = text.replace(/\D/g, '')
 
+    // Full code pasted or autofilled from SMS (iOS oneTimeCode) — fill every cell at once
+    if (digits.length === PIN_LENGTH) {
+      const filled = digits.split('')
+      setPins(filled)
+      inputs.current[index]?.blur()
+      onComplete(filled.join(''))
+      return
+    }
+
+    // Otherwise keep only the most recently typed digit
+    const digit = digits.slice(-1)
     const newPins = [...pins]
     newPins[index] = digit
     setPins(newPins)
 
-    if (digit && index < PIN_LENGTH - 1) {
-      // Advance to next cell
-      inputs.current[index + 1]?.focus()
-    } else if (digit && index === PIN_LENGTH - 1) {
-      // Last digit entered — call onComplete
+    if (digit && newPins.every(Boolean)) {
+      // All cells filled — submit. Checked on every change (not just the last cell)
+      // so correcting any digit after a wrong code resubmits.
       inputs.current[index]?.blur()
       onComplete(newPins.join(''))
+    } else if (digit && index < PIN_LENGTH - 1) {
+      // Advance to next cell
+      inputs.current[index + 1]?.focus()
     }
   }
 
@@ -75,7 +87,7 @@ export default function PinInput({ onComplete, error, onClear, testID }: PinInpu
 
   return (
     // testID + onComplete forwarded so tests can fire fireEvent(el, 'complete', code)
-    <View testID={testID} {...(onComplete ? { onComplete } as unknown as object : {})}>
+    <View testID={testID} {...({ onComplete } as unknown as object)}>
       <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
         {Array(6).fill(null).map((_, index) => (
           <TextInput
@@ -87,7 +99,8 @@ export default function PinInput({ onComplete, error, onClear, testID }: PinInpu
             onFocus={() => setFocusedIndex(index)}
             onBlur={() => setFocusedIndex(null)}
             keyboardType="number-pad"
-            maxLength={1}
+            textContentType="oneTimeCode"
+            autoComplete="sms-otp"
             selectTextOnFocus={true}
             style={{
               width: 48,

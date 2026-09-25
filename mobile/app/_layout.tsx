@@ -9,6 +9,8 @@ import { supabase } from '@/lib/supabase'
 import { ThemeContext, ACCENT_COLORS, COLORS, type AccentColorName } from '@/lib/theme'
 import '../global.css'
 
+const DEMO_MODE = process.env.EXPO_PUBLIC_DEMO_MODE === 'true'
+
 export default function RootLayout() {
   const { session, loading } = useSession()
   const router = useRouter()
@@ -24,13 +26,34 @@ export default function RootLayout() {
   // routing fires with stale onboardingDone=false right as the user leaves the success screen.
   useEffect(() => {
     if (!session) { setOnboardingDone(null); return }
+    // Demo mode uses a stub session with no user — skip the DB check entirely.
+    if (DEMO_MODE || !session.user?.id) { setOnboardingDone(true); return }
+    const userId = session.user.id
     setOnboardingDone(null)
-    supabase
-      .from('users')
-      .select('onboarding_completed_at')
-      .eq('id', session.user.id)
-      .single()
-      .then(({ data }) => setOnboardingDone(!!data?.onboarding_completed_at))
+
+    // A failed query (network/RLS) must not be read as "not onboarded" — that would bounce
+    // a fully onboarded user into onboarding. Keep the value null (guard blocks redirects)
+    // and retry with capped backoff. PGRST116 = no row yet, which genuinely means not done.
+    let active = true
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
+    const check = async (attempt: number) => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('onboarding_completed_at')
+        .eq('id', userId)
+        .single()
+      if (!active) return
+      if (error && error.code !== 'PGRST116') {
+        retryTimer = setTimeout(() => check(attempt + 1), Math.min(1000 * 2 ** attempt, 8000))
+        return
+      }
+      setOnboardingDone(!!data?.onboarding_completed_at)
+    }
+    check(0)
+    return () => {
+      active = false
+      if (retryTimer) clearTimeout(retryTimer)
+    }
   }, [session?.user?.id, segments[0]])
 
   useEffect(() => {

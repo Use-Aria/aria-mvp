@@ -43,7 +43,7 @@ jest.mock('@/components/onboarding/ProgressBar', () => () => null)
 // Mock UniversityPicker — calls onChange('Yale University') when pressed
 jest.mock('@/components/onboarding/UniversityPicker', () => {
   const { TouchableOpacity, Text } = require('react-native')
-  return function MockUniversityPicker({ value, onChange, testID }) {
+  return function MockUniversityPicker({ value, onChange, testID }: { value?: string; onChange: (v: string) => void; testID?: string }) {
     return (
       <TouchableOpacity testID={testID || 'university-picker'} onPress={() => onChange('Yale University')}>
         <Text>{value || 'Select your university'}</Text>

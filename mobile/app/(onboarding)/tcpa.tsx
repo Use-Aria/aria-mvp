@@ -26,6 +26,7 @@ export default function TcpaConsent() {
 
   const [hasConsent, setHasConsent] = useState(false) // MUST default OFF per TCPA requirement
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Restore previously saved consent value on mount
   useEffect(() => {
@@ -51,33 +52,37 @@ export default function TcpaConsent() {
    */
   const handleConfirm = async () => {
     setSaving(true)
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session) {
-      setSaving(false)
-      return
-    }
+    setSaveError(null)
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session) return
 
-    // Read current preferences first to avoid clobbering other keys
-    const { data: user } = await supabase
-      .from('users')
-      .select('preferences_json')
-      .eq('id', session.user.id)
-      .single()
+      // Read current preferences first to avoid clobbering other keys.
+      // Abort on read failure — merging into {} would wipe the user's other preferences.
+      const { data: user, error: readError } = await supabase
+        .from('users')
+        .select('preferences_json')
+        .eq('id', session.user.id)
+        .single()
+      if (readError) throw readError
 
-    const currentPrefs = (user?.preferences_json as Record<string, unknown>) ?? {}
+      const currentPrefs = (user?.preferences_json as Record<string, unknown>) ?? {}
 
-    const { error } = await supabase
-      .from('users')
-      .update({
-        preferences_json: { ...currentPrefs, has_alert_consent: hasConsent },
-      })
-      .eq('id', session.user.id)
+      const { error } = await supabase
+        .from('users')
+        .update({
+          preferences_json: { ...currentPrefs, has_alert_consent: hasConsent },
+        })
+        .eq('id', session.user.id)
+      if (error) throw error
 
-    setSaving(false)
-    if (!error) {
       router.push('/(onboarding)/tools')
+    } catch {
+      setSaveError("Couldn't save your choice. Check your connection and try again.")
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -181,6 +186,11 @@ export default function TcpaConsent() {
 
       {/* Continue CTA — always enabled (user can continue with toggle OFF) */}
       <View style={{ paddingHorizontal: 24, paddingBottom: 32 }}>
+        {saveError && (
+          <Text style={{ color: colors.destructive, fontSize: 14, marginBottom: 12, textAlign: 'center' }}>
+            {saveError}
+          </Text>
+        )}
         <TouchableOpacity
           onPress={handleConfirm}
           disabled={saving}

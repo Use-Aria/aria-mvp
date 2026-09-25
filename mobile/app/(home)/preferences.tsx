@@ -63,6 +63,7 @@ export default function Preferences() {
   const [syllabi, setSyllabi] = useState<Syllabus[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [hiddenCards, setHiddenCards] = useState<HiddenCard[]>([])
   const [quietStart, setQuietStart] = useState('22:00')
   const [quietEnd, setQuietEnd] = useState('08:00')
@@ -148,6 +149,7 @@ export default function Preferences() {
       const file = result.assets[0]
       setUploading(true)
       setUploadedFile(null)
+      setUploadError(null)
 
       const formData = new FormData()
       formData.append('file', {
@@ -155,6 +157,8 @@ export default function Preferences() {
         name: file.name,
         type: 'application/pdf',
       } as unknown as Blob)
+      // Server requires course_name — derive it from the file name
+      formData.append('course_name', file.name.replace(/\.pdf$/i, ''))
 
       const { data: { session } } = await supabase.auth.getSession()
       const response = await fetch(`${API_BASE}/api/upload/syllabus`, {
@@ -166,9 +170,11 @@ export default function Preferences() {
       if (response.ok) {
         setUploadedFile(file.name)
         await loadData()
+      } else {
+        setUploadError(response.status === 413 ? 'That PDF is over the 4MB limit.' : "Couldn't upload that syllabus. Try again.")
       }
     } catch {
-      // Non-blocking
+      setUploadError("Couldn't upload that syllabus. Try again.")
     } finally {
       setUploading(false)
     }
@@ -562,6 +568,10 @@ export default function Preferences() {
               </>
             )}
           </TouchableOpacity>
+
+          {uploadError && (
+            <Text style={{ fontSize: 14, color: colors.destructive }}>{uploadError}</Text>
+          )}
 
           {uploadedFile && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

@@ -19,10 +19,11 @@ export function useSession() {
   useEffect(() => {
     if (DEMO_MODE) return
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false)
-    })
+    // .catch: a SecureStore/keychain read failure would otherwise leave loading=true forever
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => setSession(session))
+      .catch(() => setSession(null))
+      .finally(() => setLoading(false))
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => setSession(session)
