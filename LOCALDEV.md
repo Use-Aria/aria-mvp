@@ -109,6 +109,33 @@ Then press **`i`** to open in the iOS Simulator.
 
 ---
 
+## Running on a Physical iPhone
+
+Expo Go can't load the app (voice input uses the native `expo-speech-recognition` module), so use a **development build** from EAS. The phone talks to your Mac's API through a Cloudflare quick tunnel (ngrok free tier hit its bandwidth cap).
+
+**One-time setup**
+
+1. `brew install cloudflared`
+2. `npx eas-cli login` — Expo account with access to the `aria-mvp` project
+3. iPhone: Settings → Privacy & Security → **Developer Mode** → On (restart)
+4. `cd mobile && npx eas-cli device:create` — scan the QR on the iPhone to register it
+5. `cd mobile && npx eas-cli build --profile development --platform ios` — sign in with an Apple ID on team `B4V6MXCJ5B` when prompted. ~15–20 min. Install from the link/QR when done.
+
+Rebuild only when native dependencies or `app.json` change. JS changes load live from Metro.
+
+**Each session** (3 terminals, repo root)
+
+```bash
+npm run dev                                # 1. API on :3000
+./scripts/phone-dev.sh                     # 2. tunnel + rewrites GOOGLE_REDIRECT_URI and EXPO_PUBLIC_API_URL
+cd mobile && npx expo start --dev-client   # 3. Metro — open the Aria dev app on the phone
+```
+
+- Tunnel URL changes every run → add the printed redirect URI in Google Cloud Console (Credentials → OAuth client → Authorized redirect URIs) before testing Google Connect.
+- Phone must be on the same Wi-Fi as the Mac for Metro. On campus Wi-Fi that blocks device-to-device traffic, use `npx expo start --dev-client --tunnel`.
+
+---
+
 ## Running Migrations
 
 Any time you pull and there are new `.sql` files in `supabase/migrations/`:
