@@ -63,7 +63,7 @@ _Nothing claimed. Onboarding fully merged to main (session 8). Next: OB-D1._
 - [ ] **AUD-18** `gcal/writeback.schedule_study_block` uses UTC-day bounds (same bug fixed in `sms/schedule.py`)
 - [ ] **AUD-19** Gmail at-least-once: a failed run can re-insert `gmail_flags` and re-alert on next notification
 - [ ] **AUD-20** GCal/Gmail `Credentials` built without `expiry` → proactive refresh never runs; refreshed token never persisted
-- [ ] **AUD-21** Update git remote → `https://github.com/Use-Aria/aria-mvp.git` (repo moved)
+- [x] **AUD-21** ✅ 2026-10-09 — Git remote updated → `https://github.com/Use-Aria/aria-mvp.git` (Daniel's machine; Josh + Seb run the command in the handoff note)
 
 ### v1.1 App Store Launch
 
@@ -108,7 +108,7 @@ _Nothing claimed. Onboarding fully merged to main (session 8). Next: OB-D1._
 
 **Verified:** `npm run lint` and `npm run build` pass. This was a docs and tooling change only, with no app code touched, so I didn't re-run the worker or mobile tests.
 
-**Still open:** AUD-21. The local git remote still points at `joshlnnn/aria-mvp`, and GitHub redirects pushes to `Use-Aria/aria-mvp`.
+**Repo moved (AUD-21):** the repo now lives at `Use-Aria/aria-mvp`. Josh and Seb: run `git remote set-url origin https://github.com/Use-Aria/aria-mvp.git` once.
 
 **After you pull:** if you installed GSD locally, delete `.claude/get-shit-done/`, `.claude/agents/`, `.claude/commands/gsd/`, and `.claude/gsd-file-manifest.json`. If Claude Code warns about the filesystem or supabase MCP servers, remove them from `enabledMcpjsonServers` in your `.claude/settings.local.json`.
 
