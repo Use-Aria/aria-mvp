@@ -54,40 +54,14 @@ GOOGLE_REDIRECT_URI=             # e.g. http://localhost:3000/api/auth/callback/
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_PHONE_NUMBER=
-TWILIO_WEBHOOK_URL=              # ngrok URL for local dev (see Step 5)
+TWILIO_WEBHOOK_URL=              # ngrok URL for local dev (see Step 4)
 REDIS_URL=                       # redis://localhost:6379 for local dev
 ANTHROPIC_API_KEY=               # Claude API key from console.anthropic.com
 ```
 
 ---
 
-## Step 3 — Install Claude Code AI Tools
-
-Aria uses two AI tooling systems that make development significantly faster. Install both.
-
-### Superpowers (skills for Claude Code)
-
-Superpowers gives Claude structured workflows for planning, debugging, TDD, code review, and more. It should already be configured via `.claude/settings.json` in the repo.
-
-Verify it's working by opening Claude Code and typing `/help` — you should see superpowers skills listed (brainstorming, writing-plans, etc.).
-
-If skills are missing, ask Daniel to share the Superpowers plugin installation.
-
-### Get Shit Done (GSD)
-
-GSD is a spec-driven development system that gives Claude persistent project context, phase planning, and execution workflows.
-
-```bash
-npx get-shit-done-cc@latest --claude --local
-```
-
-Verify with `/gsd-help` in Claude Code.
-
-> GSD files are gitignored intentionally — every developer installs locally. The project planning state lives in `.planning/` which IS tracked.
-
----
-
-## Step 4 — Run the App Locally
+## Step 3 — Run the App Locally
 
 ```bash
 npm run dev
@@ -102,7 +76,7 @@ npm test         # Jest test suite
 
 ---
 
-## Step 5 — Twilio Webhook (SMS dev only)
+## Step 4 — Twilio Webhook (SMS dev only)
 
 Twilio needs a public URL to send inbound SMS to. Use ngrok:
 
@@ -115,7 +89,7 @@ Copy the `https://xxxx.ngrok.io` URL and set it as `TWILIO_WEBHOOK_URL` in `.env
 
 ---
 
-## Step 6 — Supabase Migrations
+## Step 5 — Supabase Migrations
 
 ```bash
 npx supabase login
@@ -126,7 +100,7 @@ This runs all migrations in `supabase/migrations/`. Never write SQL directly aga
 
 ---
 
-## Step 7 — Read WORK.md and Claim a Task
+## Step 6 — Read WORK.md and Claim a Task
 
 ```bash
 git checkout main && git pull origin main
@@ -147,15 +121,15 @@ Open `WORK.md`. Read it fully:
 
 ---
 
-## Step 8 — Start Your Session in Claude Code
+## Step 7 — Start Your Session in Claude Code
 
-Use the project start command to orient Claude to the current state:
+Claude Code reads `CLAUDE.md` automatically. Start by asking it to orient you:
 
 ```
-/project:start
+Let's start. Where were we?
 ```
 
-This reads `CLAUDE.md`, `WORK.md`, and orients Claude to what you're building. Use `/project:done` when you finish a session.
+Claude follows the Session Protocol in `CLAUDE.md`: it pulls, reads `WORK.md`, and tells you the current task and next step. When you're done, say **"wrap up"**. Claude runs lint, build and tests, updates `WORK.md`, writes your handoff note, and asks before committing.
 
 ---
 
@@ -183,7 +157,7 @@ git push origin main
 | `src/types/index.ts` | Shared `Task`, `CalendarEvent`, `Message` types |
 | `.env.example` | All required environment variables |
 | `supabase/migrations/` | Database schema history |
-| `.planning/` | GSD project planning state |
+| `docs/history/` | Original build history — roadmap, requirements, phase plans & summaries (Mar–Apr 2026) |
 
 ---
 

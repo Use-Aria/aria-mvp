@@ -1,3 +1,5 @@
+> **Archived 2026-10-09.** This was `PROGRESS.md`, the session log used until April 2026. Live state now lives in `WORK.md`, and permanent gotchas in `CLAUDE.md`. Kept as history.
+
 # Aria — Session Progress
 
 > Last updated: 2026-04-14 (session 8)
@@ -85,8 +87,8 @@
 **Plan documents updated:**
 
 - `docs/onboarding-redesign-spec.md` §Tools Screen — tools section now reflects current state
-- `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md` — Task 7 has amendment block documenting syllabus removal, university picker, coming-soon items
-- `docs/superpowers/plans/2026-04-12-canvas-ical-guide.md` — self-review updated with post-plan amendments
+- `docs/plans/2026-04-11-onboarding-phone-auth-pivot.md` — Task 7 has amendment block documenting syllabus removal, university picker, coming-soon items
+- `docs/plans/2026-04-12-canvas-ical-guide.md` — self-review updated with post-plan amendments
 
 ### Canvas iCal Guide — COMPLETE ✅ (2026-04-12 session 6)
 
@@ -96,7 +98,7 @@
 - "Open Canvas" → `WebBrowser.openBrowserAsync('https://yale.instructure.com/profile/settings#feed_holder')`
 - 4 new tests added; 15/15 tests passing
 - Commits: `cc227be` (failing tests) → `e7fa823` (test fixes) → `1217e35` (implementation)
-- Plan: `docs/superpowers/plans/2026-04-12-canvas-ical-guide.md`
+- Plan: `docs/plans/2026-04-12-canvas-ical-guide.md`
 - No backend changes required
 
 **OB-C3 STATUS: COMPLETE ✅** — Full flow confirmed + Canvas guide shipped. Canvas iCal validation non-blocker resolved.
@@ -301,7 +303,7 @@ cd mobile && npx jest __tests__/onboarding.test.tsx --verbose
 
 | What                                         | Where                                                              |
 | -------------------------------------------- | ------------------------------------------------------------------ |
-| Phase C pivot plan (full task list)          | `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md` |
+| Phase C pivot plan (full task list)          | `docs/plans/2026-04-11-onboarding-phone-auth-pivot.md` |
 | Onboarding spec (screen flow, API contracts) | `docs/onboarding-redesign-spec.md`                                 |
 | Onboarding test file                         | `mobile/__tests__/onboarding.test.tsx`                             |
 | Jest globals fix                             | `mobile/jest.globals.js`                                           |
@@ -327,32 +329,4 @@ cd mobile && npx expo start --clear
 
 ## Architecture Gotchas
 
-> Permanent — these survive across sessions.
-
-| Gotcha                           | Rule                                                                                                                                                                                                                                                                                                                                                 |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Course matching                  | `syllabi.course_name` vs `canonical_events.course_id` — always use ILIKE                                                                                                                                                                                                                                                                             |
-| Windows strftime                 | `%-I` fails on Windows; use `%I` + `.lstrip("0").lower()`                                                                                                                                                                                                                                                                                            |
-| Lazy import patching             | Patch at the SOURCE module, never the importing module                                                                                                                                                                                                                                                                                               |
-| Token encryption boundary        | Next.js callback NEVER writes tokens to Supabase directly                                                                                                                                                                                                                                                                                            |
-| GCal/Gmail watch expiry          | Watch channels expire every 7 days — `renew-watch-channels` Beat task runs every 6h                                                                                                                                                                                                                                                                  |
-| Google OAuth verification        | Gmail readonly is sensitive scope — app verification takes 1–6 weeks                                                                                                                                                                                                                                                                                 |
-| PDF bytes                        | Never persisted — only base64 passes through Redis queue                                                                                                                                                                                                                                                                                             |
-| Re-parse guard                   | `check_existing_syllabus()` skips Claude call if `parsed_json` already exists                                                                                                                                                                                                                                                                        |
-| On-demand scheduling flow        | Redis pending state (5-min TTL) bridges two-message confirm flow                                                                                                                                                                                                                                                                                     |
-| conftest autouse                 | `tests/ai/conftest.py` stubs Redis intercepts — new schedule tests must patch `sms.schedule.*` directly                                                                                                                                                                                                                                              |
-| Expo winter runtime in Jest      | Pre-define `structuredClone` + `__ExpoImportMetaRegistry` as non-configurable in `jest.globals.js` — see fix above                                                                                                                                                                                                                                   |
-| PhoneInput test input            | `fireEvent.changeText` with RAW DIGITS only (e.g. `'5551234567'`), not formatted string. Formatted string double-counts the `+1` country code.                                                                                                                                                                                                       |
-| PinInput testID                  | `PinInput` accepts `testID` prop forwarded to root View with `onComplete` — `fireEvent(el, 'complete', code)` works                                                                                                                                                                                                                                  |
-| Phone in profile route           | Since pivot: phone is NOT in request body — backend reads `user.phone` from Supabase JWT session                                                                                                                                                                                                                                                     |
-| getSession() mock in tests       | The test mock returns a plain object (not Promise). Use `await supabase.auth.getSession()` pattern, NOT `.then()` — awaiting a non-promise returns the value directly                                                                                                                                                                                |
-| Text.disabled for testing        | RN `Text` has a `disabled` prop explicitly for testing. Pass `disabled={condition}` to `<Text>` to make `getByText(...).parent?.props.disabled` work in test renderer. Neither `TouchableOpacity` nor `Pressable` exposes `disabled` on their rendered host element.                                                                                 |
-| Supabase phone auth Twilio field | Supabase wants a **Messaging Service SID** (`MG...`), NOT the raw phone number and NOT the Verify Service SID (`VA...`). Create in Twilio Console → Messaging → Services.                                                                                                                                                                            |
-| Mobile API auth                  | Mobile app sends `Authorization: Bearer <jwt>`. Next.js API routes must read JWT from `Authorization` header using `adminClient.auth.getUser(jwt)` — NOT from cookies (`createClient()` reads cookies, not Bearer tokens).                                                                                                                           |
-| react-native-url-polyfill        | Must be imported as FIRST import in `mobile/app/_layout.tsx` — without it, Supabase network requests fail intermittently with `Network request failed` (status 0)                                                                                                                                                                                    |
-| EXPO_PUBLIC_DEMO_MODE            | Set to `false` in `mobile/.env` for real auth testing. `true` injects fake session and skips all auth/onboarding.                                                                                                                                                                                                                                    |
-| Onboarding routing               | `_layout.tsx` checks `onboarding_completed_at` from `public.users` to decide routing. Three cases: (1) no session → welcome, (2) session + done → home, (3) session + not done + not in onboarding → tcpa                                                                                                                                            |
-| Back navigation in onboarding    | `router.replace()` clears stack — `router.back()` throws `GO_BACK not handled`. Use explicit `router.replace('/(onboarding)/[screen]')` for all back buttons.                                                                                                                                                                                        |
-| Next.js dev server required      | Mobile app calls Next.js API routes at `EXPO_PUBLIC_API_URL`. Must run `npm run dev` in `aria-mvp` root during local testing. In production, set `EXPO_PUBLIC_API_URL` to Vercel URL.                                                                                                                                                                |
-| /api/onboarding/complete Redis   | Route tries to connect to Redis at `redis://localhost:6379/0` to enqueue welcome SMS. Redis must be running (Docker) for this to succeed. If Redis not running, route will hang/error.                                                                                                                                                               |
-| Simulator spinner hang on launch | If app shows spinner forever with Metro bundled and no requests hitting Next.js: stale/expired Supabase session in SecureStore is causing `getSession()` to attempt a token refresh that hangs. Fix: **Device → Erase All Content and Settings** in simulator, then reinstall via Metro. Do this at the start of every fresh simulator test session. |
+Moved to `CLAUDE.md` → *Implementation Gotchas* (2026-10-09).

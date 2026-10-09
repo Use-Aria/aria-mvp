@@ -4,7 +4,7 @@
 > Last updated: 2026-04-14 (session 8)
 > Status: **COMPLETE ✅ — merged to `main` 2026-04-14. 23/23 tests passing. `onboarding` branch deleted. Next: OB-D1 (preferences screen).**
 > Branch: merged to `main`
-> Pivot plan: `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`
+> Pivot plan: `docs/plans/2026-04-11-onboarding-phone-auth-pivot.md`
 
 ### Session 7 changes (2026-04-12)
 
@@ -302,7 +302,7 @@ TWILIO_VERIFY_SERVICE_SID=   # Create new Verify Service in Twilio Console (sepa
 
 **Phase C — Auth Pivot (in progress):**
 
-> Full task breakdown in `docs/superpowers/plans/2026-04-11-onboarding-phone-auth-pivot.md`
+> Full task breakdown in `docs/plans/2026-04-11-onboarding-phone-auth-pivot.md`
 
 0. **Manual:** Enable Supabase phone auth provider + configure Twilio in Supabase dashboard
 1. Delete `src/app/api/auth/phone/send/route.ts` and `verify/route.ts`
@@ -368,18 +368,6 @@ Use parallel execution for independent backend + mobile tracks to maximize veloc
 2. **Parallel backend & mobile** — two developers work on separate worktrees (backend and mobile) simultaneously
 3. **Integration test** — after both tracks complete, test end-to-end on simulator (Google path) and device (Apple path)
 4. **Code review** — review backend and mobile changes against this spec
-
-### Skills and Agents to Use
-
-| Task                       | Skill/Agent                                               | Reasoning                                                        |
-| -------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------- |
-| **Parallel execution**     | `superpowers:dispatching-parallel-agents`                 | Backend (Josh) and mobile (Seb) are independent; run in parallel |
-| **Backend implementation** | `superpowers:executing-plans` (or `gsd-executor`)         | Follow Phase A of plan exactly, atomic commits per route         |
-| **Mobile implementation**  | `superpowers:executing-plans` (or `gsd-executor`)         | Follow Phase B of plan exactly, atomic commits per screen        |
-| **TDD for all code**       | `superpowers:test-driven-development`                     | Write tests first for all routes and screens                     |
-| **Final code review**      | `superpowers:requesting-code-review` or `gsd:code-review` | Verify implementation matches plan and spec before merge         |
-| **Verification**           | `superpowers:verification-before-completion`              | Cross-check against spec before claiming work done               |
-| **DB migration**           | `gsd:fast` (or manual)                                    | Single-file migration, low risk, can execute independently       |
 
 ### Worktree Isolation (Optional but Recommended)
 

@@ -159,13 +159,14 @@ aria-mvp/
 ├── CLAUDE.md                   ← you are here
 ├── WORK.md                     ← active work state — read before every session
 ├── FEATURES.md                 ← feature checklist, updated after every push
+├── docs/
+│   ├── history/                ← archive: original build phases, old handoffs, old progress log
+│   ├── plans/                  ← implementation plans
+│   └── specs/                  ← design specs
 ├── README.md
 ├── .env.local                  ← never commit
 ├── .claude/
-│   ├── settings.json           ← safety guardrails
-│   └── commands/
-│       ├── start.md            ← /project:start
-│       └── done.md             ← /project:done
+│   └── settings.json           ← safety guardrails
 ├── src/
 │   ├── types/
 │   │   └── index.ts            ← Task, CalendarEvent, Message types
@@ -338,7 +339,7 @@ Also write a Jest test at tests/integrations/canvas.test.ts
 that mocks the iCal response and verifies the Task mapping is correct.
 ```
 
-**Use `/project:start` to begin each session and `/project:done` to finish.**
+**Session start and "wrap up" are handled by the Session Protocol below.**
 
 ---
 
@@ -354,6 +355,39 @@ that mocks the iCal response and verifies the Task mapping is correct.
 - **Claude context limit** — pass only the last 14 days of deadlines + 7 days of calendar per request
 - **Syllabus parsing** — use Claude Opus for accuracy, store structured JSON in Supabase, never re-parse the raw PDF
 
+### Implementation Gotchas
+
+> Lessons learned while building. These will bite again. Add a row during "wrap up" whenever you discover a new one.
+
+| Gotcha | Rule |
+|---|---|
+| Course matching | `syllabi.course_name` vs `canonical_events.course_id` — always use ILIKE |
+| Windows strftime | `%-I` fails on Windows; use `%I` + `.lstrip("0").lower()` |
+| Lazy import patching | Patch at the SOURCE module, never the importing module |
+| Token encryption boundary | Next.js callback NEVER writes tokens to Supabase directly |
+| GCal/Gmail watch expiry | Watch channels expire every 7 days — `renew-watch-channels` Beat task runs every 6h |
+| Google OAuth verification | Gmail readonly is sensitive scope — app verification takes 1–6 weeks |
+| PDF bytes | Never persisted — only base64 passes through Redis queue |
+| Re-parse guard | `check_existing_syllabus()` skips Claude call if `parsed_json` already exists |
+| On-demand scheduling flow | Redis pending state (5-min TTL) bridges two-message confirm flow |
+| conftest autouse | `tests/ai/conftest.py` stubs Redis intercepts — new schedule tests must patch `sms.schedule.*` directly |
+| Expo winter runtime in Jest | Pre-define `structuredClone` + `__ExpoImportMetaRegistry` as non-configurable in `jest.globals.js` (see `mobile/jest.globals.js`) |
+| PhoneInput test input | `fireEvent.changeText` with RAW DIGITS only (e.g. `'5551234567'`), not formatted string. Formatted string double-counts the `+1` country code. |
+| PinInput testID | `PinInput` accepts `testID` prop forwarded to root View with `onComplete` — `fireEvent(el, 'complete', code)` works |
+| Phone in profile route | Since pivot: phone is NOT in request body — backend reads `user.phone` from Supabase JWT session |
+| getSession() mock in tests | The test mock returns a plain object (not Promise). Use `await supabase.auth.getSession()` pattern, NOT `.then()` — awaiting a non-promise returns the value directly |
+| Text.disabled for testing | RN `Text` has a `disabled` prop explicitly for testing. Pass `disabled={condition}` to `<Text>` to make `getByText(...).parent?.props.disabled` work in test renderer. Neither `TouchableOpacity` nor `Pressable` exposes `disabled` on their rendered host element. |
+| Supabase phone auth Twilio field | Supabase wants a **Messaging Service SID** (`MG...`), NOT the raw phone number and NOT the Verify Service SID (`VA...`). Create in Twilio Console → Messaging → Services. |
+| Mobile API auth | Mobile app sends `Authorization: Bearer <jwt>`. Next.js API routes must read JWT from `Authorization` header using `adminClient.auth.getUser(jwt)` — NOT from cookies (`createClient()` reads cookies, not Bearer tokens). |
+| react-native-url-polyfill | Must be imported as FIRST import in `mobile/app/_layout.tsx` — without it, Supabase network requests fail intermittently with `Network request failed` (status 0) |
+| EXPO_PUBLIC_DEMO_MODE | Set to `false` in `mobile/.env` for real auth testing. `true` injects fake session and skips all auth/onboarding. |
+| Onboarding routing | `_layout.tsx` checks `onboarding_completed_at` from `public.users` to decide routing. Three cases: (1) no session → welcome, (2) session + done → home, (3) session + not done + not in onboarding → tcpa |
+| Back navigation in onboarding | `router.replace()` clears stack — `router.back()` throws `GO_BACK not handled`. Use explicit `router.replace('/(onboarding)/[screen]')` for all back buttons. |
+| Next.js dev server required | Mobile app calls Next.js API routes at `EXPO_PUBLIC_API_URL`. Must run `npm run dev` in `aria-mvp` root during local testing. In production, set `EXPO_PUBLIC_API_URL` to Vercel URL. |
+| /api/onboarding/complete Redis | Route tries to connect to Redis at `redis://localhost:6379/0` to enqueue welcome SMS. Redis must be running (Docker) for this to succeed. If Redis not running, route will hang/error. |
+| Simulator spinner hang on launch | If app shows spinner forever with Metro bundled and no requests hitting Next.js: stale/expired Supabase session in SecureStore is causing `getSession()` to attempt a token refresh that hangs. Fix: **Device → Erase All Content and Settings** in simulator, then reinstall via Metro. Do this at the start of every fresh simulator test session. |
+| Celery enqueue from Next.js | Never hand-build Celery messages. Always use `enqueueCeleryTask()` in `src/lib/celery/enqueue.ts`; hand-built envelopes were silently dropped by kombu until 2026-09-24 |
+
 ---
 
 ## Two-Developer Collaboration Protocol
@@ -362,19 +396,30 @@ that mocks the iCal response and verifies the Task mapping is correct.
 
 **The solution:** `WORK.md` is the single source of truth for active work. Read it before every session. Update it when you start and finish.
 
-### Every session — no exceptions:
-1. `git pull origin main` — always start from latest
-2. Read `WORK.md` — see what's claimed, what's done, what's next
-3. Pick an **unclaimed** task from the "Up Next" queue
-4. **Claim it** by adding your row to "Currently In Progress" and pushing to main
-5. Work on your branch
-6. When done: update `WORK.md`, post a Handoff Note, push WORK.md to main
+### Session Protocol (Claude follows this automatically)
+
+**At session start** (the first message of a session, or "let's start" / "where were we"):
+1. `git pull origin main`, always starting from latest
+2. Read `WORK.md`: Currently In Progress, Up Next, and the latest Handoff Notes
+3. Orient in 3 lines: **Current task**, **Last thing done**, **Next action**
+4. Before writing code, **claim** an unclaimed task: add a row to "Currently In Progress" and push `WORK.md` to main (ask first)
+
+**On "wrap up"** (or "save", "done for today", "let's stop", "checkpoint", or similar), and before calling any task finished:
+1. Run `npm run lint`, `npm run build`, `npm test`, plus `celery_worker` / `mobile` tests if those were touched. Report failures honestly.
+2. Update `WORK.md`: the In Progress table, checked-off Up Next items, and any new items discovered
+3. Prepend a Handoff Note to `WORK.md` with the date, who, what was done, what's open, and anything the next person must know
+4. Keep only the **3 most recent** Handoff Notes in `WORK.md`. Move older ones to the top of `docs/history/handoffs.md`.
+5. If a new permanent lesson came up, add a row to *Implementation Gotchas* above
+6. Update `FEATURES.md` if a feature changed status
+7. Summarize the changes and **ask before committing or pushing**
+
+Memory lives in git so all three developers share it. Use `CLAUDE.md` for permanent facts, `WORK.md` for live state, and `docs/history/` for the archive (original build phases, old handoffs, old progress log). Don't create other state files.
 
 ### What WORK.md contains:
 - **🔒 Currently In Progress** — tasks that are actively claimed (do not touch these)
 - **🎯 Up Next** — prioritized queue of available work
 - **✅ Completed** — finished features with context
-- **📋 Handoff Notes** — notes from the other developer you need to read
+- **📋 Handoff Notes**: the 3 latest notes from other developers, which you need to read (older ones are in `docs/history/handoffs.md`)
 
 ### Ownership enforcement (enforced by Claude, not just a suggestion):
 | Developer | Owns | Never touches |
