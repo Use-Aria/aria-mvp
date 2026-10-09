@@ -3,7 +3,7 @@
 > Updated after every `git push`. This is the live build status.
 > Legend: ✅ Done | 🔄 In Progress | ⬜ Not Started | ⏳ Deferred
 >
-> **Note:** Feature IDs map to GSD phases (1–12), not original pre-build numbering.
+> **Note:** Feature IDs map to the original build phases (1–12) — see `docs/history/phases/` and `docs/history/ROADMAP.md`.
 
 ---
 
@@ -163,7 +163,7 @@
 *Most recent push at the top.*
 
 ### ✅ Push #16 — 2026-03-21
-**What:** Phase 10 build config (`eas.json`, `app.json`), PROGRESS.md, docs/superpowers/ spec + plan for on-demand scheduling
+**What:** Phase 10 build config (`eas.json`, `app.json`), PROGRESS.md (now `docs/history/progress-log.md`), docs/plans/ + docs/specs/ spec + plan for on-demand scheduling
 **Next up:** Apply 8 scheduling plan fixes → execute → Phase 10 Apple credentials
 
 ### ✅ Push #15 — 2026-03-21

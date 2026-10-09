@@ -126,32 +126,6 @@ You should see all 5 servers listed as connected. If any fail, check your key va
 
 ## Part 4 — Power Tools
 
-### GSD (Get Shit Done)
-
-Prevents context rot across long sessions. Spawns fresh Claude instances per task with clean 200k context windows. Essential for building 7+ integrations without degraded output.
-
-```bash
-npx get-shit-done-cc --claude --global
-```
-
-Docs: [github.com/gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done)
-
----
-
-### Superpowers
-
-Enforces TDD and structured debugging inside Claude Code. Particularly useful when wiring up OAuth flows and external APIs where bugs hide easily.
-
-Open Claude Code in the `aria-mvp` directory and run:
-```
-/plugin marketplace add obra/superpowers-marketplace
-/plugin install superpowers@superpowers-marketplace
-```
-
-Docs: [github.com/obra/superpowers](https://github.com/obra/superpowers)
-
----
-
 ### supermemory (Cross-Session Memory)
 
 Persists architectural decisions across sessions — and across machines, so what Josh's Claude learns about Aria is also available to your Claude.
@@ -290,7 +264,6 @@ claude
 Inside Claude Code:
 ```
 /mcp                    ← verify all servers are connected
-/project:start          ← run the start slash command
 ```
 
 **Best opening prompt:**
@@ -329,8 +302,8 @@ Test a Sendblue message to your own phone. If it arrives as a blue bubble, you'r
 |---|---|
 | Start Claude Code | `claude` in project root |
 | Check MCPs | `/mcp` |
-| Start a session | `/project:start` |
-| Finish a task | `/project:done` |
+| Start a session | "Let's start" (Claude reads `WORK.md` and orients) |
+| Finish a session | "Wrap up" (checks, `WORK.md` update, handoff note) |
 | Reset context | `/clear` |
 | Check token usage | `/cost` |
 | Pull latest | `git pull origin main` |
