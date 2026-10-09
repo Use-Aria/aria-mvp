@@ -71,7 +71,8 @@ App runs at `http://localhost:3000`.
 
 ```bash
 npm run lint     # must pass before every commit
-npm test         # Jest test suite
+cd celery_worker && pytest   # worker tests
+cd mobile && npx jest        # mobile tests
 ```
 
 ---
@@ -129,7 +130,7 @@ Claude Code reads `CLAUDE.md` automatically. Start by asking it to orient you:
 Let's start. Where were we?
 ```
 
-Claude follows the Session Protocol in `CLAUDE.md`: it pulls, reads `WORK.md`, and tells you the current task and next step. When you're done, say **"wrap up"**. Claude runs lint, build and tests, updates `WORK.md`, writes your handoff note, and asks before committing.
+Claude follows the Session Protocol in `CLAUDE.md`: it pulls, reads `WORK.md`, and tells you the current task and next step. When you're done, say **"wrap up"**. Claude runs lint, build and tests, updates `WORK.md`, writes your handoff note, then commits and pushes. It stops and asks if checks fail, if there are changes it didn't make, or if migrations or shared types changed.
 
 ---
 

@@ -312,7 +312,8 @@ git push origin main
 npm run dev          # dev server on localhost:3000
 npm run build        # production build
 npm run lint         # ESLint check — must pass before every commit
-npm test             # Jest test suite
+cd celery_worker && pytest   # worker test suite
+cd mobile && npx jest        # mobile test suite
 npx supabase db push # run migrations
 ```
 
@@ -405,13 +406,13 @@ that mocks the iCal response and verifies the Task mapping is correct.
 4. Before writing code, **claim** an unclaimed task: add a row to "Currently In Progress" and push `WORK.md` to main (ask first)
 
 **On "wrap up"** (or "save", "done for today", "let's stop", "checkpoint", or similar), and before calling any task finished:
-1. Run `npm run lint`, `npm run build`, `npm test`, plus `celery_worker` / `mobile` tests if those were touched. Report failures honestly.
+1. Run `npm run lint` and `npm run build`. If `celery_worker/` was touched, also run `cd celery_worker && pytest`; if `mobile/` was touched, run `cd mobile && npx jest`. There is no root `npm test`. Report failures honestly.
 2. Update `WORK.md`: the In Progress table, checked-off Up Next items, and any new items discovered
 3. Prepend a Handoff Note to `WORK.md` with the date, who, what was done, what's open, and anything the next person must know
 4. Keep only the **3 most recent** Handoff Notes in `WORK.md`. Move older ones to the top of `docs/history/handoffs.md`.
 5. If a new permanent lesson came up, add a row to *Implementation Gotchas* above
 6. Update `FEATURES.md` if a feature changed status
-7. Summarize the changes and **ask before committing or pushing**
+7. **Commit and push automatically.** Stage only the files this session changed (never `git add .`), commit with a conventional message (`feat:`, `fix:`, `docs:`, `chore:`), push to `main`, and report the commit hash. **Stop and ask instead** if any check failed, if the diff contains changes this session didn't make, or if `supabase/migrations/` or `src/types/index.ts` changed (tell the other developers first).
 
 Memory lives in git so all three developers share it. Use `CLAUDE.md` for permanent facts, `WORK.md` for live state, and `docs/history/` for the archive (original build phases, old handoffs, old progress log). Don't create other state files.
 
