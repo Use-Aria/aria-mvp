@@ -5,7 +5,9 @@ import "server-only";
  * Parser HTTP contract v1 (`POST /v1/parse-syllabus`), zod mirror + inferred types.
  * Headers: `content-type: application/json`, `x-aria-timestamp`, `x-aria-signature: v1=<hex>`,
  * `x-aria-request-id: <uuid>`. Error body `{error: {code, message, retryable}}` (V2-08 §8.1 table).
- * Lenient on extra keys (the Python side may add fields within v1).
+ * Lenient on extra keys (the Python side may add fields within v1). Validated against the Python
+ * goldens in `services/parser/tests/fixtures/contract/` (tests/unit/syllabus/contract.test.ts).
+ * Attempt `model` is any string: `fake-llm` (dev, zero tokens) and server-side fallback ids occur.
  */
 import { z } from "zod";
 
@@ -62,7 +64,8 @@ const parsedAssignmentSchema = z.object({
   weight_pct: z.number().nullable(),
 });
 
-const parsedSyllabusSchema = z.object({
+/** Normalized syllabus (`response.syllabus`; also what `syllabi.parsed_json` stores). */
+export const parsedSyllabusSchema = z.object({
   course: z.object({
     code: z.string(),
     title: z.string(),
@@ -116,7 +119,8 @@ const parseIssueSchema = z.object({
   code: z.string(),
   severity: z.enum(["error", "warn"]),
   message: z.string(),
-  path: z.string().optional(),
+  /** always a string on the wire (`""` when none); tolerated missing for safety */
+  path: z.string().default(""),
 });
 
 const llmAttemptSchema = z.object({

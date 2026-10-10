@@ -17,7 +17,7 @@ import {
   zonedToUtc,
   type LocalDate,
 } from "@/shared/time/tz";
-import type { TimelineItem, TimelineItemView, TimelineSource } from "@/server/timeline/types";
+import type { JsonValue, TimelineItem, TimelineItemView, TimelineSource } from "@/server/timeline/types";
 import { allDayDateOf, computeUrgency, DEADLINE_KINDS, urgencyScore } from "@/server/timeline/urgency";
 
 const HOUR_MS = 3_600_000;
@@ -42,7 +42,26 @@ function noonOf(d: LocalDate, tz: string): Date {
 }
 
 /**
- * Item → read view: ref, course key, floating all-day date, urgency (computed now), label.
+ * Syllabus info (grade weight + topics) from a syllabus item's `raw` (written by
+ * `integrations/syllabus/timeline-map.ts`: `{ weight_pct, topics, ... }`). Defensive: a non-finite
+ * or non-number weight → null, non-string topics dropped, a non-array `topics` → [].
+ * @param raw stored `raw` JSON
+ * @returns the info, or null when `raw` is missing/not an object or carries neither field
+ */
+function syllabusInfoOf(raw: { [k: string]: JsonValue } | null): { weight_pct: number | null; topics: string[] } | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  if (!("weight_pct" in raw) && !("topics" in raw)) return null;
+  const w = raw.weight_pct;
+  const t = raw.topics;
+  return {
+    weight_pct: typeof w === "number" && Number.isFinite(w) ? w : null,
+    topics: Array.isArray(t) ? t.filter((x): x is string => typeof x === "string") : [],
+  };
+}
+
+/**
+ * Item → read view: ref, course key, floating all-day date, urgency (computed now), label;
+ * syllabus items also carry `syllabus` (weight/topics from `raw`) when present.
  * @param item stored item
  * @param now clock
  * @param tz user zone
@@ -75,7 +94,14 @@ export function toView(item: TimelineItem, now: Date, tz: string): TimelineItemV
     urgencyScore: urgencyScore(item, now),
     hoursUntil: anchor ? Math.round(((anchor.getTime() - now.getTime()) / HOUR_MS) * 10) / 10 : null,
     label,
+    ...syllabusField(item),
   };
+}
+
+function syllabusField(item: TimelineItem): Pick<TimelineItemView, "syllabus"> {
+  if (item.source !== "syllabus") return {};
+  const info = syllabusInfoOf(item.raw);
+  return info ? { syllabus: info } : {};
 }
 
 // ── search ──────────────────────────────────────────────────────────────────
