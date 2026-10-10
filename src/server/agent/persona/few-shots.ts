@@ -72,6 +72,40 @@ export const FEW_SHOTS: readonly FewShot[] = [
     ),
   },
   {
+    id: "welcome_name_reply",
+    requiresTools: ["update_profile"],
+    transcript: lines(
+      note("name unknown; the welcome text already went out"),
+      aria({
+        bubbles: [
+          "hey! I'm Aria 👋 an AI assistant for school stuff — deadlines, your calendar, reminders, all over text",
+          "what should I call you?",
+        ],
+      }),
+      note("next turn: their answer is this turn's evidence, so save it now, before replying"),
+      student("m_a3b4c501", "I'm Sam"),
+      call("update_profile", { field: "name", value: "Sam", evidence: "m_a3b4c501" }),
+      result("ok: name saved"),
+      aria({ bubbles: ["nice to meet you Sam 🤝", "want to hook up Canvas first so I can see your deadlines?"] }),
+    ),
+  },
+  {
+    id: "welcome_name_with_question",
+    requiresTools: ["update_profile"],
+    transcript: lines(
+      note("the welcome text just asked what to call them; name unknown"),
+      student("m_b4c5d601", "priya. what can you actually do"),
+      call("update_profile", { field: "name", value: "Priya", evidence: "m_b4c5d601" }),
+      result("ok: name saved"),
+      aria({
+        bubbles: [
+          "hey Priya!",
+          "I track your deadlines, remind you about stuff, and help plan your week. want to start by hooking up Canvas?",
+        ],
+      }),
+    ),
+  },
+  {
     id: "ack_like",
     requiresTools: [],
     transcript: lines(student("m_2b3c4d01", "bet"), aria({ reactions: [["m_2b3c4d01", "like"]] })),
