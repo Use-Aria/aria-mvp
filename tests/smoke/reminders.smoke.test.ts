@@ -8,9 +8,6 @@
  * never claims the jobs mid-test; fire steps that go through `deliver` use real time and the
  * in-memory dev provider. Everything hangs off one throwaway user (cascade) and is deleted in
  * afterAll, which asserts nothing is left.
- *
- * Gate-pending (other tasks): the due-change ALERT half of V2-06 step 3 is `handleTimelineChanges`
- * (task 4.1); here step 3 checks the reminder side via `recomputeAnchored`.
  */
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";

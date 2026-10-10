@@ -1,0 +1,67 @@
+# Supabase Free keepalive (V2-06 §2.7, §13 Q6; master plan §6 D11 — the repo is private, so
+# GitHub never auto-disables this schedule). OWNER: 4.1
+#
+# Supabase Free pauses a project after a week without activity. The primary pinger is the Vercel
+# daily cron (GET /api/cron/daily, which also writes system_heartbeat 'daily-cron'); this workflow is
+# the backup that works even before/without a Vercel deploy. Twice a day it makes an authenticated
+# PostgREST read of `system_heartbeat` with the ANON key. RLS is deny-all, so the read returns
+# `[]` with HTTP 200 — that still counts as project activity, and it keeps the service-role key
+# out of GitHub entirely.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_URL       https://<project-ref>.supabase.co (the prod project)
+#   SUPABASE_ANON_KEY  the project's anon (public) key — it can read/write nothing under RLS
+# Optional (also hits the app's daily reconcile; skipped when unset):
+#   APP_BASE_URL       e.g. https://aria-xyz.vercel.app
+#   CRON_SECRET        same value as the Vercel env var
+#
+# Run it by hand from the Actions tab ("Run workflow") to verify after setting the secrets.
+name: keepalive
+
+on:
+  schedule:
+    - cron: "23 3,15 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Supabase (anon REST read)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_ANON_KEY}" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ANON_KEY secrets are not set"
+            exit 1
+          fi
+          curl -fsS --retry 3 --retry-delay 10 --max-time 30 \
+            "${SUPABASE_URL%/}/rest/v1/system_heartbeat?select=id&limit=1" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" > /dev/null
+          echo "supabase pinged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+      - name: Ping the app's daily cron (optional)
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_BASE_URL}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "APP_BASE_URL / CRON_SECRET not set; skipping"
+            exit 0
+          fi
+          curl -fsS --retry 2 --retry-delay 15 --max-time 290 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_BASE_URL%/}/api/cron/daily?source=gh" > /dev/null
+          echo "app cron pinged"
