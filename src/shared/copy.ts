@@ -324,6 +324,7 @@ export const WEEK_COPY = {
     button: "Connect Canvas",
   },
   emptyConnected: { title: "Nothing due in the next 7 days.", body: "Aria checks Canvas every hour." },
+  emptyDay: "Nothing due.",
   noGoogle: { text: "Connect Google to see your classes and plans here too.", button: "Set up Google" },
   syncFailing: (since: string) => `Aria couldn't read your Canvas feed since ${since}.`,
   syncFailingButton: "Fix it in Setup",
@@ -383,6 +384,8 @@ export const SETTINGS_COPY = {
     confirm: "Delete my account",
     cancel: "Keep my account",
     typeError: "Type delete to confirm.",
+    needsFresh:
+      "Deleting your account needs a fresh link. Text Aria \"settings\" and open the link within 15 minutes.",
   },
   deletedPage: {
     title: "Your account is deleted.",
@@ -419,5 +422,5 @@ export const EMAIL_COPY = {
   expired: "This draft expired, so Aria didn't send it. Ask Aria to draft it again.",
   failed: "Gmail didn't accept the email, so it wasn't sent. Try again, or text Aria \"help\".",
   originalEmail: "Show the email you're replying to",
-  subjectTooLong: "Subjects can't be longer than 255 characters.",
+  subjectTooLong: "Subjects can't be longer than 250 characters.",
 } as const;

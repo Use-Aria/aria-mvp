@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FreshLinkNotice } from "@/app/_components/FreshLinkNotice";
 import { SignedOut } from "@/app/_components/SignedOut";
 import { TextAriaButton } from "@/app/_components/TextAriaButton";
 import { optionalEnv } from "@/server/env";
@@ -37,7 +38,12 @@ export default async function SetupPage({ searchParams }: { searchParams: Search
           </p>
         )}
       </div>
-      <CanvasConnect school={view.school} status={view.canvas} canChange={view.canChange} />
+      <CanvasConnect
+        school={view.school}
+        status={view.canvas}
+        canChange={view.canChange}
+        freshNotice={<FreshLinkNotice keyword="setup" reason="view_only" />}
+      />
       <GoogleConnect status={view.google} canChange={view.canChange} banner={banner} />
       <SyllabusUpload />
       <ScheduleForm schedule={view.schedule} />
