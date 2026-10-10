@@ -989,6 +989,8 @@ Not started; each phase needs approval. Effort assumes Daniel solo.
 
 > **Resolved 2026-10-09 — ship V2 as a free private test first** (`docs/plans/2026-10-09-aria-v2-free-testing-plan.md`). Decisions: WhatsApp **deferred**; Canvas credential vault **kept for production, encrypted** (risks recorded in the production plan; free test uses iCal only); language **both** (TS primary + Python parser service over HTTP); beta **open to anyone** (private test = people Daniel knows); compliance process **deferred** for the private test while keeping confirm-before-send, memory-only-from-user-text, and ask-before-connecting-a-friend's-accounts. Still needed to start: iMessage provider pick, repo strategy, whether Gmail is in from day one, and whether the Anthropic key + Supabase project exist. Original list kept below for the record.
 
+> **Sub-decisions confirmed 2026-10-10 (Daniel):** calendar writes → a dedicated **"Aria" calendar** (`calendar.app.created`); persona → **mirror the user's register**; message history retention → **180 days**; Sonnet 5.5 escalation cap → **10% of turns**; domain → **stay on `*.vercel.app`** for the free test.
+
 1. **WhatsApp:**
    - (A) defer in the US *(recommended)*
    - (B) utility-only templates

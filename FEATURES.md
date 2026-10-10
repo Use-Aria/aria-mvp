@@ -2,6 +2,33 @@
 
 > **⚠️ V2 pivot (2026-10-09):** Aria is being rebuilt as **V2** (iMessage-first, no app). This checklist reflects the shipped **V1**; V2 status lives in `docs/plans/2026-10-09-aria-v2-free-testing-plan.md` and `WORK.md` until V2 features start landing.
 
+## Aria V2 — free private test (🔄 In Progress)
+
+> Build status per `docs/plans/2026-10-10-v2-master-plan.md`. Waves 0–2 done 2026-10-10; Wave 3 next.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| V2 schema (001 baseline, 002 cron/net, 003 build) | ✅ Done | Live on `onrurwsourjlgfmitezh`; RLS deny-all, service-role RPCs |
+| Next 16.4 + Jest + Playwright tooling | ✅ Done | V1 TS code removed |
+| Landing + signup, magic links, sessions | ✅ Done | Fragment token, form-POST redeem, hashed sessions |
+| Web shell (PWA manifest, icons, OG cards, CSP, /privacy, /terms) | ✅ Done | `(app)/` route group |
+| Jobs runtime (pg_cron tick → `/api/jobs/dispatch`) | ✅ Done | Tick is a no-op until Vault secrets are set post-deploy |
+| Channels (Sendblue + dev providers, guards, STOP/START) | ✅ Done | Sendblue untested until sandbox creds |
+| Delivery + inbound ingest + webhooks | ✅ Done | Debounce in jobs row; dev channel works locally |
+| LLM layer (routes, caching, cost logging, structured output) | ✅ Done | Cache hit verified live |
+| Memory + context + persona | ✅ Done | Static prompt ~22.6K tokens, byte-stable |
+| Timeline module | ✅ Done | Urgency at read time |
+| Canvas parse/SSRF fetch (pure) | ✅ Done | Sync/connect wiring is Wave 3 |
+| Reminders + briefing scheduling core | ✅ Done | Briefing generation is Wave 4 |
+| Google OAuth core + tokens; Gmail sync/push | ✅ Done | Routes + calendar in Wave 3; untested until Google creds |
+| Python syllabus parser service | ✅ Done | Cloud Run deploy pending |
+| Agent loop + tools + pending actions | ⬜ Not Started | Wave 3 |
+| Canvas sync/connect, syllabus intake, Google routes + calendar | ⬜ Not Started | Wave 3 |
+| Briefing, scheduling, Gmail intelligence, web pages | ⬜ Not Started | Wave 4 |
+| Evals, cleanup, E2E, QA, code review | ⬜ Not Started | Wave 5 |
+
+---
+
 > Updated after every `git push`. This is the live build status.
 > Legend: ✅ Done | 🔄 In Progress | ⬜ Not Started | ⏳ Deferred
 >

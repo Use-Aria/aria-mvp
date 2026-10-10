@@ -13,7 +13,7 @@
 
 | Developer | Task | Branch | Claimed At |
 | --------- | ---- | ------ | ---------- |
-| Daniel    | V2 free-test build | main | 2026-10-09 |
+| Daniel    | V2 free-test build — master plan Waves 0–2 done; **resume at Wave 3** | main | 2026-10-09 |
 
 ---
 
@@ -24,14 +24,16 @@
 Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 
 - [x] **V2-00** ✅ 2026-10-09 — Spec + 3 plan docs, LLM gateway (`src/server/llm/`), V2 baseline migration, V1 tagged `v1-final`, V1 migrations archived
-- [ ] **V2-01** Apply the V2 schema — get the new Supabase project Active, re-copy URL, `supabase link --project-ref <ref>` + `supabase db push` (`supabase/migrations/001_v2_baseline.sql`). Enable `pg_cron` + `pg_net` for the jobs tick.
-- [ ] **V2-02** Landing page + magic-link/session module (fragment token, JS-POST redeem)
-- [ ] **V2-03** Sendblue sandbox webhook + per-user conversation pipeline (debounce + lease)
-- [ ] **V2-04** Agent loop + persona + memory core
-- [ ] **V2-05** Canvas iCal connect + sync
-- [ ] **V2-06** Reminders + daily briefing (jobs table + Supabase Cron)
-- [ ] **V2-07** Google OAuth + Calendar + Gmail (in from day one)
-- [ ] **V2-08** Syllabus parser (Python FastAPI service, HTTP from the TS app)
+- [x] **V2-01** ✅ 2026-10-10 — CLI linked to `onrurwsourjlgfmitezh`; migrations `001`, `002` (pg_cron, pg_net), `003_v2_build` (consolidated build schema) applied; types in `src/server/db/types.ts`
+- [x] **V2-02** ✅ 2026-10-10 — landing + signup, magic links, sessions, web shell (`(app)/` route group, PWA manifest, icons, OG cards, CSP, /privacy, /terms)
+- [x] **V2-PLAN** ✅ 2026-10-10 — 7 deep branch plans + master plan + build brief + orchestrator notes in `docs/plans/2026-10-10-v2-*.md`
+- [x] **V2-W0** ✅ Wave 0 — migration 003, deps (ical.js, jose, server-only, tsx, playwright), contract stubs, shared tz/course-key/register/untrusted
+- [x] **V2-W1** ✅ Wave 1 — jobs runtime + dispatch, channels core (Sendblue + dev providers), LLM layer, Canvas pure modules (salvage done), Python parser service (Docker), web shell
+- [x] **V2-W2** ✅ Wave 2 — delivery + ingest + webhooks, memory/context/persona, timeline, Google core (OAuth/tokens), Gmail base, reminders + schedule core
+- [ ] **V2-W3** Wave 3 — turn orchestration + dev loop (3.1), agent loop (3.2), V2-04 tools + pending actions + memory jobs (3.3), Canvas sync/connect (3.4), syllabus TS (3.5), Google OAuth routes + calendar read (3.6)
+- [ ] **V2-W4** Wave 4 — briefing + change alerts (4.1), scheduling + Aria calendar (4.2), Gmail intelligence + email tools (4.3), web setup/week (4.4), web integrations + email draft (4.5), web settings/export/delete (4.6)
+- [ ] **V2-W5** Wave 5 — evals (5.1), salvage cleanup + V2 docs rewrite (5.2), end-to-end dev-channel conversation test (5.3), Playwright QA (5.4), code review (5.5)
+- [ ] **V2-CREDS** Daniel creates: Sendblue sandbox, Google Cloud project (OAuth client + Pub/Sub), Upstash Redis, Cloud Run (billing), Vercel project — see master plan §7
 
 > **The V1 backlog below (Onboarding / AUD / PH) is SUPERSEDED by V2** — V2 drops the app, Twilio, and Celery and rewrites the identity/schema, so most of it no longer applies. Kept for reference only.
 
@@ -111,6 +113,25 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 
 ## 📋 Handoff Notes
 
+### 2026-10-10 — Daniel (V2 build: plan + Waves 0–2, orchestrated by sub-agents)
+
+**Where to resume:** `docs/plans/2026-10-10-v2-master-plan.md` §5 **Wave 3** (tasks 3.1–3.6). Read the master plan (it overrides the branch plans), then `docs/plans/2026-10-10-v2-orchestrator-notes.md` (binding hand-off notes per wave), then the cited branch-plan sections. Every task is one sub-agent with exclusive file ownership; the orchestrator runs the wave gate (build, tsc, lint, `npm test`, `npm run smoke`, parser pytest) and checks `grep -rln '@/server/_stub' src | wc -l` (54 now; 0 required after Wave 4).
+
+**Done this session:**
+- V2-01 applied (001+002+003 live on `onrurwsourjlgfmitezh`); V1 TS code removed; Next 15.5 → **16.4.0**, React 19.2.8, Jest 30.
+- Deep analysis: 7 branch plans (V2-03…08 + web) → reconciled master plan (final contracts, 45-item conflict log, waves, decisions D1–D12, runbooks) + consolidated migration `003_v2_build.sql` (validated on a local Supabase stack first).
+- Waves 0–2 implemented by sub-agents: ~1,417 unit tests, 85 smoke tests (local Supabase), 187 parser pytest — all green; build/tsc/lint green.
+- Python parser service (`services/parser/`, FastAPI, Docker, HMAC auth) passed a live Sonnet 5.5 parse (~$0.03). docker-compose now has only `parser`.
+
+**Decisions taken with defaults (Daniel can override — master plan §6):** D1 debounce in the Postgres jobs row (deviation from "Redis for debounce"; Upstash keeps the run lease + rate limits) · D2 new V2 "a" icon · D3 Cloud Run for the parser (needs billing) · D4 try vercel.app before buying a domain · D5 minimal /privacy + /terms · D6 separate parser API key · D7 Sonnet for syllabi · D8 urgent alerts don't break quiet hours · D9 988 crisis rule · D10 reconstructed few-shots (paste the original example conversations if you have them) · D11 shared Supabase for dev+prod for now · D12 Sendblue settings.
+
+**Open / needs Daniel:** commit approval (nothing committed — migrations changed); credentials (Sendblue, Google, Upstash, Cloud Run, Vercel); a contact email for `/privacy`.
+
+**Know before you start:**
+- A local Supabase stack runs in Docker (`supabase start`; API :54321, DB :54322) — smoke tests use it. Docker Desktop must be running.
+- Run TS scripts with `npx tsx --conditions=react-server --env-file=.env.local …` (`server-only` throws outside Next). Jest does NOT load `.env.local`.
+- Sendblue/Google facts still marked [verify] are listed in master plan §7.3 + orchestrator notes; tapback parsing is off until the sandbox confirms the shape.
+
 ### 2026-10-09 — Daniel (V2 pivot: spec + scaffold start)
 
 **Big shift:** Aria is pivoting to **V2** — iMessage-first (no app), magic-link web/PWA, a real tool-using agent with memory. Shipping first as a **free private test** (Daniel + ≤9 friends via the Sendblue sandbox; ~$0 infra; LLM covered by the Max plan's $100/mo API credits). Daniel is now the **sole engineer** — the Josh/Seb ownership + collision rules in this file are historical.
@@ -123,7 +144,7 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 
 **Locked decisions:** WhatsApp deferred · iMessage = Sendblue sandbox · language = TS app + small Python parser (HTTP, never a cross-lang queue) · keep Docker + Redis (Upstash), drop Celery (revisit V3) · Gmail in from day one · Canvas = iCal for the test (encrypted NetID vault is a **production-only** decision with risks recorded — do NOT build it in the test) · beta open to anyone · LLM = Claude Haiku 5.5 + Sonnet 5.5 escalation · repo on `main`, V1 tagged `v1-final`. "Ignore safeguards" → dropped the compliance *process* but KEPT three cheap friend-protections: confirm-before-send on email, memory only from user-authored text, ask before connecting a friend's accounts.
 
-**Open sub-decisions (proposed defaults, not yet confirmed by Daniel):** calendar writes → a dedicated "Aria" calendar · persona → mirror the user's register · history retention → 180d · Sonnet escalation cap → 10% · domain → stay on `*.vercel.app` for the test.
+**Sub-decisions (confirmed by Daniel 2026-10-10):** calendar writes → a dedicated "Aria" calendar · persona → mirror the user's register · history retention → 180d · Sonnet escalation cap → 10% · domain → stay on `*.vercel.app` for the test.
 
 **Done this session:** spec + 3 plan docs; `.env` reset to V2 vars (old → `.env.local.v1.bak`, gitignored; app secrets auto-generated — **back up `APP_ENCRYPTION_KEY`**); Anthropic key verified (Haiku/Sonnet 5.5 available, $100/mo Max credits cover it); installed `@anthropic-ai/sdk` `openai` `@upstash/redis` `zod`; wrote `src/server/llm/index.ts` (provider-agnostic gateway, type-clean); archived V1 migrations → `docs/history/v1-migrations/`; wrote `supabase/migrations/001_v2_baseline.sql`. **lint + build pass.**
 
@@ -151,29 +172,6 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 **Repo moved (AUD-21):** the repo now lives at `Use-Aria/aria-mvp`. Josh and Seb: run `git remote set-url origin https://github.com/Use-Aria/aria-mvp.git` once.
 
 **After you pull:** if you installed GSD locally, delete `.claude/get-shit-done/`, `.claude/agents/`, `.claude/commands/gsd/`, and `.claude/gsd-file-manifest.json`. If Claude Code warns about the filesystem or supabase MCP servers, remove them from `enabledMcpjsonServers` in your `.claude/settings.local.json`.
-
-### 2026-09-24 — Daniel (codebase audit + fixes — session 9)
-
-**Josh + Seb: please read — this touches both of your areas.** Three commits on `main`: `0c80edb` (api), `74e7f2e` (worker), `317bafc` (mobile).
-
-**Most important:** no Celery task enqueued from Next.js had ever executed. The hand-built envelopes declared `body_encoding: 'utf-8'` on a base64 body, so kombu dropped them. All 6 routes now use `src/lib/celery/enqueue.ts` (verified against a real Celery worker). **Do not hand-build Celery messages again — use `enqueueCeleryTask()`.** Now that tasks actually run, previously dormant paths (welcome SMS, inbound SMS replies, Gmail/GCal webhooks) will fire for the first time — test end-to-end before launch.
-
-**Behavior changes to know:**
-- `/api/upload/syllabus` now requires Bearer JWT; `user_id` form field removed
-- `users.phone` now stored as `+E.164`; SMS webhook matches both forms
-- `send_sms_safe(is_proactive=False)` (replies/command confirmations) skips pause + quiet hours; opt-out still enforced
-- Daily briefing beat now runs hourly (per-user 8am window + local-day dedupe)
-- `welcome_briefing` only fires from `/api/onboarding/complete` and is idempotent
-- Root `tsconfig.json`/`eslint.config.mjs` exclude `mobile/` + `celery_worker/` — `npm run build` was failing
-
-**Open (not fixed — need decisions / migrations):**
-- 🔴 Gmail webhook fans out every notification to every Google user with the wrong historyId, no Pub/Sub auth — must fix before launch (needs `google_email` column)
-- 🔴 `/api/auth/google?user_id=`, Todoist `state=user_id`, GCal channel token all trust raw UUIDs — need signed state
-- Todoist token stored plaintext; Gmail+GCal share `watch_expires_at` (Gmail watch lapses after 7d)
-- `/api/deadlines`, `/api/chat` don't exist → home always empty (Seb)
-- `mobile/` has no ESLint config
-
-**Tests:** worker 327 passing, mobile 23 passing, `next build` passing.
 
 ---
 

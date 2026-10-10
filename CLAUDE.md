@@ -388,6 +388,13 @@ that mocks the iCal response and verifies the Task mapping is correct.
 | /api/onboarding/complete Redis | Route tries to connect to Redis at `redis://localhost:6379/0` to enqueue welcome SMS. Redis must be running (Docker) for this to succeed. If Redis not running, route will hang/error. |
 | Simulator spinner hang on launch | If app shows spinner forever with Metro bundled and no requests hitting Next.js: stale/expired Supabase session in SecureStore is causing `getSession()` to attempt a token refresh that hangs. Fix: **Device → Erase All Content and Settings** in simulator, then reinstall via Metro. Do this at the start of every fresh simulator test session. |
 | Celery enqueue from Next.js | Never hand-build Celery messages. Always use `enqueueCeleryTask()` in `src/lib/celery/enqueue.ts`; hand-built envelopes were silently dropped by kombu until 2026-09-24 |
+| V2: build orchestration | Master plan `docs/plans/2026-10-10-v2-master-plan.md` wins over branch plans; frozen contract files (§1.0) change only via the orchestrator; read `docs/plans/2026-10-10-v2-orchestrator-notes.md` before any V2 task |
+| V2: scripts outside Next | `import "server-only"` throws outside the Next runtime — run TS scripts with `npx tsx --conditions=react-server --env-file=.env.local <file>` |
+| V2: Jest env | Jest does not load `.env.local`; tests needing crypto set a throwaway `APP_ENCRYPTION_KEY`. Smoke tests target the local Supabase stack (`supabase start`, Docker) |
+| V2: magic-link redeem | Never set `Referrer-Policy: no-referrer` site-wide — browsers then send `Origin: null` on form POSTs and the redeem Origin check fails. Use `same-origin` |
+| V2: headless screenshots | Headless Chrome enforces a 500px minimum window width — "mobile" shots at 390px are clipped artifacts; check at 500px or use device emulation |
+| V2: Next 16 dev files | `next dev` rewrites `next-env.d.ts` and (re)creates `AGENTS.md` (points agents at `node_modules/next/dist/docs/`) — commit them, don't fight them |
+| V2: Anthropic structured output | Very large JSON schemas are rejected ("compiled grammar is too large"); keep model-facing schemas flat (V2-08 parser) and strip `$schema` before `zodOutputFormat`. Sonnet 5.5 rejects `thinking: {type: "disabled"}` |
 
 ---
 
