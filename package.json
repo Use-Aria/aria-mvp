@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "smoke": "jest -c jest.smoke.config.mjs --runInBand",
     "evals": "jest -c evals/jest.config.mjs --runInBand",
-    "dev:chat": "tsx scripts/dev-chat.ts",
+    "dev:chat": "tsx --conditions=react-server --env-file=.env.local scripts/dev-chat.ts",
     "dev:tick": "tsx scripts/dev-tick.ts",
     "parser:test": "cd services/parser && pytest",
     "e2e": "playwright test",

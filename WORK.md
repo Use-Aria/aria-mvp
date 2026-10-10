@@ -13,7 +13,7 @@
 
 | Developer | Task | Branch | Claimed At |
 | --------- | ---- | ------ | ---------- |
-| Daniel    | V2 free-test build — master plan Waves 0–2 done; **resume at Wave 3** | main | 2026-10-09 |
+| Daniel    | V2 free-test build — master plan Waves 0–3 done; **resume at Wave 4** | main | 2026-10-09 |
 
 ---
 
@@ -30,7 +30,7 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 - [x] **V2-W0** ✅ Wave 0 — migration 003, deps (ical.js, jose, server-only, tsx, playwright), contract stubs, shared tz/course-key/register/untrusted
 - [x] **V2-W1** ✅ Wave 1 — jobs runtime + dispatch, channels core (Sendblue + dev providers), LLM layer, Canvas pure modules (salvage done), Python parser service (Docker), web shell
 - [x] **V2-W2** ✅ Wave 2 — delivery + ingest + webhooks, memory/context/persona, timeline, Google core (OAuth/tokens), Gmail base, reminders + schedule core
-- [ ] **V2-W3** Wave 3 — turn orchestration + dev loop (3.1), agent loop (3.2), V2-04 tools + pending actions + memory jobs (3.3), Canvas sync/connect (3.4), syllabus TS (3.5), Google OAuth routes + calendar read (3.6)
+- [x] **V2-W3** ✅ 2026-10-10 Wave 3 — turn orchestration + dev loop (3.1), agent loop (3.2), V2-04 tools + pending actions + memory jobs (3.3), Canvas sync/connect (3.4), syllabus TS (3.5), Google OAuth routes + calendar read (3.6); gate fixes: `propose_preference` non-strict (grammar 400), name few-shots, `toView` syllabus weight
 - [ ] **V2-W4** Wave 4 — briefing + change alerts (4.1), scheduling + Aria calendar (4.2), Gmail intelligence + email tools (4.3), web setup/week (4.4), web integrations + email draft (4.5), web settings/export/delete (4.6)
 - [ ] **V2-W5** Wave 5 — evals (5.1), salvage cleanup + V2 docs rewrite (5.2), end-to-end dev-channel conversation test (5.3), Playwright QA (5.4), code review (5.5)
 - [ ] **V2-CREDS** Daniel creates: Sendblue sandbox, Google Cloud project (OAuth client + Pub/Sub), Upstash Redis, Cloud Run (billing), Vercel project — see master plan §7
@@ -113,6 +113,42 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 
 ## 📋 Handoff Notes
 
+### 2026-10-10 — Daniel (V2 build: Wave 3, orchestrated by sub-agents)
+
+**Where to resume:** master plan §5 **Wave 4** (tasks 4.1–4.6). Read `docs/plans/2026-10-10-v2-orchestrator-notes.md` → **Wave 3 hand-off notes** first. They hold the exports and deviations that Wave 4 builds on, and the rules for tool schemas.
+
+**Done this session:**
+- **Six parallel sub-agents built Wave 3:**
+  - turn orchestration + `scripts/dev-chat.ts` REPL (3.1)
+  - agent loop + escalation + run stats (3.2)
+  - 16 core tools, pending actions (chat + web path), memory extraction/summary, account purge (3.3)
+  - Canvas connect/sync + tools (3.4)
+  - syllabus TS client/intake/upload (3.5)
+  - Google OAuth GET start/callback, calendar read/watch/push, disconnect (3.6)
+- **Gate is green:**
+  - build, tsc and lint pass;
+  - unit 1773/1773 (was 1417), smoke 130/130 on the local stack, parser 187/187;
+  - `_stub` importers 54 → 17.
+- **Live gate check** (real Haiku on the local stack, ~$0.04 total):
+  - welcome → name → agenda works;
+  - dev-channel PDF → syllabus parsed (fake-LLM parser) → confirmation bubbles;
+  - the agent writes every stat onto the pipeline's `agent_runs` rows.
+- **Gate fixes:**
+  - **Blocker:** every real-agent call 400'd with "compiled grammar is too large". `propose_preference` is now non-strict, and an opt-in `SMOKE_LLM=1` grammar smoke test guards against a repeat.
+  - Name capture after the welcome went from ~50% to 10/12 (two few-shots).
+  - Syllabus grade weight now reaches the Canvas twin (`toView`).
+
+**Open / needs Daniel:**
+- Commit approval for Wave 3.
+- Credentials (Sendblue, Google, Upstash, Cloud Run, Vercel).
+- A contact email for `/privacy`.
+
+**Know before you start:**
+- Run `SMOKE_LLM=1 npm run smoke -- tests/smoke/llm-grammar.smoke.test.ts` (export `ANTHROPIC_API_KEY`) after any tool-schema change. Don't make nested-schema tools strict.
+- `npm run dev:chat -- --local` gives a local REPL against the stack (`ARIA_AGENT=real` for the real agent).
+- `recoverStuckActions` needs a timer; 4.1's reconcile should call it.
+- Google connect needs Safari ≥ 16.4: a missing `Sec-Fetch-Site` header gets a 403.
+
 ### 2026-10-10 — Daniel (V2 build: plan + Waves 0–2, orchestrated by sub-agents)
 
 **Where to resume:** `docs/plans/2026-10-10-v2-master-plan.md` §5 **Wave 3** (tasks 3.1–3.6). Read the master plan (it overrides the branch plans), then `docs/plans/2026-10-10-v2-orchestrator-notes.md` (binding hand-off notes per wave), then the cited branch-plan sections. Every task is one sub-agent with exclusive file ownership; the orchestrator runs the wave gate (build, tsc, lint, `npm test`, `npm run smoke`, parser pytest) and checks `grep -rln '@/server/_stub' src | wc -l` (54 now; 0 required after Wave 4).
@@ -155,23 +191,6 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 **Gotcha learned:** new Supabase projects issue new-style keys (`sb_publishable_…` / `sb_secret_…`) and the legacy anon JWT may be disabled — use the publishable key for `NEXT_PUBLIC_SUPABASE_ANON_KEY` and the secret key for `SUPABASE_SERVICE_ROLE_KEY`.
 
 **Not committed:** all V2 scaffolding is uncommitted, pending Daniel's approval (he approves before commit/push to `main`). `supabase/migrations/` changed, so per the Session Protocol this needs his explicit go.
-
-### 2026-10-09 — Daniel (vanilla Claude Code + new memory workflow)
-
-**What changed:** The repo no longer ships Claude Code tooling (no GSD, no superpowers, no `/project:*` commands). The workflow is now plain Claude Code, `CLAUDE.md`, and this file.
-- **Session protocol is in `CLAUDE.md`.** Claude orients itself at session start. Say **"wrap up"** (or "save", "done for today") and it runs checks, updates this file, writes a handoff note, rotates old notes, then **commits and pushes automatically**. It stops and asks if checks fail, if there are changes it didn't make, or if migrations or `src/types/index.ts` changed.
-- **`PROGRESS.md` is retired.** Live state lives here. Permanent gotchas moved to `CLAUDE.md` → *Implementation Gotchas*. The old session log is at `docs/history/progress-log.md`.
-- **This file keeps only the 3 latest handoff notes.** Older ones are in `docs/history/handoffs.md`.
-- **Moved (history kept):** `.planning/` → `docs/history/`; `docs/superpowers/{plans,specs}` → `docs/plans/`, `docs/specs/`.
-- **Removed:** GSD hooks, agents, and commands; the `gsd` and `superpowers` plugin entries; the `filesystem` and broken `supabase` MCP servers (GitHub MCP kept). The `.claude/settings.json` deny rules are kept.
-
-**Also fixed:** the docs said to run `npm test`, but there's no root test script. `CLAUDE.md` and `ONBOARDING.md` now list the real commands: `cd celery_worker && pytest` and `cd mobile && npx jest`.
-
-**Verified:** `npm run lint` and `npm run build` pass. This was a docs and tooling change only, with no app code touched, so I didn't re-run the worker or mobile tests.
-
-**Repo moved (AUD-21):** the repo now lives at `Use-Aria/aria-mvp`. Josh and Seb: run `git remote set-url origin https://github.com/Use-Aria/aria-mvp.git` once.
-
-**After you pull:** if you installed GSD locally, delete `.claude/get-shit-done/`, `.claude/agents/`, `.claude/commands/gsd/`, and `.claude/gsd-file-manifest.json`. If Claude Code warns about the filesystem or supabase MCP servers, remove them from `enabledMcpjsonServers` in your `.claude/settings.local.json`.
 
 ---
 

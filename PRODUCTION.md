@@ -19,7 +19,7 @@
 | Upstash Redis (REST URL + token) | ❌ | Run lease + rate limits; production fails closed without it |
 | Google Cloud project: OAuth client ("In production", unverified) + Pub/Sub topic/subscription | ❌ | Check `*.vercel.app` is accepted as an authorized domain (else buy a domain, D4); test one Yale account first |
 | Python parser on Google Cloud Run (needs a billing account) | ❌ | Separate Anthropic key for the parser (D6); `PARSER_SERVICE_URL` + `PARSER_SHARED_SECRET` |
-| `SYLLABUS_MEDIA_ALLOWED_HOSTS` | ❌ | Sendblue media CDN host, known only after the sandbox |
+| `SYLLABUS_MEDIA_ALLOWED_HOSTS` | ❌ | Sendblue media CDN host, known only after the sandbox. **Required:** empty fails closed in production, so no chat PDF can be read (`*.suffix` allowed) |
 | Separate dev Supabase project (`aria-dev`) | 🔧 | D11: dev and prod share one project today; the prod tick could claim local-dev jobs once Vault secrets are set |
 | Back up `APP_ENCRYPTION_KEY` to the password manager | ❌ | Losing it makes stored OAuth tokens and iCal URLs unrecoverable |
 

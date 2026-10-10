@@ -395,6 +395,8 @@ that mocks the iCal response and verifies the Task mapping is correct.
 | V2: headless screenshots | Headless Chrome enforces a 500px minimum window width — "mobile" shots at 390px are clipped artifacts; check at 500px or use device emulation |
 | V2: Next 16 dev files | `next dev` rewrites `next-env.d.ts` and (re)creates `AGENTS.md` (points agents at `node_modules/next/dist/docs/`) — commit them, don't fight them |
 | V2: Anthropic structured output | Very large JSON schemas are rejected ("compiled grammar is too large"); keep model-facing schemas flat (V2-08 parser) and strip `$schema` before `zodOutputFormat`. Sonnet 5.5 rejects `thinking: {type: "disabled"}` |
+| V2: strict tool grammar | The API caps the *compiled grammar* of all strict tools + the reply format together; `strictBudget` (counts) can't see it. Never mark a nested-schema tool `strict` (`propose_preference` isn't). After any tool-schema change run `SMOKE_LLM=1 npm run smoke -- tests/smoke/llm-grammar.smoke.test.ts` |
+| V2: llm_calls cleanup | `llm_calls.user_id` is nulled (not cascaded) on user delete — smoke/eval/live-check cleanup must delete those rows explicitly |
 
 ---
 

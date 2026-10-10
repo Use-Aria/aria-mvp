@@ -2,6 +2,23 @@
 
 > Older handoff notes rotated out of `WORK.md`. Newest first. Claude prepends here during "wrap up".
 
+### 2026-10-09 — Daniel (vanilla Claude Code + new memory workflow)
+
+**What changed:** The repo no longer ships Claude Code tooling (no GSD, no superpowers, no `/project:*` commands). The workflow is now plain Claude Code, `CLAUDE.md`, and this file.
+- **Session protocol is in `CLAUDE.md`.** Claude orients itself at session start. Say **"wrap up"** (or "save", "done for today") and it runs checks, updates this file, writes a handoff note, rotates old notes, then **commits and pushes automatically**. It stops and asks if checks fail, if there are changes it didn't make, or if migrations or `src/types/index.ts` changed.
+- **`PROGRESS.md` is retired.** Live state lives here. Permanent gotchas moved to `CLAUDE.md` → *Implementation Gotchas*. The old session log is at `docs/history/progress-log.md`.
+- **This file keeps only the 3 latest handoff notes.** Older ones are in `docs/history/handoffs.md`.
+- **Moved (history kept):** `.planning/` → `docs/history/`; `docs/superpowers/{plans,specs}` → `docs/plans/`, `docs/specs/`.
+- **Removed:** GSD hooks, agents, and commands; the `gsd` and `superpowers` plugin entries; the `filesystem` and broken `supabase` MCP servers (GitHub MCP kept). The `.claude/settings.json` deny rules are kept.
+
+**Also fixed:** the docs said to run `npm test`, but there's no root test script. `CLAUDE.md` and `ONBOARDING.md` now list the real commands: `cd celery_worker && pytest` and `cd mobile && npx jest`.
+
+**Verified:** `npm run lint` and `npm run build` pass. This was a docs and tooling change only, with no app code touched, so I didn't re-run the worker or mobile tests.
+
+**Repo moved (AUD-21):** the repo now lives at `Use-Aria/aria-mvp`. Josh and Seb: run `git remote set-url origin https://github.com/Use-Aria/aria-mvp.git` once.
+
+**After you pull:** if you installed GSD locally, delete `.claude/get-shit-done/`, `.claude/agents/`, `.claude/commands/gsd/`, and `.claude/gsd-file-manifest.json`. If Claude Code warns about the filesystem or supabase MCP servers, remove them from `enabledMcpjsonServers` in your `.claude/settings.local.json`.
+
 ### 2026-09-24 — Daniel (codebase audit + fixes — session 9)
 
 **Josh + Seb: please read — this touches both of your areas.** Three commits on `main`: `0c80edb` (api), `74e7f2e` (worker), `317bafc` (mobile).

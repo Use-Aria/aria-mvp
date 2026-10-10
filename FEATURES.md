@@ -4,7 +4,7 @@
 
 ## Aria V2 — free private test (🔄 In Progress)
 
-> Build status per `docs/plans/2026-10-10-v2-master-plan.md`. Waves 0–2 done 2026-10-10; Wave 3 next.
+> Build status per `docs/plans/2026-10-10-v2-master-plan.md`. Waves 0–3 done 2026-10-10; Wave 4 next.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -18,12 +18,15 @@
 | LLM layer (routes, caching, cost logging, structured output) | ✅ Done | Cache hit verified live |
 | Memory + context + persona | ✅ Done | Static prompt ~22.6K tokens, byte-stable |
 | Timeline module | ✅ Done | Urgency at read time |
-| Canvas parse/SSRF fetch (pure) | ✅ Done | Sync/connect wiring is Wave 3 |
+| Canvas parse/SSRF fetch (pure) | ✅ Done | |
 | Reminders + briefing scheduling core | ✅ Done | Briefing generation is Wave 4 |
-| Google OAuth core + tokens; Gmail sync/push | ✅ Done | Routes + calendar in Wave 3; untested until Google creds |
+| Google OAuth core + tokens; Gmail sync/push | ✅ Done | Untested until Google creds |
 | Python syllabus parser service | ✅ Done | Cloud Run deploy pending |
-| Agent loop + tools + pending actions | ⬜ Not Started | Wave 3 |
-| Canvas sync/connect, syllabus intake, Google routes + calendar | ⬜ Not Started | Wave 3 |
+| Conversation turn pipeline + dev-chat REPL | ✅ Done | Welcome, debounce, reaction-only turns, 8s watchdog, daily turn cap |
+| Agent loop + core tools + pending actions | ✅ Done | Real Haiku turns verified live; escalation capped at 10%; confirm is at-most-once |
+| Canvas sync/connect + tools | ✅ Done | Fixture feeds only; live Yale feed check pending |
+| Syllabus intake (chat PDF + /setup upload) | ✅ Done | Verified with the fake-LLM parser; browser upload untested |
+| Google OAuth routes + calendar read/watch | ✅ Done | Fake Google only until creds |
 | Briefing, scheduling, Gmail intelligence, web pages | ⬜ Not Started | Wave 4 |
 | Evals, cleanup, E2E, QA, code review | ⬜ Not Started | Wave 5 |
 
