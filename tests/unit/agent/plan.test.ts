@@ -156,16 +156,18 @@ describe("resolvePlan", () => {
 });
 
 describe("budget", () => {
-  it("estimateTokens is ceil(chars/3)", () => {
+  it("estimateTokens is ceil(chars/2.3)", () => {
     expect(estimateTokens("")).toBe(0);
     expect(estimateTokens("abcd")).toBe(2);
-    expect(estimateTokens("a".repeat(300))).toBe(100);
+    expect(estimateTokens("a".repeat(230))).toBe(100);
+    expect(estimateTokens("a".repeat(300))).toBe(131);
   });
 
   it("clampLines keeps the longest whole-line prefix within budget", () => {
     const lines = ["a".repeat(30), "b".repeat(30), "c".repeat(30)];
-    expect(clampLines(lines, 10)).toEqual([lines[0]]);
-    expect(clampLines(lines, 21)).toEqual([lines[0], lines[1]]); // 30 + 1 + 30 = 61 chars → 21 tokens
+    expect(clampLines(lines, 14)).toEqual([lines[0]]); // 30 chars → 14 tokens
+    expect(clampLines(lines, 26)).toEqual([lines[0]]);
+    expect(clampLines(lines, 27)).toEqual([lines[0], lines[1]]); // 30 + 1 + 30 = 61 chars → 27 tokens
     expect(clampLines(lines, 1000)).toEqual(lines);
     expect(clampLines(lines, 5)).toEqual([]);
   });

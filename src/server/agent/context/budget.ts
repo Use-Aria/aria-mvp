@@ -3,17 +3,20 @@ import "server-only";
 
 /**
  * Token estimates for context budgets (V2-04 §7.2 `context/budget.ts`). Pure.
- * `ceil(chars / 3)` is deliberately conservative for the Haiku 5.5 tokenizer, which counts the
- * same text as ~30% more tokens than older Claude tokenizers.
+ * `ceil(chars / 2.3)`: the Haiku 5.5 tokenizer counts ~30% more tokens than older Claude
+ * tokenizers, so the earlier chars/3 undercounted by ~30% (measured in Wave 2, task 2.2).
  */
+
+/** Tokens for `chars` characters at 2.3 chars/token (integer math: no float drift at exact multiples). */
+const tokensForChars = (chars: number): number => Math.ceil((chars * 10) / 23);
 
 /**
  * Conservative token estimate.
  * @param text any text
- * @returns `ceil(length / 3)` (0 for "")
+ * @returns `ceil(length / 2.3)` (0 for "")
  */
 export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 3);
+  return tokensForChars(text.length);
 }
 
 /**
@@ -28,7 +31,7 @@ export function clampLines(lines: readonly string[], maxTokens: number): string[
   let chars = 0;
   for (const line of lines) {
     const next = chars + (out.length > 0 ? 1 : 0) + line.length;
-    if (Math.ceil(next / 3) > maxTokens) break;
+    if (tokensForChars(next) > maxTokens) break;
     out.push(line);
     chars = next;
   }
