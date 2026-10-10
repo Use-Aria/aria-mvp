@@ -1,26 +1,163 @@
 @import "tailwindcss";
 
+/* Aria V2 tokens. Light: sage paper + pine ink. Dark: pine night.
+   --line is for dividers only; form outlines use --field (3:1 on paper, WCAG 1.4.11). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  color-scheme: light dark;
+  --paper: #f2f4ef;
+  --ink: #16261d;
+  --ink-soft: #4d5e54;
+  --aria: #1e7a4c;
+  --aria-ink: #ffffff;
+  --bubble: #e3e8e1;
+  --mint: #cfead9;
+  --line: #d5dcd3;
+  --field: #7f8f85;
+  --danger: #b3261e;
+  --danger-bg: #f9e3e1;
+  --warn-bg: #f7ead8;
+  --load-light: #1e7a4c;
+  --load-busy: #a8551a;
+  --load-heavy: #b3261e;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #0f1a14;
+    --ink: #e8efe9;
+    --ink-soft: #9db0a4;
+    --aria: #3fae74;
+    --aria-ink: #08130d;
+    --bubble: #1f2d25;
+    --mint: #1c3a2a;
+    --line: #2a3a31;
+    --field: #5f7366;
+    --danger: #f2b8b5;
+    --danger-bg: #3a1f1d;
+    --warn-bg: #352a1a;
+    --load-light: #3fae74;
+    --load-busy: #f0a35e;
+    --load-heavy: #e57373;
   }
 }
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-aria: var(--aria);
+  --color-aria-ink: var(--aria-ink);
+  --color-bubble: var(--bubble);
+  --color-mint: var(--mint);
+  --color-line: var(--line);
+  --color-field: var(--field);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-warn-bg: var(--warn-bg);
+  --color-load-light: var(--load-light);
+  --color-load-busy: var(--load-busy);
+  --color-load-heavy: var(--load-heavy);
+  --font-sans: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  /* Not var(--font-sans): `@theme inline` doesn't emit theme vars, so that resolved to nothing
+     and Bricolage never applied. */
+  font-family: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  min-height: 100dvh;
+}
+
+/* Safe-area padding for notched phones (viewport-fit=cover is set in the root layout). */
+.safe-x {
+  padding-left: max(1.5rem, env(safe-area-inset-left));
+  padding-right: max(1.5rem, env(safe-area-inset-right));
+}
+
+.safe-b {
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+}
+
+.safe-t {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+:focus-visible {
+  outline: 2px solid var(--aria);
+  outline-offset: 3px;
+}
+
+/* The one orchestrated moment: the hero thread plays in once. */
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes typing-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.bubble-in {
+  opacity: 0;
+  animation: bubble-in 320ms ease-out forwards;
+}
+
+.typing-dot {
+  animation: typing-dot 1.2s infinite;
+}
+
+/* Typing indicator: shows, then collapses when Aria's reply lands. */
+@keyframes typing-flash {
+  0% {
+    opacity: 0;
+    max-height: 3rem;
+  }
+  15%,
+  80% {
+    opacity: 1;
+    max-height: 3rem;
+  }
+  100% {
+    opacity: 0;
+    max-height: 0;
+    padding-block: 0;
+    margin-block: -0.375rem 0;
+  }
+}
+
+.typing-flash {
+  opacity: 0;
+  overflow: hidden;
+  animation: typing-flash 650ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble-in {
+    opacity: 1;
+    animation: none;
+  }
+  .typing-dot {
+    animation: none;
+  }
+  .typing-flash {
+    display: none;
+  }
 }
