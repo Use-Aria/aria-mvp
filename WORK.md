@@ -13,7 +13,7 @@
 
 | Developer | Task | Branch | Claimed At |
 | --------- | ---- | ------ | ---------- |
-| Daniel    | V2 free-test build — master plan Waves 0–3 done; **resume at Wave 4** | main | 2026-10-09 |
+| Daniel    | V2 free-test build — master plan Waves 0–4 done; **resume at Wave 5** | main | 2026-10-09 |
 
 ---
 
@@ -31,7 +31,7 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 - [x] **V2-W1** ✅ Wave 1 — jobs runtime + dispatch, channels core (Sendblue + dev providers), LLM layer, Canvas pure modules (salvage done), Python parser service (Docker), web shell
 - [x] **V2-W2** ✅ Wave 2 — delivery + ingest + webhooks, memory/context/persona, timeline, Google core (OAuth/tokens), Gmail base, reminders + schedule core
 - [x] **V2-W3** ✅ 2026-10-10 Wave 3 — turn orchestration + dev loop (3.1), agent loop (3.2), V2-04 tools + pending actions + memory jobs (3.3), Canvas sync/connect (3.4), syllabus TS (3.5), Google OAuth routes + calendar read (3.6); gate fixes: `propose_preference` non-strict (grammar 400), name few-shots, `toView` syllabus weight
-- [ ] **V2-W4** Wave 4 — briefing + change alerts (4.1), scheduling + Aria calendar (4.2), Gmail intelligence + email tools (4.3), web setup/week (4.4), web integrations + email draft (4.5), web settings/export/delete (4.6)
+- [x] **V2-W4** ✅ 2026-10-10 Wave 4 — briefing + change alerts (4.1), scheduling + Aria calendar (4.2), Gmail intelligence + email tools (4.3), web setup/week (4.4), web integrations + email draft (4.5), web settings/export/delete (4.6); gate fixes: deterministic timeline tie-break, gmail smoke key, keepalive anon key, `sendRaw` eslint rule
 - [ ] **V2-W5** Wave 5 — evals (5.1), salvage cleanup + V2 docs rewrite (5.2), end-to-end dev-channel conversation test (5.3), Playwright QA (5.4), code review (5.5)
 - [ ] **V2-CREDS** Daniel creates: Sendblue sandbox, Google Cloud project (OAuth client + Pub/Sub), Upstash Redis, Cloud Run (billing), Vercel project — see master plan §7
 
@@ -113,6 +113,43 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 
 ## 📋 Handoff Notes
 
+### 2026-10-10 — Daniel (V2 build: Wave 4, orchestrated by sub-agents)
+
+**Where to resume:** master plan §5 **Wave 5** (5.1–5.4 in parallel, then 5.5 code review). Read `docs/plans/2026-10-10-v2-orchestrator-notes.md` → **Wave 4 hand-off notes** first. They list the exports, the deviations, and four follow-ups (cost accounting, "book it" UX, double interim, a timeline barrel helper).
+
+**Done this session:**
+- **Six parallel sub-agents built Wave 4:**
+  - briefing generation + change alerts + reconcile + daily cron + GH keepalive (4.1)
+  - free-slot finding + Aria calendar block tools (4.2)
+  - Gmail classify/alerts/triage + `search_email`/`read_email`/`draft_email` + send executor (4.3)
+  - `/setup` schedule/tone + `/week` (4.4)
+  - `/setup` Canvas/Google + `/email/[id]` draft page (4.5)
+  - `/settings` + export + account delete (4.6)
+- **Gate is green:**
+  - build, tsc and lint pass (new eslint rule: only `gmail/send.ts` may import `sendRaw`);
+  - unit 2021/2021 (was 1773), smoke 188/188 + 1 opt-in skipped, parser 187/187, grammar smoke with all 31 tools;
+  - `_stub` importers 17 → 1 (only `_stub.ts`; 5.2 deletes it).
+- **Gate fixes:**
+  - Flaky test root-caused: timeline lists broke ties by random UUID, so two all-day deadlines on one date swapped places between runs. Ties now sort by title.
+  - The Gmail smoke no longer makes real Haiku calls when the key is exported.
+  - Copy-deck strings; a fresh-link slot for the Canvas section.
+  - The keepalive uses the anon key, not the service-role key.
+- **Live gate check** (real Haiku, fake Google, local stack, ~$0.007): all four pass.
+  - The briefing comes from the model, wraps untrusted text, and links via `digest`.
+  - A Canvas due change sends one alert; a replay sends nothing.
+  - `find_free_slots` → `create_block` lands on the Aria calendar, never primary.
+  - `draft_email` → the action can't be confirmed in the same run; a web confirm sends exactly once.
+
+**Open / needs Daniel:**
+- Credentials (Sendblue, Google, Upstash, Cloud Run, Vercel), plus the new GitHub repo secrets for the keepalive.
+- A contact email for `/privacy`.
+
+**Know before you start:**
+- None of the Wave 4 pages has been clicked through in a browser; that's 5.4.
+- **Decided (Daniel, 2026-10-10):** "…and book it" with one fitting slot keeps asking first; leave `persona/style-guide.ts:45` as is.
+- `agent_runs.cost_usd` undercounts runs whose tools call an LLM themselves (e.g. the Sonnet draft call). Fix in Wave 5.
+- The [verify] list for real Google (Aria calendar CRUD, Message-ID recovery, threading) is in the Wave 4 notes.
+
 ### 2026-10-10 — Daniel (V2 build: Wave 3, orchestrated by sub-agents)
 
 **Where to resume:** master plan §5 **Wave 4** (tasks 4.1–4.6). Read `docs/plans/2026-10-10-v2-orchestrator-notes.md` → **Wave 3 hand-off notes** first. They hold the exports and deviations that Wave 4 builds on, and the rules for tool schemas.
@@ -167,30 +204,6 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 - A local Supabase stack runs in Docker (`supabase start`; API :54321, DB :54322) — smoke tests use it. Docker Desktop must be running.
 - Run TS scripts with `npx tsx --conditions=react-server --env-file=.env.local …` (`server-only` throws outside Next). Jest does NOT load `.env.local`.
 - Sendblue/Google facts still marked [verify] are listed in master plan §7.3 + orchestrator notes; tapback parsing is off until the sandbox confirms the shape.
-
-### 2026-10-09 — Daniel (V2 pivot: spec + scaffold start)
-
-**Big shift:** Aria is pivoting to **V2** — iMessage-first (no app), magic-link web/PWA, a real tool-using agent with memory. Shipping first as a **free private test** (Daniel + ≤9 friends via the Sendblue sandbox; ~$0 infra; LLM covered by the Max plan's $100/mo API credits). Daniel is now the **sole engineer** — the Josh/Seb ownership + collision rules in this file are historical.
-
-**Read first (canonical V2 docs):**
-- `docs/specs/2026-10-09-aria-v2-spec-and-architecture.md` — full architecture + rationale (every choice: options → pick → why; §5 schema, §8 decision log).
-- `docs/plans/2026-10-09-aria-v2-free-testing-plan.md` — what we build now (and the stack table).
-- `docs/plans/2026-10-09-aria-v2-production-plan.md` — deferred/paid path (incl. the Canvas NetID-vault decision + risks).
-- `docs/v1-to-v2-changes.md` — what changed and why.
-
-**Locked decisions:** WhatsApp deferred · iMessage = Sendblue sandbox · language = TS app + small Python parser (HTTP, never a cross-lang queue) · keep Docker + Redis (Upstash), drop Celery (revisit V3) · Gmail in from day one · Canvas = iCal for the test (encrypted NetID vault is a **production-only** decision with risks recorded — do NOT build it in the test) · beta open to anyone · LLM = Claude Haiku 5.5 + Sonnet 5.5 escalation · repo on `main`, V1 tagged `v1-final`. "Ignore safeguards" → dropped the compliance *process* but KEPT three cheap friend-protections: confirm-before-send on email, memory only from user-authored text, ask before connecting a friend's accounts.
-
-**Sub-decisions (confirmed by Daniel 2026-10-10):** calendar writes → a dedicated "Aria" calendar · persona → mirror the user's register · history retention → 180d · Sonnet escalation cap → 10% · domain → stay on `*.vercel.app` for the test.
-
-**Done this session:** spec + 3 plan docs; `.env` reset to V2 vars (old → `.env.local.v1.bak`, gitignored; app secrets auto-generated — **back up `APP_ENCRYPTION_KEY`**); Anthropic key verified (Haiku/Sonnet 5.5 available, $100/mo Max credits cover it); installed `@anthropic-ai/sdk` `openai` `@upstash/redis` `zod`; wrote `src/server/llm/index.ts` (provider-agnostic gateway, type-clean); archived V1 migrations → `docs/history/v1-migrations/`; wrote `supabase/migrations/001_v2_baseline.sql`. **lint + build pass.**
-
-**Blockers for next session:**
-- **Supabase:** the new project (ref `onrurwsourjlgfmitezh`) still 401s on even no-key endpoints → not Active / wrong URL. Get it Active, re-copy URL, re-link CLI, `supabase db push`. (`supabase/.temp` still points at the OLD project.)
-- Create the **Sendblue sandbox** account (number + webhook) and the **Google OAuth client** (Gmail + Calendar) when ready.
-
-**Gotcha learned:** new Supabase projects issue new-style keys (`sb_publishable_…` / `sb_secret_…`) and the legacy anon JWT may be disabled — use the publishable key for `NEXT_PUBLIC_SUPABASE_ANON_KEY` and the secret key for `SUPABASE_SERVICE_ROLE_KEY`.
-
-**Not committed:** all V2 scaffolding is uncommitted, pending Daniel's approval (he approves before commit/push to `main`). `supabase/migrations/` changed, so per the Session Protocol this needs his explicit go.
 
 ---
 

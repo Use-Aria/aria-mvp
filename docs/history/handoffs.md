@@ -2,6 +2,30 @@
 
 > Older handoff notes rotated out of `WORK.md`. Newest first. Claude prepends here during "wrap up".
 
+### 2026-10-09 — Daniel (V2 pivot: spec + scaffold start)
+
+**Big shift:** Aria is pivoting to **V2** — iMessage-first (no app), magic-link web/PWA, a real tool-using agent with memory. Shipping first as a **free private test** (Daniel + ≤9 friends via the Sendblue sandbox; ~$0 infra; LLM covered by the Max plan's $100/mo API credits). Daniel is now the **sole engineer** — the Josh/Seb ownership + collision rules in this file are historical.
+
+**Read first (canonical V2 docs):**
+- `docs/specs/2026-10-09-aria-v2-spec-and-architecture.md` — full architecture + rationale (every choice: options → pick → why; §5 schema, §8 decision log).
+- `docs/plans/2026-10-09-aria-v2-free-testing-plan.md` — what we build now (and the stack table).
+- `docs/plans/2026-10-09-aria-v2-production-plan.md` — deferred/paid path (incl. the Canvas NetID-vault decision + risks).
+- `docs/v1-to-v2-changes.md` — what changed and why.
+
+**Locked decisions:** WhatsApp deferred · iMessage = Sendblue sandbox · language = TS app + small Python parser (HTTP, never a cross-lang queue) · keep Docker + Redis (Upstash), drop Celery (revisit V3) · Gmail in from day one · Canvas = iCal for the test (encrypted NetID vault is a **production-only** decision with risks recorded — do NOT build it in the test) · beta open to anyone · LLM = Claude Haiku 5.5 + Sonnet 5.5 escalation · repo on `main`, V1 tagged `v1-final`. "Ignore safeguards" → dropped the compliance *process* but KEPT three cheap friend-protections: confirm-before-send on email, memory only from user-authored text, ask before connecting a friend's accounts.
+
+**Sub-decisions (confirmed by Daniel 2026-10-10):** calendar writes → a dedicated "Aria" calendar · persona → mirror the user's register · history retention → 180d · Sonnet escalation cap → 10% · domain → stay on `*.vercel.app` for the test.
+
+**Done this session:** spec + 3 plan docs; `.env` reset to V2 vars (old → `.env.local.v1.bak`, gitignored; app secrets auto-generated — **back up `APP_ENCRYPTION_KEY`**); Anthropic key verified (Haiku/Sonnet 5.5 available, $100/mo Max credits cover it); installed `@anthropic-ai/sdk` `openai` `@upstash/redis` `zod`; wrote `src/server/llm/index.ts` (provider-agnostic gateway, type-clean); archived V1 migrations → `docs/history/v1-migrations/`; wrote `supabase/migrations/001_v2_baseline.sql`. **lint + build pass.**
+
+**Blockers for next session:**
+- **Supabase:** the new project (ref `onrurwsourjlgfmitezh`) still 401s on even no-key endpoints → not Active / wrong URL. Get it Active, re-copy URL, re-link CLI, `supabase db push`. (`supabase/.temp` still points at the OLD project.)
+- Create the **Sendblue sandbox** account (number + webhook) and the **Google OAuth client** (Gmail + Calendar) when ready.
+
+**Gotcha learned:** new Supabase projects issue new-style keys (`sb_publishable_…` / `sb_secret_…`) and the legacy anon JWT may be disabled — use the publishable key for `NEXT_PUBLIC_SUPABASE_ANON_KEY` and the secret key for `SUPABASE_SERVICE_ROLE_KEY`.
+
+**Not committed:** all V2 scaffolding is uncommitted, pending Daniel's approval (he approves before commit/push to `main`). `supabase/migrations/` changed, so per the Session Protocol this needs his explicit go.
+
 ### 2026-10-09 — Daniel (vanilla Claude Code + new memory workflow)
 
 **What changed:** The repo no longer ships Claude Code tooling (no GSD, no superpowers, no `/project:*` commands). The workflow is now plain Claude Code, `CLAUDE.md`, and this file.

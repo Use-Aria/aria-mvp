@@ -397,6 +397,8 @@ that mocks the iCal response and verifies the Task mapping is correct.
 | V2: Anthropic structured output | Very large JSON schemas are rejected ("compiled grammar is too large"); keep model-facing schemas flat (V2-08 parser) and strip `$schema` before `zodOutputFormat`. Sonnet 5.5 rejects `thinking: {type: "disabled"}` |
 | V2: strict tool grammar | The API caps the *compiled grammar* of all strict tools + the reply format together; `strictBudget` (counts) can't see it. Never mark a nested-schema tool `strict` (`propose_preference` isn't). After any tool-schema change run `SMOKE_LLM=1 npm run smoke -- tests/smoke/llm-grammar.smoke.test.ts` |
 | V2: llm_calls cleanup | `llm_calls.user_id` is nulled (not cascaded) on user delete — smoke/eval/live-check cleanup must delete those rows explicitly |
+| V2: deterministic ordering | Never break `order()` ties on a uuid `id` alone — it's random, so same-timestamp rows (e.g. two all-day deadlines) flip between runs. Add a meaningful tie-break first (`timeline/store.ts#queryRange`: anchor, title, id) |
+| V2: smoke tests + real key | Exporting `ANTHROPIC_API_KEY` (for the grammar smoke) makes every smoke that reaches a model path call real Haiku. Smoke files that assume no model `delete process.env.ANTHROPIC_API_KEY` up front; run the full suite with `env -u ANTHROPIC_API_KEY npm run smoke` |
 
 ---
 

@@ -4,7 +4,7 @@
 
 ## Aria V2 — free private test (🔄 In Progress)
 
-> Build status per `docs/plans/2026-10-10-v2-master-plan.md`. Waves 0–3 done 2026-10-10; Wave 4 next.
+> Build status per `docs/plans/2026-10-10-v2-master-plan.md`. Waves 0–4 done 2026-10-10; Wave 5 next.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -19,7 +19,7 @@
 | Memory + context + persona | ✅ Done | Static prompt ~22.6K tokens, byte-stable |
 | Timeline module | ✅ Done | Urgency at read time |
 | Canvas parse/SSRF fetch (pure) | ✅ Done | |
-| Reminders + briefing scheduling core | ✅ Done | Briefing generation is Wave 4 |
+| Reminders + briefing scheduling core | ✅ Done | |
 | Google OAuth core + tokens; Gmail sync/push | ✅ Done | Untested until Google creds |
 | Python syllabus parser service | ✅ Done | Cloud Run deploy pending |
 | Conversation turn pipeline + dev-chat REPL | ✅ Done | Welcome, debounce, reaction-only turns, 8s watchdog, daily turn cap |
@@ -27,7 +27,10 @@
 | Canvas sync/connect + tools | ✅ Done | Fixture feeds only; live Yale feed check pending |
 | Syllabus intake (chat PDF + /setup upload) | ✅ Done | Verified with the fake-LLM parser; browser upload untested |
 | Google OAuth routes + calendar read/watch | ✅ Done | Fake Google only until creds |
-| Briefing, scheduling, Gmail intelligence, web pages | ⬜ Not Started | Wave 4 |
+| Daily briefing + Canvas change alerts + nightly reconcile | ✅ Done | Real Haiku briefing verified live; `digest` link; urgent alerts respect quiet hours (D8) |
+| Free-slot finding + Aria calendar blocks (find/create/move/delete) | ✅ Done | Fake Google only until creds; writes only to the "Aria" calendar |
+| Gmail classify/alerts/triage digest + email search/read/draft | ✅ Done | Send only via a confirmed pending action (web or chat, never same run); fake Gmail until creds |
+| Web: /setup (schedule, tone, Canvas, Google), /week, /email/[id], /settings, export, delete | ✅ Done | Not yet clicked through in a browser (Wave 5.4) |
 | Evals, cleanup, E2E, QA, code review | ⬜ Not Started | Wave 5 |
 
 ---
