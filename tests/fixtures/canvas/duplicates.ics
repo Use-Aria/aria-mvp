@@ -1,0 +1,41 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:icalendar-ruby
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Test Student Calendar (Canvas)
+X-WR-CALDESC:Calendar events for the user\, Test Student
+BEGIN:VEVENT
+DTSTAMP:20261010T120000Z
+DTSTART;VALUE=DATE:20261012
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Response 1 (old) [SOCY 151]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _9&month=10&year=2026#assignment_800
+UID:event-assignment-800
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20261010T120000Z
+DTSTART;VALUE=DATE:20261013
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Response 2 [SOCY 151]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _9&month=10&year=2026#assignment_801
+UID:event-assignment-801
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20261010T120000Z
+DTSTART;VALUE=DATE:20261014
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Response 1 [SOCY 151]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _9&month=10&year=2026#assignment_800
+UID:event-assignment-800
+END:VEVENT
+END:VCALENDAR

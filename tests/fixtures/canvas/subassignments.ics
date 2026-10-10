@@ -1,0 +1,32 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:icalendar-ruby
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Test Student Calendar (Canvas)
+X-WR-CALDESC:Calendar events for the user\, Test Student
+BEGIN:VEVENT
+DTEND:20261021T035900Z
+DTSTAMP:20261010T120000Z
+DTSTART:20261021T035900Z
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Discussion 3 Reply to Topic [HIST 101]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _31337&month=10&year=2026#assignment_900
+UID:event-sub-assignment-901
+END:VEVENT
+BEGIN:VEVENT
+DTEND:20261024T035900Z
+DTSTAMP:20261010T120000Z
+DTSTART:20261024T035900Z
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Discussion 3 Required Replies [HIST 101]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _31337&month=10&year=2026#assignment_900
+UID:event-sub-assignment-902
+END:VEVENT
+END:VCALENDAR

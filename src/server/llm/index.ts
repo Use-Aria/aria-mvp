@@ -1,64 +1,54 @@
+import "server-only";
+// OWNER: 1.3
+
 /**
- * Aria V2 — provider-agnostic LLM access layer.
+ * Aria V2 — LLM access layer (master plan §1.6; V2-04 §7.1). Every model call goes through here.
  *
- * Every model call in Aria goes through `runModel`. Call sites name a ROUTE
- * (what the call is for), and the route maps to a model + settings here — so
- * model/cost decisions live in one place and any workload can be re-pointed
- * (e.g. to a free provider like Groq) later without touching call sites.
+ * Call sites name a ROUTE (what the call is for); `ROUTES` maps it to model, effort, thinking,
+ * max_tokens, timeout and cache TTL, so model/cost decisions live in one place. Every call writes
+ * one `llm_calls` row (best-effort).
  *
- * Decisions — see docs/plans/2026-10-09-aria-v2-free-testing-plan.md:
- *   - main chat + anything reading email : Claude Haiku 5.5
- *   - hard scheduling / repeated failures: Claude Sonnet 5.5 (escalation)
- *   - classify / memory / briefing       : Claude Haiku 5.5
- *   - syllabus PDF parsing               : Claude Sonnet 5.5
- * Billing: Anthropic API, covered by the Max plan's monthly API credits.
- * Model ids verified available on this org via GET /v1/models (2026-10-09).
+ *   callModel     — full control: tools, output format, tool_choice, cache breakpoints (agent loop)
+ *   runStructured — one zod-validated structured-output call (classify, memory, briefing, …)
+ *   runModel      — legacy plain-text helper (signature kept; now logs)
+ *   recordLlmCall — log a call made elsewhere (the Python parser's syllabus calls)
  */
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
+import { callAnthropic } from "@/server/llm/anthropic";
+import type { Route } from "@/server/llm/routes";
+import type { LlmLogMeta, LlmRequest, LlmResponse } from "@/server/llm/types";
 
-const anthropic = new Anthropic(); // reads ANTHROPIC_API_KEY from env
+export { ROUTES, PRICING, costFor, isModelId, HAIKU_LONG_PROMPT_TOKENS } from "@/server/llm/routes";
+export type { Route, ModelId, RouteConfig, ModelPricing, CostInput } from "@/server/llm/routes";
+export type { UsageSummary, LlmLogMeta, LlmRequest, LlmResponse } from "@/server/llm/types";
+export { LlmUnavailableError, LlmBadRequestError, LlmRefusalError } from "@/server/llm/errors";
+export { recordLlmCall } from "@/server/llm/log";
+export type { LlmCallRecord } from "@/server/llm/log";
+export { runStructured, structuredFormat } from "@/server/llm/structured";
+export type { StructuredInput, StructuredResult } from "@/server/llm/structured";
+export { jsonSchemaFor } from "@/server/llm/schema";
 
-export type Route =
-  | "chat" // main agent turn (voice + tools)
-  | "escalate" // hard scheduling negotiation / repeated tool failures
-  | "classify" // deadline / email classification (structured output)
-  | "memory" // background fact extraction + consolidation
-  | "briefing" // daily briefing synthesis
-  | "syllabus"; // PDF parsing
-
-type Effort = "low" | "medium" | "high" | "xhigh" | "max";
-
-interface RouteConfig {
-  model: string;
-  maxTokens: number;
-  effort: Effort;
+/**
+ * One Messages API call (tools, `output_config.format`, `tool_choice`, cache breakpoints).
+ * Refusals are returned in `refusal`, not thrown. Logs to `llm_calls`.
+ * @param req the request
+ * @returns normalized response (content verbatim, incl. thinking blocks)
+ * @throws LlmUnavailableError (retryable) | LlmBadRequestError | the SDK abort error on `req.signal`
+ */
+export async function callModel(req: LlmRequest): Promise<LlmResponse> {
+  return (await callAnthropic(req)).response;
 }
 
-const ROUTES: Record<Route, RouteConfig> = {
-  chat: { model: "claude-haiku-5-5", maxTokens: 1024, effort: "low" },
-  escalate: { model: "claude-sonnet-5-5", maxTokens: 2048, effort: "low" },
-  classify: { model: "claude-haiku-5-5", maxTokens: 512, effort: "low" },
-  memory: { model: "claude-haiku-5-5", maxTokens: 1024, effort: "medium" },
-  briefing: { model: "claude-haiku-5-5", maxTokens: 1024, effort: "medium" },
-  syllabus: { model: "claude-sonnet-5-5", maxTokens: 4096, effort: "medium" },
-};
-
-// $/MTok (Anthropic API, 2026-10-09).
-const PRICING: Record<
-  string,
-  { in: number; cacheRead: number; cacheWrite: number; out: number }
-> = {
-  "claude-haiku-5-5": { in: 0.1, cacheRead: 0.01, cacheWrite: 0.125, out: 0.5 },
-  "claude-sonnet-5-5": { in: 2.0, cacheRead: 0.1, cacheWrite: 2.5, out: 10.0 },
-};
-
+/** Input of the legacy `runModel`. */
 export interface RunInput {
   route: Route;
-  system: string; // stable prefix — cached across turns
+  /** stable prefix — cached across turns */
+  system: string;
   messages: Anthropic.MessageParam[];
   tools?: Anthropic.Tool[];
 }
 
+/** Result of the legacy `runModel`. */
 export interface RunResult {
   text: string;
   stopReason: string | null;
@@ -72,64 +62,32 @@ export interface RunResult {
   raw: Anthropic.Message;
 }
 
-function costFor(model: string, u: Anthropic.Usage): number {
-  const p = PRICING[model];
-  if (!p) return 0;
-  const cr = u.cache_read_input_tokens ?? 0;
-  const cw = u.cache_creation_input_tokens ?? 0;
-  return (
-    ((u.input_tokens ?? 0) * p.in +
-      cr * p.cacheRead +
-      cw * p.cacheWrite +
-      (u.output_tokens ?? 0) * p.out) /
-    1_000_000
-  );
-}
-
 /**
- * Run one model call for a route. The system prompt is marked cacheable so
- * repeated turns in a reply burst hit the prompt cache (~2.5x cheaper).
- * Adaptive thinking is left on (correct for both Haiku 5.5 and Sonnet 5.5);
- * cost tuning (e.g. thinking off for `classify`) comes with the eval pass.
+ * Run one model call for a route and return its text (legacy helper; signature unchanged).
+ * The system prompt gets BP1 with the route's TTL. Now logs to `llm_calls`.
+ * @param input route, system prompt, messages, optional tools, optional attribution
+ * @returns text, stop reason, usage and the raw SDK message
+ * @throws LlmUnavailableError | LlmBadRequestError
  */
-export async function runModel(input: RunInput): Promise<RunResult> {
-  const cfg = ROUTES[input.route];
-
-  const res = await anthropic.messages.create({
-    model: cfg.model,
-    max_tokens: cfg.maxTokens,
-    thinking: { type: "adaptive" },
-    output_config: { effort: cfg.effort },
-    system: [
-      {
-        type: "text",
-        text: input.system,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    ...(input.tools?.length ? { tools: input.tools } : {}),
+export async function runModel(input: RunInput & { log?: LlmLogMeta }): Promise<RunResult> {
+  const { response, raw } = await callAnthropic({
+    route: input.route,
+    system: input.system,
     messages: input.messages,
+    ...(input.tools ? { tools: input.tools } : {}),
+    log: input.log ?? {},
   });
-
-  const text = res.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
-
-  const usage = {
-    inputTokens: res.usage.input_tokens ?? 0,
-    outputTokens: res.usage.output_tokens ?? 0,
-    cacheReadTokens: res.usage.cache_read_input_tokens ?? 0,
-    cacheWriteTokens: res.usage.cache_creation_input_tokens ?? 0,
-    costUsd: costFor(cfg.model, res.usage),
+  const u = response.usage;
+  return {
+    text: response.text,
+    stopReason: response.stopReason,
+    usage: {
+      inputTokens: u.inputTokens,
+      outputTokens: u.outputTokens,
+      cacheReadTokens: u.cacheReadTokens,
+      cacheWriteTokens: u.cacheWriteTokens,
+      costUsd: u.costUsd,
+    },
+    raw,
   };
-
-  // TODO: persist to the `llm_calls` table (route, model, tokens, cost, latency).
-  if (process.env.NODE_ENV !== "production") {
-    console.log(
-      `[llm] ${input.route} ${cfg.model} in=${usage.inputTokens} cacheRead=${usage.cacheReadTokens} out=${usage.outputTokens} $${usage.costUsd.toFixed(5)}`,
-    );
-  }
-
-  return { text, stopReason: res.stop_reason, usage, raw: res };
 }

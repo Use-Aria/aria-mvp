@@ -1,0 +1,76 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:icalendar-ruby
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Test Student Calendar (Canvas)
+X-WR-CALDESC:Calendar events for the user\, Test Student
+BEGIN:VEVENT
+DTSTAMP:20261010T120000Z
+DTSTART;VALUE=DATE:20260308
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Spring DST Reading [PHIL 101]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _200&month=3&year=2026#assignment_600
+UID:event-assignment-600
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20261010T120000Z
+DTSTART;VALUE=DATE:20261101
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Fall DST Reading [PHIL 101]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _200&month=11&year=2026#assignment_601
+UID:event-assignment-601
+END:VEVENT
+BEGIN:VEVENT
+DTEND:20261101T055900Z
+DTSTAMP:20261010T120000Z
+DTSTART:20261101T055900Z
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Quiz Before Fallback [PHIL 101]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _200&month=11&year=2026#assignment_602
+UID:event-assignment-602
+END:VEVENT
+BEGIN:VEVENT
+DTEND:20261101T063000Z
+DTSTAMP:20261010T120000Z
+DTSTART:20261101T063000Z
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Quiz After Fallback [PHIL 101]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _200&month=11&year=2026#assignment_603
+UID:event-assignment-603
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20261010T120000Z
+DTSTART;VALUE=DATE:20260308
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Spring Forward Day
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=accoun
+ t_1&month=3&year=2026#calendar_event_610
+UID:event-calendar-event-610
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20261010T120000Z
+DTSTART;VALUE=DATE:20261101
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Fall Back Day
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=accoun
+ t_1&month=11&year=2026#calendar_event_611
+UID:event-calendar-event-611
+END:VEVENT
+END:VCALENDAR

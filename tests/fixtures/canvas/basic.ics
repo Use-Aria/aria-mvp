@@ -1,0 +1,82 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:icalendar-ruby
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Test Student Calendar (Canvas)
+X-WR-CALDESC:Calendar events for the user\, Test Student
+BEGIN:VEVENT
+DTEND:20261016T210000Z
+DTSTAMP:20261010T120000Z
+DTSTART:20261016T210000Z
+CLASS:PUBLIC
+DESCRIPTION:Implement the shell described in the handout. Submit via Grades
+ cope by the deadline. Late days apply per the syllabus.
+LOCATION:
+SEQUENCE:0
+SUMMARY:Problem Set 4 [CPSC 323 01 (FA26)]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _98765&month=10&year=2026#assignment_412345
+UID:event-assignment-412345
+X-ALT-DESC;FMTTYPE=text/html:<p>Implement the shell described in the <a hre
+ f="https://example.com/handout">handout</a>.</p>
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20261010T120000Z
+DTSTART;VALUE=DATE:20261015
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Essay 2 Draft [ENGL 120]
+URL:https://yale.instructure.com/calendar?include_contexts=course_55501&mon
+ th=10&year=2026#assignment_412400
+UID:event-assignment-412400
+END:VEVENT
+BEGIN:VEVENT
+DTEND:20261014T200000Z
+DTSTAMP:20261010T120000Z
+DTSTART:20261014T190000Z
+CLASS:PUBLIC
+LOCATION:AKW 200
+SEQUENCE:0
+SUMMARY:Office Hours [CPSC 323 01 (FA26)]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _98765&month=10&year=2026#calendar_event_77
+UID:event-calendar-event-77
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20261010T120000Z
+DTSTART;VALUE=DATE:20261017
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Fall Recess
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=accoun
+ t_1&month=10&year=2026#calendar_event_80
+UID:event-calendar-event-80
+END:VEVENT
+BEGIN:VEVENT
+DTEND:20261020T140000Z
+DTSTAMP:20261010T120000Z
+DTSTART:20261020T140000Z
+CLASS:PUBLIC
+LOCATION:
+SEQUENCE:0
+SUMMARY:Midterm Exam [MATH 225]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _44012&month=10&year=2026#assignment_412500
+UID:event-assignment-412500
+END:VEVENT
+BEGIN:VEVENT
+DTEND:20261019T003000Z
+DTSTAMP:20261010T120000Z
+DTSTART:20261018T230000Z
+CLASS:PUBLIC
+LOCATION:LC 102
+SEQUENCE:0
+SUMMARY:Midterm Review Session [MATH 225]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _44012&month=10&year=2026#calendar_event_81
+UID:event-calendar-event-81
+END:VEVENT
+END:VCALENDAR

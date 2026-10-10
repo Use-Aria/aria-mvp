@@ -1,0 +1,131 @@
+<!doctype html>
+<!--
+  Static Open Graph cards, 1200×630 (web plan §2.4). No personal data: generic headline,
+  sage paper, an iMessage-bubble motif, and the "aria" wordmark. ?k=<kind> picks the card.
+  Rendered by render.spec.ts, then converted to JPEG with sips. Tokens from globals.css.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Aria OG card</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=block"
+    />
+    <style>
+      :root {
+        --paper: #f2f4ef;
+        --ink: #16261d;
+        --ink-soft: #4d5e54;
+        --aria: #1e7a4c;
+        --aria-ink: #ffffff;
+        --bubble: #e3e8e1;
+        --line: #d5dcd3;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; }
+      body {
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "Bricolage Grotesque", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .card {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr 430px;
+        gap: 56px;
+        height: 100%;
+        padding: 72px 80px 72px 88px;
+        align-items: center;
+      }
+      .left { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
+      .brand { display: flex; align-items: center; gap: 16px; }
+      .tile {
+        width: 56px; height: 56px; border-radius: 13px; background: var(--aria);
+        display: grid; place-items: center; color: var(--paper);
+        font-weight: 800; font-size: 44px; line-height: 1; padding-bottom: 7px;
+        font-variation-settings: "opsz" 96;
+      }
+      .word { font-weight: 700; font-size: 40px; letter-spacing: -0.02em; color: var(--aria); }
+      h1 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 84px;
+        line-height: 1;
+        letter-spacing: -0.035em;
+        font-variation-settings: "opsz" 96;
+        text-wrap: balance;
+      }
+      .sub { margin: 0; font-size: 28px; line-height: 1.3; color: var(--ink-soft); max-width: 560px; }
+      .thread { display: flex; flex-direction: column; gap: 10px; font-size: 25px; line-height: 1.25; }
+      .b { max-width: 88%; border-radius: 28px; padding: 14px 22px; }
+      .me { align-self: flex-end; background: var(--aria); color: var(--aria-ink); }
+      .aria { align-self: flex-start; background: var(--bubble); color: var(--ink); }
+      .bars { display: flex; flex-direction: column; gap: 10px; padding: 6px 0; }
+      .bar { height: 14px; border-radius: 7px; background: rgba(22, 38, 29, 0.16); }
+      .me .bar { background: rgba(255, 255, 255, 0.5); }
+      .rule { position: absolute; left: 0; top: 0; bottom: 0; width: 14px; background: var(--aria); }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="rule"></div>
+      <div class="left">
+        <div class="brand"><div class="tile">a</div><div class="word">aria</div></div>
+        <h1 id="headline"></h1>
+        <p class="sub" id="sub"></p>
+      </div>
+      <div class="thread" id="thread"></div>
+    </div>
+    <script>
+      const CARDS = {
+        landing: {
+          headline: "Texts you what’s due, before it’s due.",
+          sub: "An assistant for college students that lives in iMessage.",
+          thread: [
+            ["me", "what do i have this week"],
+            ["aria", "3 things: pset wed 11:59pm, midterm thu 9am, essay draft fri"],
+            ["aria", "you’ve got a 2hr gap tmr at 2, good for the pset"],
+            ["me", "ok put it in my cal"],
+          ],
+        },
+        week: { headline: "Your week", sub: "What’s due and what’s on your calendar, day by day.", thread: [["aria", [0.9, 0.6]], ["aria", [0.75]], ["aria", [0.85, 0.5]], ["me", [0.55]]] },
+        setup: { headline: "Finish setting up Aria", sub: "Connect Canvas and Google so Aria knows what’s due.", thread: [["aria", [0.8, 0.55]], ["me", [0.45]], ["aria", [0.9, 0.7]]] },
+        email: { headline: "Your email draft", sub: "Check it, edit it, and send it when it’s right.", thread: [["aria", [0.85, 0.9, 0.4]], ["me", [0.35]], ["aria", [0.6]]] },
+        settings: { headline: "Your Aria settings", sub: "Connected accounts and what Aria knows about you.", thread: [["aria", [0.7]], ["aria", [0.9, 0.45]], ["me", [0.5]]] },
+        default: { headline: "Open Aria", sub: "An assistant for college students that lives in your texts.", thread: [["me", [0.5]], ["aria", [0.85, 0.6]], ["aria", [0.7]]] },
+      };
+      const kind = new URLSearchParams(location.search).get("k") || "default";
+      const card = CARDS[kind] || CARDS.default;
+      document.getElementById("headline").textContent = card.headline;
+      document.getElementById("sub").textContent = card.sub;
+      const thread = document.getElementById("thread");
+      for (const [who, content] of card.thread) {
+        const b = document.createElement("div");
+        b.className = `b ${who}`;
+        if (typeof content === "string") {
+          b.textContent = content;
+        } else {
+          b.style.width = who === "me" ? "52%" : "86%";
+          const bars = document.createElement("div");
+          bars.className = "bars";
+          for (const w of content) {
+            const bar = document.createElement("div");
+            bar.className = "bar";
+            bar.style.width = `${Math.round(w * 100)}%`;
+            bars.appendChild(bar);
+          }
+          b.appendChild(bars);
+        }
+        thread.appendChild(b);
+      }
+      window.cardReady = document.fonts.ready.then(() => true);
+    </script>
+  </body>
+</html>

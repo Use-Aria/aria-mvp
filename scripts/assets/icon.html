@@ -1,0 +1,72 @@
+<!doctype html>
+<!--
+  Aria V2 app mark (master plan §6 D2): a paper lowercase "a" in Bricolage Grotesque on an
+  Aria-green square. Drawn on a canvas at the exact target size (no resampling), with the
+  glyph's ink box centered optically. Rendered by render.spec.ts via window.renderIcon().
+  Tokens copied from src/app/globals.css.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Aria icon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@96,800&display=block"
+    />
+    <style>
+      body { margin: 0; background: #f2f4ef; display: flex; gap: 24px; padding: 24px; flex-wrap: wrap; }
+      canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <script>
+      const GREEN = "#1e7a4c";
+      const PAPER = "#f2f4ef";
+      const FONT = "'Bricolage Grotesque'";
+
+      /**
+       * variant: "rounded" (transparent corners), "full" (full-bleed square: apple-touch, iOS
+       * rounds it), "maskable" (full-bleed, glyph inside the 80% safe circle), "favicon"
+       * (rounded, bigger glyph for 16–32 px).
+       */
+      async function renderIcon({ size, variant }) {
+        await document.fonts.load(`800 200px ${FONT}`);
+        const c = document.createElement("canvas");
+        c.width = size;
+        c.height = size;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = GREEN;
+        if (variant === "rounded" || variant === "favicon") {
+          const r = size * (variant === "favicon" ? 0.2 : 0.225);
+          ctx.beginPath();
+          ctx.roundRect(0, 0, size, size, r);
+          ctx.fill();
+        } else {
+          ctx.fillRect(0, 0, size, size);
+        }
+
+        // Ink height of the "a" as a share of the icon.
+        const inkShare = { rounded: 0.5, full: 0.5, maskable: 0.4, favicon: 0.62 }[variant];
+        let fontPx = size;
+        ctx.font = `800 ${fontPx}px ${FONT}`;
+        let m = ctx.measureText("a");
+        const inkH = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+        fontPx = (fontPx * (size * inkShare)) / inkH;
+        ctx.font = `800 ${fontPx}px ${FONT}`;
+        m = ctx.measureText("a");
+        const w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+        const h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+        // Center the ink box; nudge up 2% so the bowl doesn't read as sitting low.
+        const x = (size - w) / 2 + m.actualBoundingBoxLeft;
+        const y = (size - h) / 2 + m.actualBoundingBoxAscent - size * 0.02;
+        ctx.fillStyle = PAPER;
+        ctx.fillText("a", x, y);
+        document.body.appendChild(c);
+        return c.toDataURL("image/png");
+      }
+      window.renderIcon = renderIcon;
+    </script>
+  </body>
+</html>

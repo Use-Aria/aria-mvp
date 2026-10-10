@@ -1,0 +1,32 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:icalendar-ruby
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Test Student Calendar (Canvas)
+X-WR-CALDESC:Calendar events for the user\, Test Student
+BEGIN:VEVENT
+DTSTAMP:20261010T120000Z
+DTSTART:20261019T035900Z
+SUMMARY:Reading response on the Paris essays for this week             Caf√
+ ©\, cr√®me ; notes\nline [FREN 110]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _77001&month=10&year=2026#assignment_1001
+UID:event-assignment-1001
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20261010T120000Z
+DTSTART:20261020T035900Z
+CLASS:PUBLIC
+DESCRIPTION:Bring goggles. Bring goggles. Bring goggles. Bring goggles. Bri
+ ng goggles. Bring goggles. Bring goggles. Bring goggles. Bring goggles. Br
+ ing goggles. Bring goggles. Bring goggles. R√©sum√© of the procedure: titr
+ ate\, record\, repeat.
+LOCATION:
+SEQUENCE:0
+SUMMARY:Lab [Part 2] [CHEM 134L]
+URL;VALUE=URI:https://yale.instructure.com/calendar?include_contexts=course
+ _77002&month=10&year=2026#assignment_1002
+UID:event-assignment-1002
+END:VEVENT
+END:VCALENDAR
