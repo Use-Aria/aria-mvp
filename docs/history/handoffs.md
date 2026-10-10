@@ -2,6 +2,21 @@
 
 > Older handoff notes rotated out of `WORK.md`. Newest first. Claude prepends here during "wrap up".
 
+### 2026-04-14 — Daniel (OB-C4 + OB-C5 COMPLETE — session 8)
+
+**Done:** Onboarding fully shipped. Code review complete, all findings fixed, merged to `main`, pushed to GitHub. `onboarding` branch deleted.
+
+**Key fixes applied (OB-C4):**
+- `src/app/api/sync/canvas/route.ts` — `webcal://` normalised to `https://` before `new URL()` to prevent 400 crash
+- `mobile/app/(onboarding)/profile.tsx` — back button reads `session.user.phone` on mount, passes it as explicit param to verify-phone
+- `src/app/api/onboarding/profile/route.ts` — `graduation_year` lower bound corrected `2020` → `2024`
+- `mobile/components/onboarding/CanvasUrlInput.tsx` — dead comment block + duplicate `onValidate()` + unused `CANVAS_URL_REGEX` removed
+- `mobile/app/_layout.tsx` — incomplete onboarding resume routes to `profile` not `tcpa`; spinner suppressed on `(home)` to prevent Stack flash
+
+**Other changes:** `tcpa.tsx` consent optional with warning; `LOCALDEV.md` reset simplified; `celery_worker/*.py` + `docker-compose.yml` `SUPABASE_URL` fallback.
+
+**Test status:** 23/23 passing. Lint clean. (Note: superseded by the V2 pivot — mobile app is being removed.)
+
 ### 2026-04-12 — Daniel (OB-C3 COMPLETE + Full Redesign — session 7)
 
 **Done:** Full onboarding redesign shipped. 51-university Canvas domain system with school-agnostic UI. UniversityPicker component, syllabus removed, coming-soon integrations added.

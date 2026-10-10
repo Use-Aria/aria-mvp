@@ -1,5 +1,7 @@
 # Aria — Feature Checklist
 
+> **⚠️ V2 pivot (2026-10-09):** Aria is being rebuilt as **V2** (iMessage-first, no app). This checklist reflects the shipped **V1**; V2 status lives in `docs/plans/2026-10-09-aria-v2-free-testing-plan.md` and `WORK.md` until V2 features start landing.
+
 > Updated after every `git push`. This is the live build status.
 > Legend: ✅ Done | 🔄 In Progress | ⬜ Not Started | ⏳ Deferred
 >

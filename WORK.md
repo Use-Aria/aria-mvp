@@ -9,15 +9,31 @@
 
 ## 🔒 Currently In Progress
 
-_Nothing claimed. Onboarding fully merged to main (session 8). Next: OB-D1._
+**Aria V2 build — Daniel (sole engineer; Josh/Seb no longer active).** Pivot to iMessage-first V2, shipping as a free private test. Spec + plans written; scaffolding started (LLM gateway + V2 schema). See the latest handoff note and `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`.
 
 | Developer | Task | Branch | Claimed At |
 | --------- | ---- | ------ | ---------- |
-| —         | —    | —      | —          |
+| Daniel    | V2 free-test build | main | 2026-10-09 |
 
 ---
 
 ## 🎯 Up Next (Priority Order)
+
+### 🚀 Aria V2 (free private test) — ACTIVE
+
+Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
+
+- [x] **V2-00** ✅ 2026-10-09 — Spec + 3 plan docs, LLM gateway (`src/server/llm/`), V2 baseline migration, V1 tagged `v1-final`, V1 migrations archived
+- [ ] **V2-01** Apply the V2 schema — get the new Supabase project Active, re-copy URL, `supabase link --project-ref <ref>` + `supabase db push` (`supabase/migrations/001_v2_baseline.sql`). Enable `pg_cron` + `pg_net` for the jobs tick.
+- [ ] **V2-02** Landing page + magic-link/session module (fragment token, JS-POST redeem)
+- [ ] **V2-03** Sendblue sandbox webhook + per-user conversation pipeline (debounce + lease)
+- [ ] **V2-04** Agent loop + persona + memory core
+- [ ] **V2-05** Canvas iCal connect + sync
+- [ ] **V2-06** Reminders + daily briefing (jobs table + Supabase Cron)
+- [ ] **V2-07** Google OAuth + Calendar + Gmail (in from day one)
+- [ ] **V2-08** Syllabus parser (Python FastAPI service, HTTP from the TS app)
+
+> **The V1 backlog below (Onboarding / AUD / PH) is SUPERSEDED by V2** — V2 drops the app, Twilio, and Celery and rewrites the identity/schema, so most of it no longer applies. Kept for reference only.
 
 ### Onboarding — COMPLETE ✅ (merged to `main` 2026-04-14)
 
@@ -95,6 +111,30 @@ _Nothing claimed. Onboarding fully merged to main (session 8). Next: OB-D1._
 
 ## 📋 Handoff Notes
 
+### 2026-10-09 — Daniel (V2 pivot: spec + scaffold start)
+
+**Big shift:** Aria is pivoting to **V2** — iMessage-first (no app), magic-link web/PWA, a real tool-using agent with memory. Shipping first as a **free private test** (Daniel + ≤9 friends via the Sendblue sandbox; ~$0 infra; LLM covered by the Max plan's $100/mo API credits). Daniel is now the **sole engineer** — the Josh/Seb ownership + collision rules in this file are historical.
+
+**Read first (canonical V2 docs):**
+- `docs/specs/2026-10-09-aria-v2-spec-and-architecture.md` — full architecture + rationale (every choice: options → pick → why; §5 schema, §8 decision log).
+- `docs/plans/2026-10-09-aria-v2-free-testing-plan.md` — what we build now (and the stack table).
+- `docs/plans/2026-10-09-aria-v2-production-plan.md` — deferred/paid path (incl. the Canvas NetID-vault decision + risks).
+- `docs/v1-to-v2-changes.md` — what changed and why.
+
+**Locked decisions:** WhatsApp deferred · iMessage = Sendblue sandbox · language = TS app + small Python parser (HTTP, never a cross-lang queue) · keep Docker + Redis (Upstash), drop Celery (revisit V3) · Gmail in from day one · Canvas = iCal for the test (encrypted NetID vault is a **production-only** decision with risks recorded — do NOT build it in the test) · beta open to anyone · LLM = Claude Haiku 5.5 + Sonnet 5.5 escalation · repo on `main`, V1 tagged `v1-final`. "Ignore safeguards" → dropped the compliance *process* but KEPT three cheap friend-protections: confirm-before-send on email, memory only from user-authored text, ask before connecting a friend's accounts.
+
+**Open sub-decisions (proposed defaults, not yet confirmed by Daniel):** calendar writes → a dedicated "Aria" calendar · persona → mirror the user's register · history retention → 180d · Sonnet escalation cap → 10% · domain → stay on `*.vercel.app` for the test.
+
+**Done this session:** spec + 3 plan docs; `.env` reset to V2 vars (old → `.env.local.v1.bak`, gitignored; app secrets auto-generated — **back up `APP_ENCRYPTION_KEY`**); Anthropic key verified (Haiku/Sonnet 5.5 available, $100/mo Max credits cover it); installed `@anthropic-ai/sdk` `openai` `@upstash/redis` `zod`; wrote `src/server/llm/index.ts` (provider-agnostic gateway, type-clean); archived V1 migrations → `docs/history/v1-migrations/`; wrote `supabase/migrations/001_v2_baseline.sql`. **lint + build pass.**
+
+**Blockers for next session:**
+- **Supabase:** the new project (ref `onrurwsourjlgfmitezh`) still 401s on even no-key endpoints → not Active / wrong URL. Get it Active, re-copy URL, re-link CLI, `supabase db push`. (`supabase/.temp` still points at the OLD project.)
+- Create the **Sendblue sandbox** account (number + webhook) and the **Google OAuth client** (Gmail + Calendar) when ready.
+
+**Gotcha learned:** new Supabase projects issue new-style keys (`sb_publishable_…` / `sb_secret_…`) and the legacy anon JWT may be disabled — use the publishable key for `NEXT_PUBLIC_SUPABASE_ANON_KEY` and the secret key for `SUPABASE_SERVICE_ROLE_KEY`.
+
+**Not committed:** all V2 scaffolding is uncommitted, pending Daniel's approval (he approves before commit/push to `main`). `supabase/migrations/` changed, so per the Session Protocol this needs his explicit go.
+
 ### 2026-10-09 — Daniel (vanilla Claude Code + new memory workflow)
 
 **What changed:** The repo no longer ships Claude Code tooling (no GSD, no superpowers, no `/project:*` commands). The workflow is now plain Claude Code, `CLAUDE.md`, and this file.
@@ -134,30 +174,6 @@ _Nothing claimed. Onboarding fully merged to main (session 8). Next: OB-D1._
 - `mobile/` has no ESLint config
 
 **Tests:** worker 327 passing, mobile 23 passing, `next build` passing.
-
-### 2026-04-14 — Daniel (OB-C4 + OB-C5 COMPLETE — session 8)
-
-**Done:** Onboarding fully shipped. Code review complete, all findings fixed, merged to `main`, pushed to GitHub. `onboarding` branch deleted.
-
-**Key fixes applied (OB-C4):**
-- `src/app/api/sync/canvas/route.ts` — `webcal://` normalised to `https://` before `new URL()` to prevent 400 crash
-- `mobile/app/(onboarding)/profile.tsx` — back button reads `session.user.phone` on mount, passes it as explicit param to `router.replace({ pathname: '/(onboarding)/verify-phone', params: { phone: sessionPhone } })`
-- `src/app/api/onboarding/profile/route.ts` — `graduation_year` lower bound corrected `2020` → `2024`
-- `mobile/components/onboarding/CanvasUrlInput.tsx` — dead comment block + duplicate `onValidate()` + unused `CANVAS_URL_REGEX` removed
-- `mobile/app/_layout.tsx` — (1) incomplete onboarding resume now routes to `profile` not `tcpa`; (2) spinner suppressed when `segments[0] === '(home)'` to prevent Stack unmount/remount flash on success→home transition
-
-**Other changes this session:**
-- `mobile/app/(onboarding)/tcpa.tsx` — TCPA Option 2: consent optional, warning shown when OFF, Continue always enabled, heading broadened to cover briefings + alerts
-- `LOCALDEV.md` — reset procedure simplified to single 3-step flow (erase simulator → delete Supabase rows → revoke Google OAuth)
-- `celery_worker/*.py` + `docker-compose.yml` — `SUPABASE_URL` fallback to `NEXT_PUBLIC_SUPABASE_URL`; docker-compose uses `env_file: .env.local`
-
-**Test status:** 23/23 passing (5 new TCPA tests added). Lint clean. Working tree clean on `main`.
-
-**Known deferred issues (non-blocking):**
-- `/api/auth/google` accepts `user_id` query param with no auth check — WebBrowser limitation, track for OB-D1
-- Success screen silently proceeds on API failure — low priority hardening
-
-**Next up:** OB-D1 — `mobile/app/(home)/preferences.tsx` (logout + Google reconnect + Canvas URL edit). Start a new branch off `main`.
 
 ---
 
