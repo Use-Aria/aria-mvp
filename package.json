@@ -2,34 +2,50 @@
   "name": "aria-mvp",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "smoke": "jest -c jest.smoke.config.mjs --runInBand",
+    "evals": "jest -c evals/jest.config.mjs --runInBand",
+    "dev:chat": "tsx scripts/dev-chat.ts",
+    "dev:tick": "tsx scripts/dev-tick.ts",
+    "parser:test": "cd services/parser && pytest",
+    "e2e": "playwright test",
+    "qa:shots": "playwright test --project=shots",
+    "assets": "playwright test scripts/assets/render.spec.ts --project=assets"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
-    "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.2",
     "@upstash/redis": "^1.39.0",
-    "ioredis": "^5.10.0",
-    "next": "15.5.13",
+    "ical.js": "2.2.1",
+    "jose": "6.2.12",
+    "next": "16.4.0",
     "openai": "^7.32.0",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "twilio": "^5.13.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "0.0.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "^4",
+    "@types/jest": "30.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.5.13",
+    "eslint-config-next": "16.4.0",
+    "jest": "30.5.2",
     "tailwindcss": "^4",
+    "tsx": "4.23.15",
     "typescript": "^5"
   }
 }

@@ -150,3 +150,8 @@ celerybeat.pid
 .DS_Store
 **/.DS_Store
 
+
+# Aria V2
+services/parser/.env.local
+test-results/
+playwright-report/
