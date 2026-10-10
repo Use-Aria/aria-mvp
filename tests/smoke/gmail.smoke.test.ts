@@ -44,6 +44,10 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = target.serviceKey;
 // Throwaway token-encryption key for this run (the fake tokens are encrypted with it).
 const savedAppKey = process.env.APP_ENCRYPTION_KEY;
 process.env.APP_ENCRYPTION_KEY = randomBytes(32).toString("base64");
+// Never call the real model from this file: ingest's inline classifier skips without a key, so the
+// "rows stay unclassified" assertions hold even when ANTHROPIC_API_KEY is exported.
+const savedAnthropicKey = process.env.ANTHROPIC_API_KEY;
+delete process.env.ANTHROPIC_API_KEY;
 
 // Server modules read env lazily, so importing after the assignment is safe.
 import { exportJWK, generateKeyPair, SignJWT, createLocalJWKSet, type JWK } from "jose";
@@ -207,6 +211,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (savedAppKey === undefined) delete process.env.APP_ENCRYPTION_KEY;
   else process.env.APP_ENCRYPTION_KEY = savedAppKey;
+  if (savedAnthropicKey !== undefined) process.env.ANTHROPIC_API_KEY = savedAnthropicKey;
   for (const k of PUSH_ENV) {
     if (savedEnv[k] === undefined) delete process.env[k];
     else process.env[k] = savedEnv[k];
