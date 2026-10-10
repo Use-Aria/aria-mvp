@@ -6,7 +6,7 @@
 -- policies: anon/authenticated roles get nothing; all access is through the
 -- service role in server routes (service role bypasses RLS).
 
-create extension if not exists vector;
+create extension if not exists vector with schema extensions;  -- not in public (Supabase advisor)
 
 -- ── People ──────────────────────────────────────────────────────────
 create table users (
@@ -271,7 +271,7 @@ create table memory_facts (
   user_id           uuid not null references users(id) on delete cascade,
   content           text not null,
   tsv               tsvector generated always as (to_tsvector('english', content)) stored,
-  embedding         vector(1024),               -- Phase 2; Phase 1 retrieval = FTS + recency
+  embedding         extensions.vector(1024),              -- Phase 2; Phase 1 retrieval = FTS + recency
   source_message_id uuid references messages(id) on delete set null,
   confidence        real,
   expires_at        timestamptz,
