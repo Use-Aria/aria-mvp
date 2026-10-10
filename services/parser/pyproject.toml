@@ -1,0 +1,14 @@
+[project]
+name = "aria-parser"
+version = "2026.10.1"
+description = "Aria syllabus parser: stateless FastAPI service (POST /v1/parse-syllabus, contract v1)."
+requires-python = ">=3.13"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: calls the real Anthropic API (needs ARIA_LIVE_LLM=1 and ANTHROPIC_API_KEY)"]
+addopts = "-m 'not live' -p no:cacheprovider"
+
+# Fallback host only (V2-08 §2.8): Vercel Python runs app.main:app.
+[tool.vercel]
+entrypoint = "app.main:app"

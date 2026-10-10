@@ -1,0 +1,47 @@
+{
+  "description": "Parser contract v1 error bodies by HTTP status (V2-08 §8.1).",
+  "errors": {
+    "400": {
+      "error": {
+        "code": "invalid_pdf",
+        "message": "the PDF could not be read",
+        "retryable": false
+      }
+    },
+    "401": {
+      "error": {
+        "code": "bad_signature",
+        "message": "unauthorized",
+        "retryable": false
+      }
+    },
+    "413": {
+      "error": {
+        "code": "too_large",
+        "message": "request body too large",
+        "retryable": false
+      }
+    },
+    "422": {
+      "error": {
+        "code": "too_many_pages",
+        "message": "the PDF has more than 300 pages",
+        "retryable": false
+      }
+    },
+    "502": {
+      "error": {
+        "code": "upstream_llm",
+        "message": "the model API failed on every attempt",
+        "retryable": true
+      }
+    },
+    "503": {
+      "error": {
+        "code": "overloaded",
+        "message": "the model did not answer within the deadline",
+        "retryable": true
+      }
+    }
+  }
+}

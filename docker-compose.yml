@@ -1,40 +1,30 @@
+# Local services. V2 has a single container: the syllabus parser (V2-08 §2.9).
+# celery_worker / celery_beat / redis were removed: V2 runs no Celery, and Upstash is REST-only
+# (the TS modules fall back to the DB lease and an in-memory rate limit without it).
+#
+#   docker compose up --build parser    →  http://localhost:8000/healthz
+#
+# Secrets come only from services/parser/.env.local (copy services/parser/.env.example), so
+# the container never sees the TS app's .env.local. PARSER_FAKE_LLM=1 there serves a canned
+# extraction without calling Anthropic.
 services:
-  redis:
-    image: redis:7-alpine
+  parser:
+    build:
+      context: ./services/parser
     ports:
-      - "6379:6379"
+      - "8000:8080"
+    env_file:
+      - path: ./services/parser/.env.local
+        required: false
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  celery_worker:
-    build:
-      context: ./celery_worker
-      dockerfile: Dockerfile
-    command: celery -A celery_app worker --loglevel=info --concurrency=2
-    env_file:
-      - .env.local
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./celery_worker:/app
-
-  celery_beat:
-    build:
-      context: ./celery_worker
-      dockerfile: Dockerfile
-    command: celery -A celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
-    env_file:
-      - .env.local
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./celery_worker:/app
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

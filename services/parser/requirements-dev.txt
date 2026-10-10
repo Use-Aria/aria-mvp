@@ -1,0 +1,7 @@
+# Test-only pins (master plan §3.2). Async tests use anyio's built-in pytest plugin.
+-r requirements.txt
+pytest==9.1.1
+# Tests import httpx2 directly (MockTransport, ASGITransport). Must match what anthropic resolves.
+# Provenance: the anthropic SDK's own HTTP layer, maintained fork of httpx by its original
+# author, published by Pydantic (github.com/pydantic/httpx2).
+httpx2==2.13.1

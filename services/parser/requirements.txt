@@ -1,0 +1,9 @@
+# Runtime pins (master plan §3.2; V2-08 §5). The Docker image installs requirements.lock
+# (full transitive closure with hashes), regenerated from this file with:
+#   uv pip compile requirements.txt --generate-hashes --universal --python-version 3.13 -o requirements.lock
+anthropic==1.8.0
+fastapi==0.141.1
+uvicorn==0.53.0
+pydantic==2.13.5
+pypdf==6.19.0
+tzdata==2026.4

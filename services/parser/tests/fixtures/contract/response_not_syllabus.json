@@ -1,0 +1,27 @@
+{
+  "contract": "v1",
+  "status": "not_syllabus",
+  "document_kind": "assignment",
+  "syllabus": null,
+  "issues": [],
+  "attempts": [
+    {
+      "model": "claude-sonnet-5-5",
+      "input_tokens": 2051,
+      "output_tokens": 340,
+      "cache_read": 0,
+      "cache_write": 0,
+      "latency_ms": 250,
+      "stop_reason": "end_turn",
+      "outcome": "ok"
+    }
+  ],
+  "chosen_attempt": 0,
+  "page_count": 1,
+  "sent_pages": 1,
+  "truncated_pages": false,
+  "scanned": true,
+  "pdf_sha256": "a13a674f64369f6451cbdc80ba389a647f80e75bf9823a5b78d6c7d4567a60a1",
+  "parser_version": "2026.10.1",
+  "prompt_version": "syllabus-v2"
+}

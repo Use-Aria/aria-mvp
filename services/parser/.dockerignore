@@ -1,0 +1,9 @@
+.venv/
+tests/
+.env*
+**/__pycache__
+.pytest_cache/
+.gitignore
+.dockerignore
+Dockerfile
+requirements-dev.txt

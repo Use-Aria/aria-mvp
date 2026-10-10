@@ -1,0 +1,33 @@
+{
+  "description": "Cross-language HMAC vectors for parser contract v1. Python: services/parser/app/auth.py. TS: src/server/integrations/syllabus/signing.ts. The secret is used as UTF-8 bytes; body is the exact UTF-8 request body; signature header value is 'v1=<hex>'.",
+  "version": 1,
+  "vectors": [
+    {
+      "secret": "test-secret-0123456789abcdef0123456789",
+      "timestamp": 1791600000,
+      "method": "POST",
+      "path": "/v1/parse-syllabus",
+      "body": "",
+      "canonical": "v1\n1791600000\nPOST\n/v1/parse-syllabus\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "signature": "v1=2f8c55a943d6d65de82c5a07851896c98997329f421917b18e6b7ddabd69f41f"
+    },
+    {
+      "secret": "test-secret-0123456789abcdef0123456789",
+      "timestamp": 1791600000,
+      "method": "POST",
+      "path": "/v1/parse-syllabus",
+      "body": "{\"pdf_base64\":\"JVBERi0x\",\"today\":\"2026-10-10\"}",
+      "canonical": "v1\n1791600000\nPOST\n/v1/parse-syllabus\n0ccc54c4e8fc3c17e168e33b6c51a39ba93202d40ccb07d2a6222afc3c0a47d6",
+      "signature": "v1=b5ca1db713811ae68438619df14de2fb1bb7bf3e2866c583343e5108a0efcbfc"
+    },
+    {
+      "secret": "aW1hZ2luZS1hLWJhc2U2NC1zZWNyZXQtb2YtNDgtYnl0ZXMhIQ==",
+      "timestamp": 1791600123,
+      "method": "POST",
+      "path": "/v1/parse-syllabus",
+      "body": "{\"a\":\"ünïcödé ✓\"}",
+      "canonical": "v1\n1791600123\nPOST\n/v1/parse-syllabus\nd791712434dfa37b6501b144dd045831f3f86b82080a44c0a831f01926cf489c",
+      "signature": "v1=72f6013ad8e14b3dd3c22711ab5994631f60ce0d2ac1d23f1a5d805a7cb9e1b5"
+    }
+  ]
+}
