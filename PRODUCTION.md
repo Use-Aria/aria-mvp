@@ -6,6 +6,25 @@
 
 ---
 
+## ⚠️ V2 production dependencies (added 2026-10-10)
+
+> Sections 1–8 below describe **V1** (Twilio, Expo, Celery/Railway) and get rewritten for V2 in build Wave 5. Until then, this section is the V2 source of truth. Full runbooks: `docs/plans/2026-10-10-v2-master-plan.md` §7.
+
+| Dependency | Status | Notes |
+|---|---|---|
+| Vercel project (Hobby) + `APP_BASE_URL` | ❌ | Needed for magic links, OAuth redirects, Pub/Sub push, the jobs tick |
+| Supabase Vault secrets for the jobs tick (dispatch URL + `JOBS_DISPATCH_SECRET`) | ❌ | Run `scripts/ops/configure-jobs-tick.sql` after the first deploy; until then the 15s pg_cron tick is a no-op |
+| `CRON_SECRET` (Vercel Cron bearer) | ❌ | Daily `/api/cron/daily` keepalive + `/api/jobs/dispatch` backstop (`vercel.json`) |
+| Sendblue sandbox (API key/secret, signing secret, number) | ❌ | Verify the [verify] list in master plan §7.3 (signing header, tapback shape, email handles, media URLs) |
+| Upstash Redis (REST URL + token) | ❌ | Run lease + rate limits; production fails closed without it |
+| Google Cloud project: OAuth client ("In production", unverified) + Pub/Sub topic/subscription | ❌ | Check `*.vercel.app` is accepted as an authorized domain (else buy a domain, D4); test one Yale account first |
+| Python parser on Google Cloud Run (needs a billing account) | ❌ | Separate Anthropic key for the parser (D6); `PARSER_SERVICE_URL` + `PARSER_SHARED_SECRET` |
+| `SYLLABUS_MEDIA_ALLOWED_HOSTS` | ❌ | Sendblue media CDN host, known only after the sandbox |
+| Separate dev Supabase project (`aria-dev`) | 🔧 | D11: dev and prod share one project today; the prod tick could claim local-dev jobs once Vault secrets are set |
+| Back up `APP_ENCRYPTION_KEY` to the password manager | ❌ | Losing it makes stored OAuth tokens and iCal URLs unrecoverable |
+
+---
+
 ## Status Legend
 
 | Symbol | Meaning |
