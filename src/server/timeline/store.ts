@@ -129,7 +129,7 @@ export async function loadByExternalIds(userId: string, source: TimelineSource, 
 }
 
 /**
- * Non-removed items anchored in [from, to), sorted by anchor.
+ * Non-removed items anchored in [from, to), sorted by anchor, then title, then id (stable on ties).
  * @param userId owner
  * @param from range start (inclusive)
  * @param to range end (exclusive)
@@ -157,7 +157,13 @@ export async function queryRange(
     if (o.kinds) q = q.in("kind", o.kinds);
     if (o.sources) q = q.in("source", o.sources);
     if (o.statuses) q = q.in("status", o.statuses);
-    const { data, error } = await q.order("anchor_at").order("id").range(start, start + size - 1);
+    // Deterministic tie-break: same-anchor items (e.g. two all-day deadlines on one date) would
+    // otherwise order by random uuid, so "next up" / list order flipped between runs.
+    const { data, error } = await q
+      .order("anchor_at")
+      .order("title", { nullsFirst: false })
+      .order("id")
+      .range(start, start + size - 1);
     if (error) fail("queryRange", error.message);
     out.push(...data.map(rowToItem));
     if (data.length < size) break;
