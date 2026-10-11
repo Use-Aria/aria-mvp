@@ -1,236 +1,208 @@
 # Aria — Production Readiness Checklist
 
-> This file tracks everything that is deferred during local development but **required before public launch**.
-> Update this file whenever a new production dependency is discovered during implementation.
-> Owner: Daniel Lee (CTO)
+> Everything that is deferred or faked during local development but **required before Aria V2 runs for real users**.
+> Update this file whenever implementation reveals a new production dependency.
+> Owner: Daniel Lee (CTO). How-to for each item: `DEPLOYMENT.md`. Source runbooks: `docs/plans/2026-10-10-v2-master-plan.md` §7.
 
----
-
-## ⚠️ V2 production dependencies (added 2026-10-10)
-
-> Sections 1–8 below describe **V1** (Twilio, Expo, Celery/Railway) and get rewritten for V2 in build Wave 5. Until then, this section is the V2 source of truth. Full runbooks: `docs/plans/2026-10-10-v2-master-plan.md` §7.
-
-| Dependency | Status | Notes |
-|---|---|---|
-| Vercel project (Hobby) + `APP_BASE_URL` | ❌ | Needed for magic links, OAuth redirects, Pub/Sub push, the jobs tick |
-| Supabase Vault secrets for the jobs tick (dispatch URL + `JOBS_DISPATCH_SECRET`) | ❌ | Run `scripts/ops/configure-jobs-tick.sql` after the first deploy; until then the 15s pg_cron tick is a no-op |
-| `CRON_SECRET` (Vercel Cron bearer) | ❌ | Daily `/api/cron/daily` keepalive + `/api/jobs/dispatch` backstop (`vercel.json`) |
-| Sendblue sandbox (API key/secret, signing secret, number) | ❌ | Verify the [verify] list in master plan §7.3 (signing header, tapback shape, email handles, media URLs) |
-| Upstash Redis (REST URL + token) | ❌ | Run lease + rate limits; production fails closed without it |
-| Google Cloud project: OAuth client ("In production", unverified) + Pub/Sub topic/subscription | ❌ | Check `*.vercel.app` is accepted as an authorized domain (else buy a domain, D4); test one Yale account first |
-| Python parser on Google Cloud Run (needs a billing account) | ❌ | Separate Anthropic key for the parser (D6); `PARSER_SERVICE_URL` + `PARSER_SHARED_SECRET` |
-| `SYLLABUS_MEDIA_ALLOWED_HOSTS` | ❌ | Sendblue media CDN host, known only after the sandbox. **Required:** empty fails closed in production, so no chat PDF can be read (`*.suffix` allowed) |
-| Separate dev Supabase project (`aria-dev`) | 🔧 | D11: dev and prod share one project today; the prod tick could claim local-dev jobs once Vault secrets are set |
-| GitHub repo secrets for `.github/workflows/keepalive.yml` | ❌ | Required: `SUPABASE_URL`, `SUPABASE_ANON_KEY` (use the new-style publishable key; never the service-role key). Optional: `APP_BASE_URL` + `CRON_SECRET` to also ping `/api/cron/daily?source=gh` (writes the `gh-actions` heartbeat row) |
-| Back up `APP_ENCRYPTION_KEY` to the password manager | ❌ | Losing it makes stored OAuth tokens and iCal URLs unrecoverable |
-
----
-
-## Status Legend
+## Status legend
 
 | Symbol | Meaning |
 |--------|---------|
 | ✅ | Done |
 | ⏳ | In progress / pending external review |
-| ❌ | Not started — blocks launch |
-| 🔧 | Not started — needed before production, not for beta |
+| ❌ | Not started; blocks the free test |
+| 🔧 | Not started; needed before a public launch, not for the free test |
+| ⛔ | Superseded (V1 only) |
 
 ---
 
-## 1. Google OAuth App Verification
+## 1. V2 free-test dependencies
 
-**Why deferred:** Google requires a verification process before unverified apps can access Gmail and Calendar scopes for the general public. During development, test users (manually added in Google Cloud Console) can bypass the "Access blocked" screen.
-
-**Scopes being verified:**
-- `https://www.googleapis.com/auth/gmail.readonly` — Sensitive
-- `https://www.googleapis.com/auth/calendar` — Sensitive
-
-No restricted scopes — no third-party security audit required.
-
-### Steps
-
-| Step | Status | Notes |
-|------|--------|-------|
-| Privacy Policy live at a public URL | ❌ | Required before submitting — covers OAuth data use, SMS consent, 30-day deletion |
-| Homepage live at a public URL | ❌ | Vercel deployment URL works |
-| Verify domain ownership in Google Search Console | ❌ | Must verify the domain your OAuth redirect lives on |
-| Configure OAuth consent screen (name, logo, support email, scopes, authorized domain) | ❌ | Google Cloud Console → APIs & Services → OAuth consent screen |
-| Record demo video | ❌ | Screen recording showing: OAuth consent flow + how Gmail and Calendar data is used in the app |
-| Submit for brand verification | ❌ | 2–3 business day review |
-| Submit for sensitive scope verification | ❌ | After brand verification — 2–6 week review |
-
-**References:**
-- [Brand verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification)
-- [Sensitive scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification)
-- [Google OAuth verification walkthrough](https://ryanschiang.com/google-oauth-verification-what-to-expect)
-
-**Beta workaround (current):** Manually add each tester's email in Google Cloud Console → OAuth consent screen → Test users.
+| # | Dependency | Status | Notes |
+|---|---|---|---|
+| 1 | **Vercel project (Hobby)** + `APP_BASE_URL` | ❌ | Node 24. Every prod var from master plan §4 must be set. The URL is needed for magic links, OAuth redirects, Pub/Sub push and the jobs tick. Hobby is non-commercial only, so never charge anyone. |
+| 2 | `CRON_SECRET` (Vercel Cron bearer) | ❌ | `openssl rand -hex 32`. It authorizes the daily `/api/cron/daily` (reconcile + heartbeat) and the `/api/jobs/dispatch` backstop (`vercel.json`). |
+| 3 | **Supabase Vault + pg_cron tick** | ❌ | Run `scripts/ops/configure-jobs-tick.sql` after the first deploy. It sets `aria_dispatch_url` and `aria_dispatch_secret`, and the secret must equal `JOBS_DISPATCH_SECRET`. Until then the 15s `aria-jobs-tick` does nothing, and only the daily Vercel cron runs jobs. |
+| 4 | Supabase migrations 001–003 on the prod project | ✅ | Project `onrurwsourjlgfmitezh`. Types in `src/server/db/types.ts` are current. |
+| 5 | **Upstash Redis** (REST URL + token) | ❌ | Run lease + rate limits. Without it, production fails closed: the lease throws and rate limits deny. Pick a region near `iad1`. |
+| 6 | **Sendblue sandbox** | ❌ | API key/secret, signing secret (`globalSecret`) and from-number. Set the `receive` webhook to `/api/channels/sendblue`. Turn on auto typing + mark-read and skip the outbound status webhook (D12). ≤10 contacts, so add each friend with `add-contact`. |
+| 7 | **Google Cloud project `aria-v2`** | ❌ | OAuth consent screen **In production, unverified**, never "Testing" (which expires refresh tokens after 7 days). Web client `aria-web`. Gmail, Calendar and Pub/Sub APIs enabled. Topic `gmail-push` with the publisher grant, SA `gmail-push-invoker`, push subscription `gmail-push-sub`. Billing linked. |
+| 8 | `*.vercel.app` accepted as a Google authorized domain | ❌ | If rejected, buy a domain (~$10–11/yr, Cloudflare) (D4). |
+| 9 | **Python parser on Google Cloud Run** (`aria-parser`, `us-east4`) | ❌ | Needs a billing account. Secrets in Secret Manager, SA `aria-parser`, `--max-instances 2`, Artifact Registry keep-3 cleanup policy. Yields `PARSER_SERVICE_URL` + `PARSER_SHARED_SECRET`. |
+| 10 | **$5 GCP budget alert** | ❌ | Alerts at 50/90/100%. Expected spend is $0. |
+| 11 | **Separate Anthropic key for the parser** (workspace `aria-parser`) | ❌ | D6. Stored only in Secret Manager, never in Vercel. |
+| 12 | `SYLLABUS_MEDIA_ALLOWED_HOSTS` | ❌ | The Sendblue media CDN host, known only after the first real PDF webhook. **Required:** empty fails closed in production, so no chat PDF can be read. `*.suffix` is allowed. |
+| 13 | **GitHub repo secrets for `.github/workflows/keepalive.yml`** | ❌ | Required: `SUPABASE_URL`, and `SUPABASE_ANON_KEY` set to the project's new-style **publishable** key, never the service-role key. Optional: `APP_BASE_URL` + `CRON_SECRET`, which also ping `/api/cron/daily?source=gh` and write the `gh-actions` heartbeat row. |
+| 14 | Contact email on `/privacy` | ❌ | The page says "Text Aria 'help'". Google's branding form needs a support email, so add a real contact address before submitting the consent screen. |
+| 15 | Back up `APP_ENCRYPTION_KEY` to the password manager | ❌ | Losing it makes stored OAuth tokens and Canvas feed URLs unrecoverable. Never rotate it without a re-encryption plan. |
+| 16 | Separate dev Supabase project (`aria-dev`) | 🔧 | D11. Dev and prod share one project today, so once Vault is set the prod tick can claim local-dev jobs (they dead-letter harmlessly). The local stack (`supabase start`) covers most dev work. |
+| 17 | Sentry (`SENTRY_DSN`) | 🔧 | Not wired yet. `llm_calls` + `agent_runs` are the only telemetry. |
+| 18 | OpenAI fallback model (`OPENAI_API_KEY`) | 🔧 | Deferred (V2-04 T9). |
+| 19 | **Wave 5 code-review fixes (send safety)** | ❌ | Fix 5.5 findings #1–#4 before any friend connects Gmail: no HTTP retry on `messages.send` or calendar inserts, no turn replay after side effects, a chat confirm must postdate the draft, a long timeout for `confirm_action`. Full list: orchestrator notes → Wave 5 hand-off. |
+| 20 | Wave 5 code-review fixes (other) | ❌ | 5.5 #5–#13: re-welcome after the 180-day purge, the claim check on failed calls, signup name pre-fill, the export including others' signups, duplicate nudges, plural keys, phone last-4 in logs (decide), action-lock gaps, forwarded magic link. Daniel triages. |
 
 ---
 
-## 2. Twilio Toll-Free Number Verification
+## 2. Verify when credentials arrive (master plan §7.3 + Wave 4 additions)
 
-**Why deferred:** Unverified toll-free numbers have limited throughput and may be filtered by carriers. Verification is required for reliable SMS delivery at scale.
+Details for each item are in the branch plans' §12.
 
-| Step | Status | Notes |
-|------|--------|-------|
-| Twilio Messaging Service created (`MGbf33d2d3327638ca21a7f05be5e138ba`) | ✅ | Done 2026-04-12 |
-| Toll-free verification submitted | ⏳ | Submitted 2026-04-12 — approval takes 1–3 business days |
-| Verification approved | ⏳ | Pending |
+**Sendblue** (V2-03 §12, V2-04 §12, V2-08 V3)
+- ❌ The `sb-signing-secret` header is a static secret
+- ❌ Canonical base URL: `.com` vs `.co` (`SENDBLUE_API_BASE`)
+- ❌ Fixtures captured for iMessage text, photo, PDF, multi-attachment, inline reply, SMS from Android, and an Apple ID email sender
+- ❌ Inbound tapback shape. This decides `x_` evidence ("❤️ = yes"). Tapback parsing is off until confirmed.
+- ❌ The send response carries `message_handle`
+- ❌ Typing, reactions and inline replies work on the sandbox line
+- ❌ STOP/START behaviour
+- ❌ The vCard renders and links expand
+- ❌ Sandbox limits, and whether a 24h window applies to proactive messages
+- ❌ Media CDN host (→ `SYLLABUS_MEDIA_ALLOWED_HOSTS`)
 
-**Impact of not verifying:** SMS delivery works but may be rate-limited or filtered.
+**Upstash**
+- ❌ `SET NX PX` and the Lua release work, with byte-exact tokens under `automaticDeserialization: false`
 
----
+**Supabase**
+- ❌ Postgres version ≥ 15.1.1.61
+- ❌ The 15s cron runs on Free
+- ❌ `extensions.hmac` exists
+- ❌ Vault is readable by cron
+- ❌ pg_net timeout
+- ❌ Free-tier pausing behaviour over 8 days, with the keepalive running
 
-## 3. Apple Developer Program
+**Vercel**
+- ❌ `maxDuration = 300` takes effect
+- ❌ `after()` runs ≥ 60s
+- ❌ pg_net's 5s timeout vs cold start
+- ❌ The cron bearer arrives
+- ❌ Node 24 has full ICU zones
+- ❌ Both crons and the GH keepalive fire
 
-**Why deferred:** Requires paid membership ($99/year) and Apple-side credentials that must be manually retrieved from App Store Connect.
+**Anthropic**
+- ❌ Cache read on the second identical call (`scripts/check-llm-cache.ts`)
+- ❌ Haiku TTFT p50/p95, adaptive vs disabled thinking
+- ❌ The strict grammar compiles with all 31 tools in prod. Locally green at the Wave 4 gate.
+- ❌ Sonnet reads Haiku thinking blocks (mid-run escalation)
+- ❌ Briefing token counts, and the Monday briefing fits in 2048 max tokens
 
-| Step | Status | Notes |
-|------|--------|-------|
-| Apple Developer Program membership active | ❌ | $99/year at developer.apple.com |
-| Retrieve Apple ID | ❌ | The Apple ID email used for the developer account |
-| Retrieve App Store Connect App ID (`ascAppId`) | ❌ | Create app in App Store Connect → General → App Information |
-| Retrieve Team ID (`appleTeamId`) | ❌ | developer.apple.com → Account → Membership |
-| Fill in `mobile/eas.json` — `appleId`, `ascAppId`, `appleTeamId` | ❌ | See `DEPLOYMENT.md §4` |
-| Fill in `mobile/app.json` — `appleTeamId` | ❌ | |
-| Run `eas build --platform ios --profile preview` | ❌ | Confirms build pipeline works |
-| Verify app installs via TestFlight on a physical iPhone | ❌ | Full onboarding flow must complete |
+**Google**
+- ❌ `vercel.app` is accepted as an authorized domain
+- ❌ Scope classes shown in the Console
+- ❌ The consent screen publishes In production
+- ❌ The unverified-app screen
+- ❌ Granular consent
+- ❌ PKCE accepted for Web clients (`GOOGLE_PKCE=off` fallback)
+- ❌ Refresh token on reconnect (`prompt=consent`)
+- ❌ The Aria calendar is created, and CRUD works under `calendar.app.created`
+- ❌ The `privateExtendedProperty=aria_key` filter works
+- ❌ A deleted Aria calendar returns 404/410, not 403
+- ❌ Watch expiry, and `events.watch` on vercel.app
+- ❌ Gmail push JWT
+- ❌ Threaded send. `Message-ID` is preserved, and `rfc822msgid:` finds it.
+- ❌ `gmail.send` 403 reasons
+- ❌ `authuser` permalink
+- ❌ Yale EliApps block test (one Yale account first)
+- ❌ Revocation sends exactly one message
+- ❌ `admin_policy_enforced` error shape
+- ❌ Triage cost, and live classifier/digest quality
+- ❌ iOS Safari sends `Sec-Fetch-Site` (≥ 16.4)
 
----
+**Canvas** (Daniel's Yale feed)
+- ❌ Id shape, content type, ETag
+- ❌ Course-code format → `courseKey`
+- ❌ Date-only spot checks and overrides
+- ❌ Revocation signature
+- ❌ Fetch works from Vercel `iad1`
+- ❌ Hourly slot
+- ❌ DST on 2026-11-01
 
-## 4. Backend Deployment
+**Parser** (V2-08 §12 V1–V10)
+- ❌ healthz cold start
+- ❌ Unsigned request returns 401
+- ❌ End to end over Sendblue
+- ❌ A re-send hits the hash guard (no new `llm_calls`)
+- ❌ A non-syllabus PDF is rejected
+- ❌ `/setup` upload works ≤ 4 MB
+- ❌ Logs are clean
+- ❌ Billing is $0 after a week
+- ❌ Secret rotation drill
 
-### 4a. Vercel (Next.js API)
+**Web** (web §12)
+- ❌ iMessage previews for each link kind
+- ❌ The preview fetch doesn't burn the token
+- ❌ `sms:` buttons
+- ❌ Canvas guide and Google connect on iPhone
+- ❌ `/week` around midnight
+- ❌ Safe areas, dark mode, PWA copy
+- ❌ Export download and delete
+- ❌ The email draft send path
+- ❌ Optimistic mark-done
+- ❌ Clipboard
+- ❌ Security headers
+- ❌ Overlapping server-action responses finish on a production build / Vercel preview (they hang under `next dev`; e2e runs with 1 worker)
+- ❌ `/email/<bad id>` status code on Vercel (a soft 404 = 200 under `next dev`)
 
-| Step | Status | Notes |
-|------|--------|-------|
-| Deploy to Vercel (`vercel --prod`) | ❌ | See `DEPLOYMENT.md §2` |
-| Set all Vercel environment variables | ❌ | See table below |
-| Update `GOOGLE_REDIRECT_URI` in Google Cloud Console to Vercel URL | ❌ | Must match exactly: `https://<vercel-domain>/api/auth/google/callback` |
-| Update Twilio inbound SMS webhook to Vercel URL | ❌ | Twilio Console → Phone Numbers → your number → Messaging webhook → `https://<vercel-domain>/api/sms/webhook` |
-| Confirm `GET /api/health` returns 200 on production URL | ❌ | |
-
-**Vercel environment variables:**
-
-| Variable | Set? |
-|----------|------|
-| `NEXT_PUBLIC_SUPABASE_URL` | ❌ |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ❌ |
-| `SUPABASE_SERVICE_ROLE_KEY` | ❌ |
-| `GOOGLE_CLIENT_ID` | ❌ |
-| `GOOGLE_CLIENT_SECRET` | ❌ |
-| `GOOGLE_REDIRECT_URI` | ❌ |
-| `TWILIO_ACCOUNT_SID` | ❌ |
-| `TWILIO_AUTH_TOKEN` | ❌ |
-| `TWILIO_PHONE_NUMBER` | ❌ |
-| `TWILIO_WEBHOOK_URL` | ❌ |
-| `REDIS_URL` | ❌ (copy from Railway after provisioning) |
-| `ANTHROPIC_API_KEY` | ❌ |
-| `GMAIL_PUBSUB_TOPIC` | ❌ |
-
-### 4b. Railway (Celery Worker + Beat + Redis)
-
-| Step | Status | Notes |
-|------|--------|-------|
-| Create Railway project | ❌ | |
-| Provision Redis service in Railway | ❌ | Copy `REDIS_URL` for use in Vercel + Celery env vars |
-| Create Celery Worker service (root: `celery_worker`, start: `celery -A celery_app worker`) | ❌ | |
-| Create Celery Beat service (root: `celery_worker`, start: `celery -A celery_app beat`) | ❌ | |
-| Generate Fernet encryption key and store as `ENCRYPTION_KEY` | ❌ | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` — generate once, never rotate after users connect Google |
-| Verify Google OAuth callback uses encrypted path | ❌ | `src/app/api/auth/google/callback/route.ts` branches on `NODE_ENV`. In dev it writes tokens directly to Supabase (unencrypted). In production (`NODE_ENV=production`, set automatically by Vercel) it enqueues the Celery `encrypt_and_store_tokens` task via Redis. **Celery worker + `ENCRYPTION_KEY` must be live on Railway before any real users connect Google.** |
-| Set all Railway environment variables on both Celery services | ❌ | See `DEPLOYMENT.md §3` |
-| Confirm Canvas sync Beat task fires every 60 min (Railway logs) | ❌ | |
-| Confirm GCal watch renewal Beat task fires every 6h (Railway logs) | ❌ | Watch channels expire every 7 days |
-
-### 4c. Supabase
-
-| Step | Status | Notes |
-|------|--------|-------|
-| Run all pending migrations (`npx supabase db push`) | ❌ | Always run before going live |
-| Confirm RLS policies active on all tables | 🔧 | |
-| Remove test phone numbers / hardcoded OTPs from Supabase Auth dashboard | ❌ | Test OTP `123456` added during dev — remove before launch |
-
----
-
-## 5. Mobile App — Production Build
-
-| Step | Status | Notes |
-|------|--------|-------|
-| Set `EXPO_PUBLIC_API_URL` to Vercel production URL in `mobile/.env` | ❌ | Currently points to `localhost:3000` |
-| Confirm `EXPO_PUBLIC_DEMO_MODE=false` in `mobile/.env` | ✅ | Set 2026-04-12 |
-| Run `eas build --platform ios --profile production` | ❌ | After Apple credentials are filled in |
-| Submit production build to App Store (`eas submit --platform ios --profile production`) | ❌ | After Phase 12 legal/listing complete |
-
----
-
-## 6. Legal & Compliance
-
-| Step | Status | Notes |
-|------|--------|-------|
-| Privacy Policy written and live at a public URL | ❌ | Must cover: SMS consent, OAuth token storage (Gmail + Calendar), 30-day data deletion, AES-256 encryption at rest |
-| Terms of Service written and live | ❌ | |
-| SMS opt-in consent flow in app (TCPA) | ✅ | Implemented — `tcpa.tsx` screen with explicit toggle |
-| Privacy Policy and ToS URLs added to App Store Connect listing | ❌ | Required for App Store approval |
-| Privacy Policy URL added to Google OAuth consent screen | ❌ | Required for Google verification |
+**Wave 5 review [verify]**
+- ❌ Whether Gmail `messages.send` dedupes a resent message with the same client Message-ID (fix 5.5 #1 regardless)
+- ❌ Whether Sendblue's single retry on 503 can double-send (`sendblue.ts:309`)
 
 ---
 
-## 7. App Store Connect Listing
+## 3. Before a public launch (beyond the free test)
+
+The full plan is in `docs/plans/2026-10-09-aria-v2-production-plan.md`.
 
 | Step | Status | Notes |
 |------|--------|-------|
-| Create app in App Store Connect | ❌ | Sets `ascAppId` |
-| Write app description and keywords | ❌ | Phase 12 |
-| Create screenshots for 6.7" iPhone (iPhone Pro Max) | ❌ | Required by App Store |
-| Create screenshots for 6.1" iPhone | ❌ | Required by App Store |
-| Set age rating | ❌ | |
-| Link Privacy Policy URL | ❌ | |
-| Submit for App Store review | ❌ | Status: "Waiting for Review" confirms submission |
+| Google brand verification + restricted-scope verification | 🔧 | `gmail.readonly` is **restricted**, not sensitive, so it needs a CASA security assessment. `gmail.send` is sensitive. The unverified In-production app is capped at 100 users lifetime. Needs a real domain, homepage, full privacy policy, Search Console domain verification and a demo video. Brand review takes 2–3 business days and scope review takes weeks. |
+| Full Privacy Policy + Terms of Service | 🔧 | `/privacy` and `/terms` are minimal pages for the free test (D5). |
+| TCPA-grade consent capture, age gate (13+) | 🔧 | Skipped for the private test. |
+| Backups / PITR | 🔧 | Supabase Free has no backups. Nightly `pg_dump` to Daniel's storage, or upgrade. |
+| Paid tiers (Vercel Pro, Supabase Pro, Sendblue AI Agent line) | 🔧 | Hobby is non-commercial. The sandbox is ≤10 contacts on a shared number. |
+| Anthropic zero-data-retention review | 🔧 | Aria reads friends' email. |
 
 ---
 
-## 8. Google Cloud — Gmail Pub/Sub Watch
-
-**Why deferred:** Gmail watch notifications require a Pub/Sub topic and a publicly accessible push endpoint. This only works once the Next.js backend is deployed to Vercel.
+## 4. Decommission V1 accounts (spec §2)
 
 | Step | Status | Notes |
 |------|--------|-------|
-| Create Google Cloud Pub/Sub topic for Gmail watch | ❌ | Set as `GMAIL_PUBSUB_TOPIC` env var |
-| Configure push subscription to Vercel webhook endpoint | ❌ | Endpoint: `https://<vercel-domain>/api/sync/gmail/webhook` |
-| Confirm Gmail watch notifications arrive at Vercel webhook | ❌ | |
-| GCal push notification channel renewal (Beat task `renew-watch-channels`) | 🔧 | Implemented — confirm it runs in Railway logs |
+| Rotate keys on the old Supabase project `jjnedeyfpgogaizsucxp`. Remove its test OTP `123456`. Delete the project once it's confirmed empty of real users. | 🔧 | V1 never launched, so nothing gets migrated |
+| Railway project (former teammate's account) shut down | 🔧 | Rotate every secret it could hold |
+| Twilio: rotate the auth token, then wind down | 🔧 | V2 doesn't use Twilio |
+| Old Google Cloud OAuth client: reset its secret or delete it | 🔧 | V2 uses the new `aria-v2` project |
+| Old Anthropic keys revoked | 🔧 | |
+| GitHub: remove former teammates' write access and deploy keys | 🔧 | |
+| Apple/EAS/Expo: optionally revoke certs | 🔧 | No app in V2 |
 
 ---
 
-## Launch Order
+## 5. Superseded V1 items (kept for history)
 
-These must be completed in dependency order:
+The V1 checklist covered Twilio toll-free verification, the Apple Developer Program, EAS/TestFlight builds, the App Store Connect listing, the Railway Celery worker + Beat + Redis, the Fernet `ENCRYPTION_KEY`, and the `EXPO_PUBLIC_API_URL` switch. V2 has no app, no Twilio and no Celery, so every one of these is ⛔. The V1 runbook is in git history before the Wave 5 cleanup and in `docs/history/`.
+
+---
+
+## Launch order (free test)
 
 ```
-1. Privacy Policy + ToS (blocks Google verification AND App Store)
-2. Vercel deploy (blocks Twilio webhook + Google redirect URI update)
-3. Railway deploy (blocks Celery jobs + welcome SMS)
-4. Remove Supabase test OTPs
-5. Update EXPO_PUBLIC_API_URL → Vercel URL, rebuild app
-6. Google OAuth verification submitted (long lead time — start early)
-7. Twilio toll-free verification approved (in progress)
-8. Apple Developer credentials → EAS build → TestFlight
-9. App Store Connect listing + screenshots
-10. Submit to App Store
+0. Before any deploy: fix the Wave 5 review findings (§1 #19, triage #20)
+1. Supabase prod project ready (done) → Upstash → Cloud Run parser + $5 budget + parser key
+2. Vercel deploy (gives APP_BASE_URL) → set every env var → redeploy
+3. Vault + tick (configure-jobs-tick.sql) → verify crons + keepalive secrets
+4. Google Cloud project (authorized-domain check first; buy a domain if rejected)
+5. Sendblue sandbox webhook → first PDF → SYLLABUS_MEDIA_ALLOWED_HOSTS
+6. Work through §2, then invite friends (≤10 contacts)
 ```
 
----
+## Quick reference: what works locally but needs real setup in production
 
-## Quick Reference — What Works Locally But Breaks in Production
-
-| Thing | Local workaround | Production fix needed |
-|-------|-----------------|----------------------|
-| Google OAuth | Test users manually added | App verification |
-| Redis | `docker-compose up redis` | Railway Redis service |
-| Next.js API | `npm run dev` on localhost | Vercel deployment |
-| Celery workers | Not running (SMS features limited) | Railway Celery services |
-| Twilio inbound SMS | Not reachable (no public URL) | Vercel URL set as Twilio webhook |
-| Gmail Pub/Sub watch | Not wired up | Pub/Sub push to Vercel URL |
-| Mobile API URL | `localhost:3000` | `EXPO_PUBLIC_API_URL` → Vercel URL |
-| Supabase test OTP | `123456` hardcoded for any test number | Remove test users before launch |
+| Thing | Local | Production |
+|-------|-------|------------|
+| Channel | `dev` provider (`npm run dev:chat`) | Sendblue webhook + `CHANNEL_PROVIDER=sendblue` |
+| Jobs tick | `npm run dev:tick` | pg_cron 15s tick via Vault + Vercel daily crons |
+| Lease / rate limits | DB lease; rate limits skipped | Upstash (fails closed if missing) |
+| Parser | `docker compose up parser` with `PARSER_FAKE_LLM=1` | Cloud Run + separate Anthropic key |
+| Gmail | Polling (no Pub/Sub topic) | Pub/Sub push to `/api/google/gmail-push` |
+| Google OAuth | `http://localhost:3000/api/google/callback` | Deployed redirect URI on the `aria-v2` client |
+| Chat PDFs | http/loopback media allowed | `SYLLABUS_MEDIA_ALLOWED_HOSTS` allow-list |

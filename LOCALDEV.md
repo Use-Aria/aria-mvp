@@ -1,235 +1,140 @@
-# Aria — Local Development Guide
+# Aria — Local Development
 
-> How to run the full stack locally and test the iOS app in the simulator.
-> For first-time machine setup, see `SETUP.md`. For production deployment, see `DEPLOYMENT.md`.
+> How to run Aria V2 on your machine: the local Supabase stack, the Next dev server, the jobs tick, the syllabus parser and the dev chat channel. No Sendblue, Google, Upstash or Vercel account is needed for any of it.
+> Deploying: `DEPLOYMENT.md`. Architecture and rules: `CLAUDE.md`.
 
 ---
 
 ## Prerequisites
 
-| Tool | Version | Install |
-|------|---------|---------|
-| Node.js | 18+ | `brew install node` |
-| Docker Desktop | latest | [docker.com/products/docker-desktop](https://docker.com/products/docker-desktop) |
-| Xcode | 14+ | Mac App Store (required for iOS Simulator) |
-| Expo CLI | latest | `npm install -g expo-cli` |
+| Tool | Version | Notes |
+|---|---|---|
+| Node.js | 24 (22 works, with an engines warning) | `brew install node@24` |
+| Docker Desktop | recent | Runs the local Supabase stack and the parser container |
+| Supabase CLI | recent | `brew install supabase/tap/supabase` |
+| Python | 3.13 | Only for running the parser tests outside Docker |
 
-Confirm before starting:
 ```bash
-node --version       # v18+
-docker --version     # any recent version
+npm install
 ```
 
 ---
 
-## Environment Variables
-
-### 1. Root — `.env.local` (Next.js API)
-
-Create at `aria-mvp/.env.local`. **Never commit this file.**
+## 1. Environment
 
 ```bash
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://jjnedeyfpgogaizsucxp.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<get from Supabase dashboard → Settings → API>
-SUPABASE_SERVICE_ROLE_KEY=<get from Supabase dashboard → Settings → API>
-
-# Google OAuth
-GOOGLE_CLIENT_ID=<get from Google Cloud Console → Credentials>
-GOOGLE_CLIENT_SECRET=<get from Google Cloud Console → Credentials>
-GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
-
-# Twilio
-TWILIO_ACCOUNT_SID=<from twilio.com/console>
-TWILIO_AUTH_TOKEN=<from twilio.com/console>
-TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
-
-# Anthropic
-ANTHROPIC_API_KEY=<from console.anthropic.com>
-
-# Redis (matches docker-compose default — no change needed for local)
-REDIS_URL=redis://localhost:6379/0
+cp .env.example .env.local     # never commit .env.local
 ```
 
-### 2. Mobile — `mobile/.env`
+Every variable is listed in `.env.example`, and master plan §4 explains them. For local work you need:
 
-```bash
-EXPO_PUBLIC_DEMO_MODE=false          # keep false — true injects fake session and skips all auth
-EXPO_PUBLIC_API_URL=http://localhost:3000
-EXPO_PUBLIC_SUPABASE_URL=https://jjnedeyfpgogaizsucxp.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=<same anon key as above>
-```
+| Var | Local value |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | The hosted project's keys. For the local stack, override them per shell (step 2). |
+| `APP_ENCRYPTION_KEY`, `SESSION_SECRET`, `JOBS_DISPATCH_SECRET` | Generate each with `openssl rand -base64 32`. `APP_ENCRYPTION_KEY` must decode to exactly 32 bytes. |
+| `ANTHROPIC_API_KEY` | Needed only for the real agent (`ARIA_AGENT=real`), evals and the grammar smoke |
+| `ARIA_AGENT` | Unset or `stub` gives a canned agent and no LLM spend. `real` gives Haiku 5.5. |
+| `CHANNEL_PROVIDER` | `dev` |
+| `DEV_CHANNEL_SECRET` | Any random string. Needed for `/api/channels/dev` and HTTP-mode dev chat. |
+| `PARSER_SERVICE_URL`, `PARSER_SHARED_SECRET` | `http://localhost:8000`, and the same secret as `services/parser/.env.local` |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Leave empty. Dev falls back to the DB lease (`user_runtime`) and skips the Upstash rate limits (`rateLimit` allows everything outside production). |
+| `APP_BASE_URL` | Optional. It defaults to `http://localhost:3000` outside production. |
 
-> `EXPO_PUBLIC_DEMO_MODE=true` bypasses auth entirely and loads fake data — only use for pure UI work.
+Google, Sendblue and Pub/Sub vars stay empty locally. Google features show as "not connected", and Gmail falls back to polling.
 
 ---
 
-## Starting the Stack
-
-Open **3 terminals**, run one command in each. Order matters.
-
-### Terminal 1 — Redis (Docker)
+## 2. Local Supabase stack
 
 ```bash
-open -a Docker          # wait for Docker Desktop to fully start (~30s)
-cd /path/to/aria-mvp
-docker-compose up -d redis
+supabase start                 # Docker; applies supabase/migrations/001–003 on first start
+supabase status                # API http://127.0.0.1:54321, DB postgresql://postgres:postgres@127.0.0.1:54322/postgres
 ```
 
-`docker-compose` reads worker env vars from root `.env.local`, so you should not see missing Supabase warnings if that file is populated.
-
-Confirm it's running:
-```bash
-docker ps               # should show aria-mvp-redis-1 as healthy
-```
-
-> Redis is required for the Google OAuth callback and the onboarding complete route.
-> Without it, Google connect will still work (dev fallback path), but welcome SMS won't enqueue.
-
-### Terminal 2 — Next.js API
+Point a shell at the local stack. Exported variables win over `.env.local`:
 
 ```bash
-cd /path/to/aria-mvp
-npm install             # only needed first time or after pulling new deps
-npm run dev             # starts on http://localhost:3000
+eval "$(supabase status -o env | sed -n \
+  -e 's/^API_URL=/export NEXT_PUBLIC_SUPABASE_URL=/p' \
+  -e 's/^ANON_KEY=/export NEXT_PUBLIC_SUPABASE_ANON_KEY=/p' \
+  -e 's/^SERVICE_ROLE_KEY=/export SUPABASE_SERVICE_ROLE_KEY=/p')"
+export CHANNEL_PROVIDER=dev UPSTASH_REDIS_REST_URL= UPSTASH_REDIS_REST_TOKEN=
 ```
 
-Leave this running. The mobile app calls all API routes here (`/api/onboarding/profile`, `/api/auth/google`, etc.).
+Prefer the local stack for anything that writes rows. Until the separate `aria-dev` project exists (D11), `.env.local` and production share one hosted project.
 
-### Terminal 3 — Expo Metro (iOS Simulator)
-
-```bash
-open -a Simulator       # boot the iOS Simulator first — wait for it to fully load
-cd /path/to/aria-mvp/mobile
-npm install             # only needed first time
-npx expo start --clear  # --clear wipes Metro cache
-```
-
-Then press **`i`** to open in the iOS Simulator.
+The pg_cron tick (`aria-jobs-tick`) runs locally too, but it does nothing until Vault holds the dispatch secrets. Use `npm run dev:tick` instead (step 3).
 
 ---
 
-## Running on a Physical iPhone
+## 3. Run the app
 
-Expo Go can't load the app (voice input uses the native `expo-speech-recognition` module), so use a **development build** from EAS. The phone talks to your Mac's API through a Cloudflare quick tunnel (ngrok free tier hit its bandwidth cap).
-
-**One-time setup**
-
-1. `brew install cloudflared`
-2. `npx eas-cli login` — Expo account with access to the `aria-mvp` project
-3. iPhone: Settings → Privacy & Security → **Developer Mode** → On (restart)
-4. `cd mobile && npx eas-cli device:create` — scan the QR on the iPhone to register it
-5. `cd mobile && npx eas-cli build --profile development --platform ios` — sign in with an Apple ID on team `B4V6MXCJ5B` when prompted. ~15–20 min. Install from the link/QR when done.
-
-Rebuild only when native dependencies or `app.json` change. JS changes load live from Metro.
-
-**Each session** (3 terminals, repo root)
+Use three terminals, all from the repo root and all with the step-2 exports when you target the local stack:
 
 ```bash
-npm run dev                                # 1. API on :3000
-./scripts/phone-dev.sh                     # 2. tunnel + rewrites GOOGLE_REDIRECT_URI and EXPO_PUBLIC_API_URL
-cd mobile && npx expo start --dev-client   # 3. Metro — open the Aria dev app on the phone
+npm run dev                    # 1. Next dev server, http://localhost:3000
+npm run dev:tick               # 2. POSTs /api/jobs/dispatch every 2s (reads JOBS_DISPATCH_SECRET from .env.local)
+npm run dev:chat -- --local    # 3. chat REPL as a fictional 555-01xx handle
 ```
 
-- Tunnel URL changes every run → add the printed redirect URI in Google Cloud Console (Credentials → OAuth client → Authorized redirect URIs) before testing Google Connect.
-- Phone must be on the same Wi-Fi as the Mac for Metro. On campus Wi-Fi that blocks device-to-device traffic, use `npx expo start --dev-client --tunnel`.
+- `dev:tick` makes the dev server claim **every** due job in the target database, using whatever agent `ARIA_AGENT` selects.
+- `dev:chat` runs in-process by default and doesn't need the dev server for a single turn. Keep `dev:tick` running anyway so that reminders, retries and follow-up jobs fire.
+- `dev:chat` REPL commands: `/burst a | b | c` sends three messages that become one debounced turn. `/react 1 love` sends a tapback. `/proactive test` delivers a test proactive item. `/reset` deletes the dev user and every row that cascades from it. `/quit` exits.
+- HTTP mode (`npm run dev:chat -- --local --http`) goes through `/api/channels/dev` on the dev server and needs `DEV_CHANNEL_SECRET`.
+- Web pages open through magic links that Aria texts. In the REPL, ask for "settings" or "my week" and open the printed link.
 
 ---
 
-## Running Migrations
-
-Any time you pull and there are new `.sql` files in `supabase/migrations/`:
+## 4. Syllabus parser
 
 ```bash
-npx supabase db push
+cp services/parser/.env.example services/parser/.env.local
+# set PARSER_SHARED_SECRET (same value as the app's) and PARSER_FAKE_LLM=1 for a canned extraction (no Anthropic spend)
+docker compose up --build parser          # http://localhost:8000/healthz
 ```
 
-If not linked yet:
+`docker-compose.yml` defines only this service. The container never sees the app's `.env.local`.
+
+Parser tests (offline):
+
 ```bash
-export SUPABASE_ACCESS_TOKEN=<token from supabase.com/dashboard/account/tokens>
-npx supabase link --project-ref jjnedeyfpgogaizsucxp
-npx supabase db push
+cd services/parser && python3.13 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt   # once
+(cd services/parser && .venv/bin/pytest -q)
 ```
 
 ---
 
-## Resetting for Onboarding Testing
+## 5. Tests
 
-Use this procedure any time you want to run through the full onboarding flow from scratch. All three steps are required for a complete reset.
+| What | Command | Needs |
+|---|---|---|
+| Typecheck | `npx tsc --noEmit` | — |
+| Lint | `npm run lint` | — |
+| Unit | `npm test` | — |
+| DB smoke | `env -u ANTHROPIC_API_KEY npm run smoke` (one file: `npm run smoke -- tests/smoke/jobs.smoke.test.ts`) | Local stack (found through `supabase status`). `SMOKE_TARGET=env` uses the exported Supabase vars instead. |
+| Strict-tool grammar | `SMOKE_LLM=1 npm run smoke -- tests/smoke/llm-grammar.smoke.test.ts` | `ANTHROPIC_API_KEY` exported. Costs about $0.005. Run it after any change to tool schemas, few-shots or the style guide. |
+| Agent evals | `npm run evals` | Real Supabase and Anthropic. Prints a cost report. |
+| Web e2e | `npm run e2e` | `npm run dev` |
+| Chat e2e | `npm run e2e:chat` | `npm run dev`, `npm run dev:tick`, the parser (`PARSER_FAKE_LLM=1`), `ARIA_AGENT=real` and a key |
+| Parser | `(cd services/parser && .venv/bin/pytest -q)` | The venv from step 4 |
 
-**Step 1 — Wipe the simulator session**
-```
-iOS Simulator menu → Device → Erase All Content and Settings
-```
-Then press `i` in Metro to reinstall the app. This clears the Supabase session from SecureStore so the app launches with no active session.
-
-**Step 2 — Delete the user from Supabase** (Supabase SQL Editor at supabase.com → SQL Editor)
-
-```sql
-delete from public.users
-where phone = '1XXXXXXXXXX';  -- exact value as stored in public.users (e.g. '17034705155')
-
-delete from auth.users
-where phone = '1XXXXXXXXXX';
-```
-
-Both deletes are required. Deleting from `public.users` cascades and removes all child rows for that user: integrations (including stored Google OAuth tokens), deadlines, messages, calendar events, tasks, syllabi, gmail flags, conflict alerts, and spotify sessions. Deleting from `auth.users` removes the Supabase phone-auth account so the phone number is treated as brand new on next sign-up.
-
-If you want to verify before deleting:
-```sql
-select id, phone from public.users where phone = '1XXXXXXXXXX';
-select id, phone from auth.users where phone = '1XXXXXXXXXX';
-```
-
-**Step 3 — Revoke Aria's Google OAuth access**
-
-If you connected a Google account during onboarding, that account still has Aria listed as an authorized app on Google's side even after the Supabase rows are deleted. To test the full Google OAuth consent screen again:
-
-1. Go to [myaccount.google.com/permissions](https://myaccount.google.com/permissions)
-2. Find **Aria** (or the OAuth app name you set in Google Cloud Console) in the list
-3. Click it → **Remove Access**
-
-After revoking, the next time you tap "Connect Google" in the tools screen, Google will show the full consent screen and permission grant — exactly what a new user sees.
-
-> Skipping Step 3 is fine if you only want to test the onboarding flow mechanics. The OAuth callback will still work (Google re-issues tokens to a recognized app). Only revoke if you need to test the first-time consent UX.
+Smoke, evals and e2e create throwaway rows and delete them afterwards. `llm_calls` rows survive user deletion with `user_id` nulled, so any cleanup must delete them explicitly.
 
 ---
 
-## Google OAuth — Adding Test Users
+## 6. Running a TS script outside Next
 
-The app is unverified with Google. Anyone trying to connect Google will see "Access blocked" unless their email is added as a test user.
+`import "server-only"` throws outside the Next runtime, so run scripts with the react-server condition:
 
-1. Go to [console.cloud.google.com](https://console.cloud.google.com) → select the Aria project
-2. APIs & Services → OAuth consent screen
-3. Scroll to **Test users** → **+ Add Users**
-4. Add the tester's Google email
-5. Save — they can now click through the "Google hasn't verified this app" warning
+```bash
+npx tsx --conditions=react-server --env-file=.env.local scripts/check-llm-cache.ts
+```
 
 ---
 
-## Useful Commands
+## 7. Migrations
 
-| Task | Command |
-|------|---------|
-| Run JS tests | `cd mobile && npx jest __tests__/onboarding.test.tsx --verbose` |
-| Lint | `npm run lint` |
-| Push migrations | `npx supabase db push` |
-| Check Redis | `docker ps` |
-| Stop Redis | `docker-compose down` |
-| Clear Metro cache | `npx expo start --clear` |
-| Hard reset simulator | Device → Erase All Content and Settings |
-
----
-
-## Key Gotchas
-
-| Gotcha | Rule |
-|--------|------|
-| Spinner on app launch | Stale SecureStore session — erase simulator and reinstall |
-| `Network request failed` | Missing `react-native-url-polyfill/auto` as first import in `_layout.tsx` — already fixed, don't remove it |
-| Google connect "Couldn't confirm" | Check Next.js terminal for errors. Redis must be running. In dev, tokens write directly to Supabase (no Celery needed). |
-| `EXPO_PUBLIC_DEMO_MODE=true` | Bypasses all auth and loads fake data — always keep `false` for real testing |
-| Back buttons in onboarding | Use `router.replace()` not `router.back()` — the stack is cleared via replace, `GO_BACK` will throw |
-| Mobile API auth | All Next.js API routes read JWT from `Authorization: Bearer` header — NOT cookies |
-| `onboarding_completed_at` routing | `_layout.tsx` re-fetches this on session + segment change. If routing loops, check that the complete route returned `{ ok: true }` in Next.js logs |
-| Canvas iCal URL | Get from Canvas → Calendar → Calendar Feed link at the bottom of the right sidebar |
+Migrations live in `supabase/migrations/`.
+- **Local stack:** `supabase start` applies them on first start.
+- **Hosted project:** `supabase db push` applies them to the linked project, and only with Daniel's go-ahead.
+- **Types:** regenerate after a schema change with `supabase gen types typescript --linked --schema public > src/server/db/types.ts`.

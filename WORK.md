@@ -3,7 +3,7 @@
 > **This file is the traffic light for the repo.**
 > Read it before touching any code. Update it when you start and when you finish (say "wrap up"; see `CLAUDE.md` → Session Protocol).
 > Keep it short: live state + the 3 latest handoff notes. History lives in `docs/history/`.
-> Both developers (Josh + Seb) run separate Claude Code sessions — this file prevents collisions.
+> Single engineer (Daniel) since 2026-10; multi-agent builds assign file owners per wave (master plan §5).
 
 ---
 
@@ -13,7 +13,7 @@
 
 | Developer | Task | Branch | Claimed At |
 | --------- | ---- | ------ | ---------- |
-| Daniel    | V2 free-test build — master plan Waves 0–4 done; **resume at Wave 5** | main | 2026-10-09 |
+| Daniel    | V2 free-test build — Waves 0–5 built; **next: Wave 5 review fixes + second gate** | main | 2026-10-09 |
 
 ---
 
@@ -32,7 +32,8 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 - [x] **V2-W2** ✅ Wave 2 — delivery + ingest + webhooks, memory/context/persona, timeline, Google core (OAuth/tokens), Gmail base, reminders + schedule core
 - [x] **V2-W3** ✅ 2026-10-10 Wave 3 — turn orchestration + dev loop (3.1), agent loop (3.2), V2-04 tools + pending actions + memory jobs (3.3), Canvas sync/connect (3.4), syllabus TS (3.5), Google OAuth routes + calendar read (3.6); gate fixes: `propose_preference` non-strict (grammar 400), name few-shots, `toView` syllabus weight
 - [x] **V2-W4** ✅ 2026-10-10 Wave 4 — briefing + change alerts (4.1), scheduling + Aria calendar (4.2), Gmail intelligence + email tools (4.3), web setup/week (4.4), web integrations + email draft (4.5), web settings/export/delete (4.6); gate fixes: deterministic timeline tie-break, gmail smoke key, keepalive anon key, `sendRaw` eslint rule
-- [ ] **V2-W5** Wave 5 — evals (5.1), salvage cleanup + V2 docs rewrite (5.2), end-to-end dev-channel conversation test (5.3), Playwright QA (5.4), code review (5.5)
+- [x] **V2-W5** ✅ 2026-10-10 Wave 5 — evals (5.1), V1 removal + V2 docs (5.2), dev-channel e2e + fixes (5.3), Playwright QA (5.4), fix agents 5.F1/5.F2, code review (5.5)
+- [ ] **V2-W5R** Fix the 5.5 review findings (#1–#4 send safety first) + the `pages.spec` h1 race, then the second gate — see orchestrator notes → Wave 5
 - [ ] **V2-CREDS** Daniel creates: Sendblue sandbox, Google Cloud project (OAuth client + Pub/Sub), Upstash Redis, Cloud Run (billing), Vercel project — see master plan §7
 
 > **The V1 backlog below (Onboarding / AUD / PH) is SUPERSEDED by V2** — V2 drops the app, Twilio, and Celery and rewrites the identity/schema, so most of it no longer applies. Kept for reference only.
@@ -113,6 +114,54 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 
 ## 📋 Handoff Notes
 
+### 2026-10-10 — Daniel (V2 build: Wave 5, orchestrated by sub-agents)
+
+**Where to resume:** triage and fix the **Wave 5 code-review findings** (5.5), then run the second gate. The 13 findings, with file:line, scenario and suggested fix, are in `docs/plans/2026-10-10-v2-orchestrator-notes.md` → **Wave 5 hand-off notes**. #1–#4 are send safety: fix them before any friend connects Gmail. After that: credentials + deploy (master plan §7, `PRODUCTION.md` launch order).
+
+**Done this session:**
+- **Sub-agents built Wave 5:**
+  - evals v0 (`npm run evals`; 5.1)
+  - V1 removal + V2 docs rewrite (5.2; Daniel deleted `mobile/` + `celery_worker/`)
+  - the 12-step dev-channel conversation test `npm run e2e:chat`, plus follow-up fixes (5.3)
+  - Playwright e2e, screenshots and the a11y checklist (5.4)
+  - two fix agents: the claim check + preference supersede (5.F1); the email failure reason + Canvas pre-check codes (5.F2)
+  - the read-only code review (5.5)
+- **Fixes that landed:**
+  - `agent_runs.cost_usd` now includes tool-internal LLM calls.
+  - One interim per run.
+  - **Action lock:** after reading email or syllabus text, only `draft_email` may mutate.
+  - **Claim check:** Aria is re-prompted once if it says "done" without calling a tool.
+  - A changed preference replaces the old one.
+  - Chat effort `medium`.
+  - 11 presentation and a11y fixes.
+  - A failed send keeps its reason.
+- **Gate (first pass):**
+  - build, tsc and lint green; unit 2105/2105; smoke 189/190 (1 opt-in skipped); grammar smoke; parser 187/187
+  - evals 35/35 ($0.096; turn p50 4.1s / p95 8.3s)
+  - e2e:chat 12/12
+  - Playwright: iphone-15 + desktop 116/116; iphone-se + pro-max 3 left after a rerun (a test race in the `pages.spec` a11y sweep: it audits before the streamed h1 arrives; one-line wait to add)
+  - screenshots 19/19 (228 PNGs, no horizontal scroll)
+  - `_stub` / `notImplemented(` greps 0
+- **Spend this wave:** about $1.0 in real LLM calls, all on the local stack.
+
+**Decisions (Daniel, 2026-10-10):**
+- Chat effort `medium`.
+- Calendar/timeline titles don't lock actions.
+- Delete the V1 dirs (done).
+- "…and book it" still asks first.
+- Review fixes deferred to the next session.
+
+**Open / needs Daniel:**
+- Triage the 5.5 findings: #7 (signup name pre-fill) and #11 (phone last-4 vs hash in logs) need a product call.
+- Credentials (Sendblue, Google, Upstash, Cloud Run, Vercel), plus GitHub keepalive secrets and a contact email for `/privacy`.
+- Commit approval for Wave 5.
+
+**Know before you start:**
+- Stop `npm run dev:tick` before the full smoke, or the dev server claims the smoke jobs.
+- Playwright runs with 1 worker against `next dev`. `npm run e2e` runs only the four device projects; never bare `playwright test`, because `assets` rewrites `public/` icons.
+- Don't run e2e:chat, Playwright, evals and unit tests at the same time. Under load, turns take 100s+ and Jest hooks time out.
+- The local wiring for e2e:chat: the dev server on the local stack with `CHANNEL_PROVIDER=dev`, `ARIA_AGENT=real`, `DEV_CHANNEL_SECRET`, `PARSER_SERVICE_URL=http://localhost:8000` + a shared `PARSER_SHARED_SECRET` (also in `services/parser/.env.local`, with `PARSER_FAKE_LLM=1`). See LOCALDEV.md.
+
 ### 2026-10-10 — Daniel (V2 build: Wave 4, orchestrated by sub-agents)
 
 **Where to resume:** master plan §5 **Wave 5** (5.1–5.4 in parallel, then 5.5 code review). Read `docs/plans/2026-10-10-v2-orchestrator-notes.md` → **Wave 4 hand-off notes** first. They list the exports, the deviations, and four follow-ups (cost accounting, "book it" UX, double interim, a timeline barrel helper).
@@ -186,36 +235,12 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 - `recoverStuckActions` needs a timer; 4.1's reconcile should call it.
 - Google connect needs Safari ≥ 16.4: a missing `Sec-Fetch-Site` header gets a 403.
 
-### 2026-10-10 — Daniel (V2 build: plan + Waves 0–2, orchestrated by sub-agents)
-
-**Where to resume:** `docs/plans/2026-10-10-v2-master-plan.md` §5 **Wave 3** (tasks 3.1–3.6). Read the master plan (it overrides the branch plans), then `docs/plans/2026-10-10-v2-orchestrator-notes.md` (binding hand-off notes per wave), then the cited branch-plan sections. Every task is one sub-agent with exclusive file ownership; the orchestrator runs the wave gate (build, tsc, lint, `npm test`, `npm run smoke`, parser pytest) and checks `grep -rln '@/server/_stub' src | wc -l` (54 now; 0 required after Wave 4).
-
-**Done this session:**
-- V2-01 applied (001+002+003 live on `onrurwsourjlgfmitezh`); V1 TS code removed; Next 15.5 → **16.4.0**, React 19.2.8, Jest 30.
-- Deep analysis: 7 branch plans (V2-03…08 + web) → reconciled master plan (final contracts, 45-item conflict log, waves, decisions D1–D12, runbooks) + consolidated migration `003_v2_build.sql` (validated on a local Supabase stack first).
-- Waves 0–2 implemented by sub-agents: ~1,417 unit tests, 85 smoke tests (local Supabase), 187 parser pytest — all green; build/tsc/lint green.
-- Python parser service (`services/parser/`, FastAPI, Docker, HMAC auth) passed a live Sonnet 5.5 parse (~$0.03). docker-compose now has only `parser`.
-
-**Decisions taken with defaults (Daniel can override — master plan §6):** D1 debounce in the Postgres jobs row (deviation from "Redis for debounce"; Upstash keeps the run lease + rate limits) · D2 new V2 "a" icon · D3 Cloud Run for the parser (needs billing) · D4 try vercel.app before buying a domain · D5 minimal /privacy + /terms · D6 separate parser API key · D7 Sonnet for syllabi · D8 urgent alerts don't break quiet hours · D9 988 crisis rule · D10 reconstructed few-shots (paste the original example conversations if you have them) · D11 shared Supabase for dev+prod for now · D12 Sendblue settings.
-
-**Open / needs Daniel:** commit approval (nothing committed — migrations changed); credentials (Sendblue, Google, Upstash, Cloud Run, Vercel); a contact email for `/privacy`.
-
-**Know before you start:**
-- A local Supabase stack runs in Docker (`supabase start`; API :54321, DB :54322) — smoke tests use it. Docker Desktop must be running.
-- Run TS scripts with `npx tsx --conditions=react-server --env-file=.env.local …` (`server-only` throws outside Next). Jest does NOT load `.env.local`.
-- Sendblue/Google facts still marked [verify] are listed in master plan §7.3 + orchestrator notes; tapback parsing is off until the sandbox confirms the shape.
-
 ---
 
 _Older notes: `docs/history/handoffs.md`._
 
 ---
 
-## ⚠️ Collision Rules
+## ⚠️ Collision Rules (historical)
 
-1. **Never start a task that's already claimed** in the "Currently In Progress" table
-2. **Always `git pull origin main` before claiming** — another dev may have finished and pushed
-3. **One task at a time per developer** — finish and push before claiming a second
-4. **Seb: do not touch `src/lib/`, `src/app/api/`, `celery_worker/`, or `supabase/`** — Josh owns these
-5. **Josh: do not touch `mobile/src/app/(pages)/` or `mobile/src/components/`** — Seb owns these
-6. **Both: never modify `src/types/index.ts` without telling the other person first**
+V1 had two developers (Josh on backend, Seb on frontend), and these rules kept their Claude sessions from colliding: claim before starting, one task per developer, and per-person ownership areas (`src/lib/`, `src/app/api/`, `celery_worker/` and `supabase/` vs. the mobile pages and components, with `src/types/index.ts` shared). V2 has a single engineer (Daniel), so there are no ownership areas or collision rules. During multi-agent builds the orchestrator assigns one owner per file for each wave (see `CLAUDE.md` and master plan §5).

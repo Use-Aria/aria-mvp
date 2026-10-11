@@ -4,7 +4,7 @@
 
 ## Aria V2 — free private test (🔄 In Progress)
 
-> Build status per `docs/plans/2026-10-10-v2-master-plan.md`. Waves 0–4 done 2026-10-10; Wave 5 next.
+> Build status per `docs/plans/2026-10-10-v2-master-plan.md`. Waves 0–5 built 2026-10-10. Next: fix the Wave 5 code-review findings, then the second gate, then credentials + deploy.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -30,8 +30,13 @@
 | Daily briefing + Canvas change alerts + nightly reconcile | ✅ Done | Real Haiku briefing verified live; `digest` link; urgent alerts respect quiet hours (D8) |
 | Free-slot finding + Aria calendar blocks (find/create/move/delete) | ✅ Done | Fake Google only until creds; writes only to the "Aria" calendar |
 | Gmail classify/alerts/triage digest + email search/read/draft | ✅ Done | Send only via a confirmed pending action (web or chat, never same run); fake Gmail until creds |
-| Web: /setup (schedule, tone, Canvas, Google), /week, /email/[id], /settings, export, delete | ✅ Done | Not yet clicked through in a browser (Wave 5.4) |
-| Evals, cleanup, E2E, QA, code review | ⬜ Not Started | Wave 5 |
+| Web: /setup (schedule, tone, Canvas, Google), /week, /email/[id], /settings, export, delete | ✅ Done | Clicked through by Playwright (Wave 5.4); a11y fixes (tap targets, contrast, skip link) |
+| Evals v0 (`npm run evals`: injection, behaviour, core) | ✅ Done | 35/35 on the local stack, ~$0.10/run; `evals/BASELINE.md` |
+| V1 removal (mobile/, celery_worker/, Procfile, stubs) + V2 docs | ✅ Done | CLAUDE.md, README, DEPLOYMENT, PRODUCTION, LOCALDEV rewritten |
+| End-to-end dev-channel conversation (`npm run e2e:chat`) | ✅ Done | 12 scripted steps, real Haiku; fixes: run cost includes tool LLM calls, one interim per run, action lock after untrusted reads, chat effort `medium` |
+| Agent reliability: claim check + preference supersede | ✅ Done | Re-prompts once when Aria claims an action it didn't take; a changed rule replaces the old one |
+| Web Playwright e2e + screenshots + a11y checklist | ✅ Done | 4 device projects, 228 screenshots, `tests/e2e/A11Y.md`; runs with 1 worker under `next dev` |
+| Code review (Wave 5.5) | 🔄 In Progress | 13 findings to fix. 4 are send safety (HTTP retry on send, replay after side effects, confirm ordering, confirm timeout); see the orchestrator notes |
 
 ---
 

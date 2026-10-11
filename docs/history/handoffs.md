@@ -2,6 +2,25 @@
 
 > Older handoff notes rotated out of `WORK.md`. Newest first. Claude prepends here during "wrap up".
 
+### 2026-10-10 — Daniel (V2 build: plan + Waves 0–2, orchestrated by sub-agents)
+
+**Where to resume:** `docs/plans/2026-10-10-v2-master-plan.md` §5 **Wave 3** (tasks 3.1–3.6). Read the master plan (it overrides the branch plans), then `docs/plans/2026-10-10-v2-orchestrator-notes.md` (binding hand-off notes per wave), then the cited branch-plan sections. Every task is one sub-agent with exclusive file ownership; the orchestrator runs the wave gate (build, tsc, lint, `npm test`, `npm run smoke`, parser pytest) and checks `grep -rln '@/server/_stub' src | wc -l` (54 now; 0 required after Wave 4).
+
+**Done this session:**
+- V2-01 applied (001+002+003 live on `onrurwsourjlgfmitezh`); V1 TS code removed; Next 15.5 → **16.4.0**, React 19.2.8, Jest 30.
+- Deep analysis: 7 branch plans (V2-03…08 + web) → reconciled master plan (final contracts, 45-item conflict log, waves, decisions D1–D12, runbooks) + consolidated migration `003_v2_build.sql` (validated on a local Supabase stack first).
+- Waves 0–2 implemented by sub-agents: ~1,417 unit tests, 85 smoke tests (local Supabase), 187 parser pytest — all green; build/tsc/lint green.
+- Python parser service (`services/parser/`, FastAPI, Docker, HMAC auth) passed a live Sonnet 5.5 parse (~$0.03). docker-compose now has only `parser`.
+
+**Decisions taken with defaults (Daniel can override — master plan §6):** D1 debounce in the Postgres jobs row (deviation from "Redis for debounce"; Upstash keeps the run lease + rate limits) · D2 new V2 "a" icon · D3 Cloud Run for the parser (needs billing) · D4 try vercel.app before buying a domain · D5 minimal /privacy + /terms · D6 separate parser API key · D7 Sonnet for syllabi · D8 urgent alerts don't break quiet hours · D9 988 crisis rule · D10 reconstructed few-shots (paste the original example conversations if you have them) · D11 shared Supabase for dev+prod for now · D12 Sendblue settings.
+
+**Open / needs Daniel:** commit approval (nothing committed — migrations changed); credentials (Sendblue, Google, Upstash, Cloud Run, Vercel); a contact email for `/privacy`.
+
+**Know before you start:**
+- A local Supabase stack runs in Docker (`supabase start`; API :54321, DB :54322) — smoke tests use it. Docker Desktop must be running.
+- Run TS scripts with `npx tsx --conditions=react-server --env-file=.env.local …` (`server-only` throws outside Next). Jest does NOT load `.env.local`.
+- Sendblue/Google facts still marked [verify] are listed in master plan §7.3 + orchestrator notes; tapback parsing is off until the sandbox confirms the shape.
+
 ### 2026-10-09 — Daniel (V2 pivot: spec + scaffold start)
 
 **Big shift:** Aria is pivoting to **V2** — iMessage-first (no app), magic-link web/PWA, a real tool-using agent with memory. Shipping first as a **free private test** (Daniel + ≤9 friends via the Sendblue sandbox; ~$0 infra; LLM covered by the Max plan's $100/mo API credits). Daniel is now the **sole engineer** — the Josh/Seb ownership + collision rules in this file are historical.
