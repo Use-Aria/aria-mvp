@@ -19,8 +19,6 @@
  */
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/server/db/types";
 
@@ -81,7 +79,6 @@ delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
 // Server modules read env lazily (db() on first call), so importing after the assignment is safe.
-import { NotImplementedError } from "@/server/_stub";
 import { AliasTable } from "@/server/agent/context/aliases";
 import {
   PendingActionError,
@@ -397,13 +394,8 @@ describe("6 + 7. chat account deletion (tools) and account_purge", () => {
     expect(must(await sb.from("users").select("id").eq("id", userB), "userB")).toHaveLength(1);
     await expect(accountPurge.run(jobCtx(null), { userId: randomUUID() })).resolves.toEqual({ type: "done" });
 
-    const deleteStub = /from\s+["']@\/server\/_stub["']/.test(fs.readFileSync(path.join(process.cwd(), "src/server/account/delete.ts"), "utf8"));
-    if (deleteStub) {
-      await expect(accountPurge.run(jobCtx(null), { userId: userDel })).rejects.toBeInstanceOf(NotImplementedError);
-    } else {
-      await expect(accountPurge.run(jobCtx(null), { userId: userDel })).resolves.toEqual({ type: "done" });
-      expect(must(await sb.from("users").select("id").eq("id", userDel), "gone")).toHaveLength(0);
-    }
+    await expect(accountPurge.run(jobCtx(null), { userId: userDel })).resolves.toEqual({ type: "done" });
+    expect(must(await sb.from("users").select("id").eq("id", userDel), "gone")).toHaveLength(0);
   });
 });
 

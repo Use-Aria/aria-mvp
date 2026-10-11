@@ -13,7 +13,7 @@ const config = {
     // ical.js's package entry is ESM; Jest runs CJS, so point it at the bundled CJS build.
     "^ical\\.js$": "<rootDir>/node_modules/ical.js/dist/ical.es5.cjs",
   },
-  modulePathIgnorePatterns: ["<rootDir>/mobile/", "<rootDir>/celery_worker/", "<rootDir>/services/"],
+  modulePathIgnorePatterns: ["<rootDir>/services/"],
 };
 
 const base = createJestConfig(config);

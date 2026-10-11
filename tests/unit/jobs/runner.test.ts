@@ -4,7 +4,6 @@
  * errors, invalid payloads, concurrency, single-job mode, budget, and storage failures.
  */
 import { z } from "zod";
-import { NotImplementedError } from "@/server/_stub";
 import { retryDelayMs } from "@/server/jobs/backoff";
 import {
   decideFinish,
@@ -111,9 +110,8 @@ describe("decideFinish", () => {
     expect(d.error).toBe("Error: flaky");
   });
 
-  it("PermanentJobError and NotImplementedError go straight to dead", () => {
+  it("PermanentJobError goes straight to dead", () => {
     expect(decideFinish({ ok: false, error: new PermanentJobError("nope") }, 1, T0).outcome).toBe("dead");
-    expect(decideFinish({ ok: false, error: new NotImplementedError("9.9") }, 1, T0).outcome).toBe("dead");
   });
 
   it("maps explicit outcomes", () => {

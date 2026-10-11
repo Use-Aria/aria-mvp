@@ -144,8 +144,6 @@ __pycache__/
 *$py.class
 *.pyc
 .pytest_cache/
-celerybeat-schedule
-celerybeat.pid
 
 .DS_Store
 **/.DS_Store
