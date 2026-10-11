@@ -41,7 +41,13 @@ export function draftErrorCopy(code: ActionErrorCode): { tone: BannerTone; text:
   }
 }
 
-function ErrorBanner({ code }: { code: ActionErrorCode }) {
+/**
+ * Banner for a failed draft action, or for a draft whose send failed (the page renders it with
+ * `DraftView.failureCode` after the refresh). `google_disconnected` adds an "Open Setup" link.
+ * @param props action error code
+ * @returns the banner (takes focus when it appears)
+ */
+export function DraftErrorBanner({ code }: { code: ActionErrorCode }) {
   const { tone, text } = draftErrorCopy(code);
   return (
     <Banner tone={tone} focusOnMount>
@@ -126,7 +132,7 @@ export function DraftEditor({ draft }: { draft: DraftView }) {
             )}
           </div>
         )}
-        {saveState && !saveState.ok && <ErrorBanner code={saveState.code} />}
+        {saveState && !saveState.ok && <DraftErrorBanner code={saveState.code} />}
       </form>
 
       {editable && (
@@ -137,7 +143,7 @@ export function DraftEditor({ draft }: { draft: DraftView }) {
             {EMAIL_COPY.send.idle}
           </SubmitButton>
           {dirty && <p className="text-base text-ink-soft">{EMAIL_COPY.sendBlockedDirty}</p>}
-          {sendState && !sendState.ok && <ErrorBanner code={sendState.code} />}
+          {sendState && !sendState.ok && <DraftErrorBanner code={sendState.code} />}
         </form>
       )}
 
@@ -154,7 +160,7 @@ export function DraftEditor({ draft }: { draft: DraftView }) {
             {EMAIL_COPY.cancel.body}
           </ConfirmDialog>
         </div>
-        {cancelState && !cancelState.ok && <ErrorBanner code={cancelState.code} />}
+        {cancelState && !cancelState.ok && <DraftErrorBanner code={cancelState.code} />}
       </div>
     </div>
   );

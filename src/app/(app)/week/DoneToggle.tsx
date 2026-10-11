@@ -76,7 +76,8 @@ export function DoneToggle({
               <button
                 type="button"
                 onClick={toggle}
-                aria-label={label}
+                // The visible word starts the accessible name (WCAG 2.5.3 label in name).
+                aria-label={`${WEEK_COPY.undo}: ${label}`}
                 className="min-h-11 px-1 font-semibold text-aria underline-offset-4 hover:underline"
               >
                 {WEEK_COPY.undo}

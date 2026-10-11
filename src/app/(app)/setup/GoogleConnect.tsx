@@ -105,7 +105,7 @@ function Disclosure({ open }: { open: boolean }) {
   const copy = SETUP_COPY.google;
   return (
     <details open={open} className="rounded-3xl bg-bubble p-5">
-      <summary className="cursor-pointer text-lg font-semibold">What Aria can see and do</summary>
+      <summary className="min-h-11 cursor-pointer py-2 text-lg font-semibold">What Aria can see and do</summary>
       <div className="mt-3 flex flex-col gap-3 text-base leading-relaxed">
         <p>
           <strong>{copy.readsTitle}</strong> {copy.reads}

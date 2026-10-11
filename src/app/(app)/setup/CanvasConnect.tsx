@@ -139,7 +139,14 @@ function Guide({ host }: { host: string | null }) {
           {copy.step1}
           {calendarUrl && host && (
             <span className="mt-2 flex flex-wrap gap-2">
-              <a href={calendarUrl} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}>
+              <a
+                href={calendarUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                // Long hosts wrap at 375px: a soft rectangle reads better than a two-line pill,
+                // and `anywhere` keeps an unbroken custom host from overflowing.
+                className={buttonClass("secondary", "rounded-2xl! px-4! text-left [overflow-wrap:anywhere]")}
+              >
                 {copy.step1Link(host)}
               </a>
             </span>

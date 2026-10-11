@@ -7,7 +7,8 @@
   --paper: #f2f4ef;
   --ink: #16261d;
   --ink-soft: #4d5e54;
-  --aria: #1e7a4c;
+  /* ≥ 4.5:1 as text on paper, bubble, mint, and warn (#1e7a4c was 4.28:1 on bubble). */
+  --aria: #1a6f45;
   --aria-ink: #ffffff;
   --bubble: #e3e8e1;
   --mint: #cfead9;
@@ -26,7 +27,8 @@
     --paper: #0f1a14;
     --ink: #e8efe9;
     --ink-soft: #9db0a4;
-    --aria: #3fae74;
+    /* ≥ 4.5:1 as text on every dark surface (#3fae74 was 4.45:1 on mint). */
+    --aria: #44b479;
     --aria-ink: #08130d;
     --bubble: #1f2d25;
     --mint: #1c3a2a;
@@ -87,7 +89,9 @@ body {
   padding-top: max(1rem, env(safe-area-inset-top));
 }
 
-:focus-visible {
+/* Not on tabindex=-1 targets (result banners focused by script to announce them): they aren't
+   tab stops, and an unlayered outline here would beat their `outline-none` utility. */
+:focus-visible:not([tabindex="-1"]) {
   outline: 2px solid var(--aria);
   outline-offset: 3px;
 }

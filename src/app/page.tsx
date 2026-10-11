@@ -23,10 +23,10 @@ export default function Home() {
         </div>
         <SignupForm ariaNumber={ariaNumber} />
         <p className="flex gap-4 text-sm text-ink-soft">
-          <Link href="/privacy" className="underline underline-offset-4 hover:text-ink">
+          <Link href="/privacy" className="inline-flex min-h-11 min-w-11 items-center underline underline-offset-4 hover:text-ink">
             Privacy
           </Link>
-          <Link href="/terms" className="underline underline-offset-4 hover:text-ink">
+          <Link href="/terms" className="inline-flex min-h-11 min-w-11 items-center underline underline-offset-4 hover:text-ink">
             Terms
           </Link>
         </p>

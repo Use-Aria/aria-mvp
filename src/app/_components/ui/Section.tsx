@@ -30,7 +30,12 @@ export function Section({
         <h2 id={headingId} className="text-2xl font-bold tracking-[-0.01em]">
           {title}
         </h2>
-        {status && <span className={`rounded-full px-3 py-0.5 text-sm font-medium ${pill}`}>{status}</span>}
+        {status && (
+          // Long values (a Google address) wrap inside the column instead of poking past it.
+          <span className={`max-w-full rounded-2xl px-3 py-0.5 text-sm font-medium [overflow-wrap:anywhere] ${pill}`}>
+            {status}
+          </span>
+        )}
       </div>
       {children}
     </section>

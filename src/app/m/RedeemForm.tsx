@@ -34,16 +34,17 @@ export function RedeemForm() {
 
   if (token === "") {
     return (
-      <p className="text-lg text-ink-soft">
-        This link is missing its code. Text Aria &ldquo;new link&rdquo; to get a fresh one.
-      </p>
+      <>
+        <h1 className="text-4xl font-bold leading-tight tracking-[-0.02em]">This link is missing its code.</h1>
+        <p className="text-lg text-ink-soft">Text Aria &ldquo;new link&rdquo; to get a fresh one.</p>
+      </>
     );
   }
 
   return (
     <form ref={formRef} method="post" action="/api/session/redeem" className="flex flex-col gap-4">
       <input ref={tokenRef} type="hidden" name="t" />
-      <p className="text-lg text-ink-soft">Opening Aria…</p>
+      <h1 className="text-4xl font-bold leading-tight tracking-[-0.02em]">Opening Aria…</h1>
       <button
         type="submit"
         className="h-14 rounded-full bg-aria px-8 text-lg font-semibold text-aria-ink"

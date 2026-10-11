@@ -16,7 +16,7 @@ import { Banner } from "@/app/_components/ui/Banner";
 import { getDraftView, isDraftId, type DraftView } from "@/server/web/email-data";
 import { requireViewer } from "@/server/web/guard";
 import { EMAIL_COPY, SHARED_COPY } from "@/shared/copy";
-import { DraftEditor } from "./DraftEditor";
+import { DraftEditor, DraftErrorBanner } from "./DraftEditor";
 
 export const metadata: Metadata = { title: EMAIL_COPY.title, robots: { index: false, follow: false } };
 
@@ -69,7 +69,8 @@ function StatusBanner({ draft }: { draft: DraftView }) {
     case "expired":
       return <Banner tone="warn">{EMAIL_COPY.expired}</Banner>;
     case "failed":
-      return <Banner tone="error">{EMAIL_COPY.failed}</Banner>;
+      // The specific reason (e.g. Google disconnected → Setup link) survives the post-Send refresh.
+      return <DraftErrorBanner code={draft.failureCode ?? "executor_failed"} />;
     default:
       return null;
   }

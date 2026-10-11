@@ -9,15 +9,23 @@ import "server-only";
  * page never parses it as HTML. The body textarea keeps the raw text.
  */
 import { z } from "zod";
-import { getPendingAction } from "@/server/agent/pending/actions";
+import { GOOGLE_DISCONNECTED, getPendingAction } from "@/server/agent/pending/actions";
 import type { PendingActionView } from "@/server/agent/pending/types";
 import { isRecent } from "@/server/web/guard";
 import type { Viewer } from "@/server/viewer";
+import type { SendErrorCode } from "@/shared/action-result";
 import { SendEmailPayload } from "@/shared/email-draft";
 import { cleanText, gmailPermalink } from "@/shared/safe-url";
 
 /** What the page shows. `sending` = the confirm is running (or stuck awaiting recovery). */
 export type DraftStatus = "pending" | "sending" | "sent" | "cancelled" | "expired" | "failed";
+
+/**
+ * Why a `failed` draft didn't go out, as a known send code only (never the stored error text):
+ * `google_disconnected` gets the "connect Google in Setup" copy + link, anything else the generic
+ * "Gmail didn't accept the email" copy.
+ */
+export type DraftFailureCode = Extract<SendErrorCode, "google_disconnected" | "executor_failed">;
 
 /** The draft as /email/[id] renders it. */
 export interface DraftView {
@@ -38,6 +46,8 @@ export interface DraftView {
   decidedAtLabel: string | null;
   /** When the email went out (executor result `sent_at`, else the decision time); null unless sent. */
   sentAtLabel: string | null;
+  /** Set only when `status` is `failed` (mapped from `pending_actions.error`); null otherwise. */
+  failureCode: DraftFailureCode | null;
   /** Gmail search link for the email being replied to, when known. */
   originalPermalink: string | null;
   /** The session is < 60 min old, so Save and Send are allowed (web plan §2.3 `recent`). */
@@ -102,6 +112,15 @@ function sentAt(v: PendingActionView): Date | null {
 }
 
 /**
+ * Maps a failed action's stored executor error to a known code (the raw text never leaves here).
+ * @param error `pending_actions.error`
+ * @returns `google_disconnected` for that exact executor error, else `executor_failed`
+ */
+export function failureCodeOf(error: string | null): DraftFailureCode {
+  return error === GOOGLE_DISCONNECTED ? "google_disconnected" : "executor_failed";
+}
+
+/**
  * Pending-action view → draft view model. Pure.
  * @param v owner-scoped pending action
  * @param opts the viewer's zone and whether the session is recent
@@ -127,6 +146,7 @@ export function toDraftView(v: PendingActionView, opts: { timezone: string; rece
     expiresAtLabel: formatDraftTime(v.expiresAt, opts.timezone),
     decidedAtLabel: v.decidedAt ? formatDraftTime(v.decidedAt, opts.timezone) : null,
     sentAtLabel: sent ? formatDraftTime(sent, opts.timezone) : null,
+    failureCode: status === "failed" ? failureCodeOf(v.error) : null,
     originalPermalink: rfc822 ? gmailPermalink(rfc822) : null,
     canSend: opts.recent,
   };

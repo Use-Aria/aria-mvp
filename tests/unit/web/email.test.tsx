@@ -5,9 +5,16 @@
  */
 import { renderToStaticMarkup } from "react-dom/server";
 import type { PendingActionView } from "@/server/agent/pending/types";
-import { formatDraftTime, isDraftId, parseDraftEdit, parseDraftRef, toDraftView } from "@/server/web/email-data";
+import {
+  failureCodeOf,
+  formatDraftTime,
+  isDraftId,
+  parseDraftEdit,
+  parseDraftRef,
+  toDraftView,
+} from "@/server/web/email-data";
 import { ACTION_ERROR_CODES } from "@/shared/action-result";
-import { SHARED_COPY } from "@/shared/copy";
+import { ACTION_ERROR_COPY, EMAIL_COPY, SHARED_COPY } from "@/shared/copy";
 
 jest.mock("@/app/(app)/email/[id]/actions", () => ({
   saveDraftAction: jest.fn(),
@@ -15,7 +22,7 @@ jest.mock("@/app/(app)/email/[id]/actions", () => ({
   cancelDraftAction: jest.fn(),
 }));
 
-import { DraftEditor, draftErrorCopy } from "@/app/(app)/email/[id]/DraftEditor";
+import { DraftEditor, DraftErrorBanner, draftErrorCopy } from "@/app/(app)/email/[id]/DraftEditor";
 
 const ID = "8d1f7a52-3c2b-4b8e-9a51-0f6f2a7c9e11";
 const TZ = "America/New_York";
@@ -80,6 +87,7 @@ describe("toDraftView", () => {
       expiresAtLabel: "Sat 3:10 PM",
       decidedAtLabel: null,
       sentAtLabel: null,
+      failureCode: null,
       canSend: true,
     });
     expect(v?.originalPermalink).toBe("https://mail.google.com/mail/#search/rfc822msgid%3A%3CCAF%3Dabc%40mail.gmail.com%3E");
@@ -106,6 +114,20 @@ describe("toDraftView", () => {
         ?.sentAtLabel,
     ).toBe("Sat 3:02 PM");
     expect(toDraftView(action({ status: "done", decidedAt }), { timezone: TZ, recent: true })?.sentAtLabel).toBe("Sat 3:00 PM");
+  });
+
+  it("a failed draft carries a known failure code only (never the stored error text)", () => {
+    const view = (over: Partial<PendingActionView>) => toDraftView(action(over), { timezone: TZ, recent: true });
+    expect(view({ status: "failed", error: "google_disconnected" })?.failureCode).toBe("google_disconnected");
+    expect(view({ status: "failed", error: "interrupted" })?.failureCode).toBe("executor_failed");
+    expect(view({ status: "failed", error: "executor_threw:TypeError" })?.failureCode).toBe("executor_failed");
+    expect(view({ status: "failed", error: null })?.failureCode).toBe("executor_failed");
+    // Not failed → no code, whatever `error` holds (e.g. a superseded cancel).
+    expect(view({ status: "cancelled", error: "superseded" })?.failureCode).toBeNull();
+    expect(view({ status: "pending", error: "google_disconnected" })?.failureCode).toBeNull();
+    expect(failureCodeOf("GOOGLE_DISCONNECTED")).toBe("executor_failed");
+    const raw = JSON.stringify(view({ status: "failed", error: "executor_threw:SecretishError" }));
+    expect(raw).not.toContain("SecretishError");
   });
 
   it("refuses non-email actions and unparseable payloads", () => {
@@ -151,6 +173,18 @@ describe("draftErrorCopy", () => {
     expect(draftErrorCopy("needs_recent_link").text).toBe(SHARED_COPY.recentLinkNeeded("draft link"));
     expect(draftErrorCopy("version_conflict").tone).toBe("warn");
     expect(draftErrorCopy("google_disconnected").text).toMatch(/Google isn't connected/);
+  });
+});
+
+describe("DraftErrorBanner", () => {
+  it("google_disconnected: specific copy + Open Setup link; executor_failed: the generic failed copy", () => {
+    const gd = renderToStaticMarkup(<DraftErrorBanner code="google_disconnected" />);
+    expect(gd).toContain(ACTION_ERROR_COPY.google_disconnected.replace(/'/g, "&#x27;"));
+    expect(gd).toContain('href="/setup#google"');
+    expect(gd).toContain('role="alert"');
+    const ef = renderToStaticMarkup(<DraftErrorBanner code="executor_failed" />);
+    expect(ef).toContain(EMAIL_COPY.failed.replace(/'/g, "&#x27;").replace(/"/g, "&quot;"));
+    expect(ef).not.toContain("/setup");
   });
 });
 

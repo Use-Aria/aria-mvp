@@ -18,7 +18,9 @@ export default async function AppLayout({ children }: Readonly<{ children: React
     <div className="safe-x mx-auto flex min-h-dvh w-full max-w-xl flex-col">
       <a
         href="#main"
-        className="sr-only rounded-full bg-aria px-4 py-2 text-aria-ink focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
+        // Off-screen until focused (not `sr-only`: its padding reset fought `px-4` and left a
+        // padding-less pill when focused).
+        className="absolute left-4 top-[-6rem] z-50 inline-flex min-h-11 items-center rounded-full bg-aria px-5 font-semibold text-aria-ink focus:top-[max(1rem,env(safe-area-inset-top))]"
       >
         Skip to content
       </a>

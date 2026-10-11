@@ -123,18 +123,44 @@ export function normalizeCanvasFeedUrl(input: string): NormalizeResult {
 }
 
 /**
+ * Codes the client pre-check can show (each has copy in `CANVAS_ERROR_COPY`). `empty` is
+ * client-only; the rest are exactly the `CanvasConnectError`s the server returns for a URL failure.
+ */
+export type PrecheckErrorCode = "empty" | "not_a_url" | "not_ical" | "course_feed" | "private_address";
+
+/**
+ * Maps a normalization failure to the user-facing code. Mirrors the server's
+ * `connectErrorForUrl` (`integrations/canvas/connect.ts`) except that `empty` stays `empty`, so the
+ * pre-check and the server always show the same copy (a unit test checks every code).
+ * @param e `normalizeCanvasFeedUrl` error
+ * @returns user-facing code
+ */
+export function precheckErrorFor(e: FeedUrlError): PrecheckErrorCode {
+  switch (e) {
+    case "empty":
+      return "empty";
+    case "not_a_url":
+    case "bad_scheme":
+      return "not_a_url";
+    case "ip_literal":
+      return "private_address";
+    case "course_feed":
+      return "course_feed";
+    default:
+      return "not_ical";
+  }
+}
+
+/**
  * Client pre-check shape for the web setup form (wrapper over {@link normalizeCanvasFeedUrl}).
  * @param raw pasted text
- * @returns `{ok:true, normalized}` (the https href) or a coarse error code for inline copy
+ * @returns `{ok:true, normalized}` (the https href) or the specific error code for inline copy
+ *   (`course_feed` for a one-course feed, `private_address` for an IP literal, else `not_ical`)
  */
-export function precheckIcalUrl(
-  raw: string,
-): { ok: true; normalized: string } | { ok: false; code: "empty" | "not_a_url" | "not_ical" } {
+export function precheckIcalUrl(raw: string): { ok: true; normalized: string } | { ok: false; code: PrecheckErrorCode } {
   const r = normalizeCanvasFeedUrl(raw);
   if (r.ok) return { ok: true, normalized: r.url.href };
-  if (r.error === "empty") return { ok: false, code: "empty" };
-  if (r.error === "not_a_url" || r.error === "bad_scheme") return { ok: false, code: "not_a_url" };
-  return { ok: false, code: "not_ical" };
+  return { ok: false, code: precheckErrorFor(r.error) };
 }
 
 /**

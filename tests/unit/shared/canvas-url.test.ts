@@ -1,12 +1,15 @@
 /**
  * Unit tests for src/shared/canvas-url.ts (V2-05 §2.6 step 1, §10.2). Run: npm test
  */
+import { connectErrorForUrl } from "@/server/integrations/canvas/connect";
+import { CANVAS_ERROR_COPY } from "@/shared/copy";
 import {
   CANVAS_FEED_PATH_RE,
   classifyCanvasHost,
   feedUrlHint,
   findCanvasFeedUrls,
   normalizeCanvasFeedUrl,
+  precheckErrorFor,
   precheckIcalUrl,
   redactCanvasFeedUrls,
   type FeedUrlError,
@@ -135,13 +138,44 @@ describe("classifyCanvasHost", () => {
 });
 
 describe("precheckIcalUrl", () => {
-  it("maps to the web form's coarse codes", () => {
+  it("maps to the web form's codes", () => {
     expect(precheckIcalUrl(` ${YALE} `)).toEqual({ ok: true, normalized: YALE });
     expect(precheckIcalUrl("")).toEqual({ ok: false, code: "empty" });
     expect(precheckIcalUrl("not a link")).toEqual({ ok: false, code: "not_a_url" });
     expect(precheckIcalUrl(`ftp://yale.instructure.com${PATH}`)).toEqual({ ok: false, code: "not_a_url" });
     expect(precheckIcalUrl("https://yale.instructure.com/calendar")).toEqual({ ok: false, code: "not_ical" });
-    expect(precheckIcalUrl(`https://127.0.0.1${PATH}`)).toEqual({ ok: false, code: "not_ical" });
+    expect(precheckIcalUrl(`${YALE}?x=1`)).toEqual({ ok: false, code: "not_ical" });
+  });
+
+  it("keeps the specific reasons the server has distinct copy for", () => {
+    expect(precheckIcalUrl("https://yale.instructure.com/feeds/calendars/course_abc.ics")).toEqual({
+      ok: false,
+      code: "course_feed",
+    });
+    expect(precheckIcalUrl(`https://127.0.0.1${PATH}`)).toEqual({ ok: false, code: "private_address" });
+    expect(precheckIcalUrl(`https://[::1]${PATH}`)).toEqual({ ok: false, code: "private_address" });
+  });
+
+  it("agrees with the server's connectErrorForUrl for every code (except client-only empty)", () => {
+    const all: Record<FeedUrlError, true> = {
+      empty: true,
+      not_a_url: true,
+      bad_scheme: true,
+      has_credentials: true,
+      bad_port: true,
+      ip_literal: true,
+      bad_host: true,
+      has_query: true,
+      course_feed: true,
+      not_feed_path: true,
+      parser_mismatch: true,
+    };
+    for (const e of Object.keys(all) as FeedUrlError[]) {
+      const code = precheckErrorFor(e);
+      expect(CANVAS_ERROR_COPY[code]).toBeTruthy();
+      if (e === "empty") expect(code).toBe("empty");
+      else expect(code).toBe(connectErrorForUrl(e));
+    }
   });
 });
 

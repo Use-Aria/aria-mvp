@@ -7,7 +7,7 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from "react";
 export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 
 const BASE =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-full text-base font-semibold transition-opacity motion-safe:duration-150 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full text-base font-semibold transition-opacity motion-safe:duration-150 disabled:cursor-not-allowed disabled:opacity-60";
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: "bg-aria px-6 py-3 text-aria-ink",
