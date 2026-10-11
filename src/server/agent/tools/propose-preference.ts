@@ -16,6 +16,7 @@ import { db } from "@/server/db";
 import {
   askedInCurrentConversation,
   decideProposal,
+  findReplacedPreference,
   getOpenQuestion,
   insertProposal,
   listActivePreferences,
@@ -70,7 +71,14 @@ export async function runProposePreference(ctx: ToolCtx, i: z.output<typeof inpu
   const statement = i.statement.replace(/\s+/g, " ").trim();
   const evidenceMessageId = ctx.aliases.resolve(i.evidence, "m");
   try {
-    const active = (await listActivePreferences(ctx.userId)).find((p) => p.key === i.key) ?? null;
+    // The active rule this one replaces: same key, or the same single-valued constraint saved under
+    // another key. The proposal takes that row's key so confirming supersedes it (decide_preference
+    // closes the active row with the same key) instead of leaving two active rules.
+    const active = findReplacedPreference(await listActivePreferences(ctx.userId), {
+      key: i.key,
+      statement,
+      constraintJson: i.constraint,
+    });
     if (active && norm(active.statement) === norm(statement)) return { ok: true, data: "ok: already active" };
     const decision: ProposalDecision = decideProposal({
       openQuestionInConversation: i.explicit && !ctx.taint.tainted ? false : await questionAskedThisConversation(ctx),
@@ -80,7 +88,7 @@ export async function runProposePreference(ctx: ToolCtx, i: z.output<typeof inpu
     });
     const base = {
       userId: ctx.userId,
-      key: i.key,
+      key: active?.key ?? i.key,
       category: i.category,
       statement,
       evidenceMessageId,

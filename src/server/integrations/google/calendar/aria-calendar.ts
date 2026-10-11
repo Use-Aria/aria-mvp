@@ -96,8 +96,8 @@ async function defaultTimezone(userId: string): Promise<string> {
 }
 
 async function defaultGetItem(userId: string, itemId: string): Promise<TimelineItem | null> {
-  const { getItem } = await import("@/server/timeline/store");
-  return getItem(userId, itemId);
+  const { getTimelineItemRow } = await import("@/server/timeline");
+  return getTimelineItemRow(userId, itemId);
 }
 
 async function defaultUpsert(userId: string, source: "aria", item: TimelineItemInput): Promise<{ id: string }> {

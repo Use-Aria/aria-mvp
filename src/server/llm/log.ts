@@ -7,6 +7,7 @@ import "server-only";
  * codes only — never prompt or response text.
  */
 import { db } from "@/server/db";
+import { reportLlmCost } from "@/server/llm/cost-scope";
 import type { Database, Json } from "@/server/db/types";
 import type { Route } from "@/server/llm/routes";
 import type { LlmLogMeta, UsageSummary } from "@/server/llm/types";
@@ -65,6 +66,8 @@ export function toLlmCallRow(r: LlmCallRecord): LlmCallInsert {
  */
 export async function recordLlmCall(r: LlmCallRecord): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  // Synchronously, before the insert: the agent loop's per-tool cost scope (cost-scope.ts).
+  reportLlmCost(r.usage.costUsd);
   try {
     const row = toLlmCallRow(r);
     const insert = (async () => {

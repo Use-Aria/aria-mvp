@@ -12,6 +12,7 @@ import "server-only";
  *   runStructured — one zod-validated structured-output call (classify, memory, briefing, …)
  *   runModel      — legacy plain-text helper (signature kept; now logs)
  *   recordLlmCall — log a call made elsewhere (the Python parser's syllabus calls)
+ *   withLlmCostScope — attribute logged call costs to a scope (agent loop: tool-internal calls)
  */
 import type Anthropic from "@anthropic-ai/sdk";
 import { callAnthropic } from "@/server/llm/anthropic";
@@ -24,6 +25,7 @@ export type { UsageSummary, LlmLogMeta, LlmRequest, LlmResponse } from "@/server
 export { LlmUnavailableError, LlmBadRequestError, LlmRefusalError } from "@/server/llm/errors";
 export { recordLlmCall } from "@/server/llm/log";
 export type { LlmCallRecord } from "@/server/llm/log";
+export { withLlmCostScope, reportLlmCost } from "@/server/llm/cost-scope";
 export { runStructured, structuredFormat } from "@/server/llm/structured";
 export type { StructuredInput, StructuredResult } from "@/server/llm/structured";
 export { jsonSchemaFor } from "@/server/llm/schema";

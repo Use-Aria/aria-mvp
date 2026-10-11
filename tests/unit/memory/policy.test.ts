@@ -4,7 +4,7 @@
 import { AliasTable } from "@/server/agent/context/aliases";
 import { estimateTokens } from "@/server/agent/context/budget";
 import { askedInCurrentConversation, conversationStartedAt } from "@/server/memory/conversation";
-import { decideProposal, renderPreferences } from "@/server/memory/preference-policy";
+import { constraintsConflict, decideProposal, findReplacedPreference, renderPreferences } from "@/server/memory/preference-policy";
 import type { PreferenceRow } from "@/server/memory/preferences";
 
 const T0 = new Date("2026-10-10T15:00:00Z").getTime();
@@ -106,5 +106,42 @@ describe("renderPreferences", () => {
 
   it("renders nothing for no rows", () => {
     expect(renderPreferences([])).toBe("");
+  });
+});
+
+describe("findReplacedPreference / constraintsConflict (5.F1 CR-3: a change supersedes, never duplicates)", () => {
+  const gym8 = { applies_to: ["gym"], constraint: { type: "not_after", time: "20:00" }, waking: null, signoff: null };
+  const workout9 = { applies_to: ["workouts", "gym"], constraint: { type: "not_after", time: "21:00" }, waking: null, signoff: null };
+  const study11 = { applies_to: ["study"], constraint: { type: "not_after", time: "23:00" }, waking: null, signoff: null };
+  const gymSundays = { applies_to: ["gym"], constraint: { type: "avoid_days", days: ["SU"] }, waking: null, signoff: null };
+  const gymSundays2 = { applies_to: ["gym"], constraint: { type: "avoid_days", days: ["SA"] }, waking: null, signoff: null };
+  const gymFri10 = { applies_to: ["gym"], constraint: { type: "not_after", time: "22:00", days: ["FR"] }, waking: null, signoff: null };
+  const signoffA = { applies_to: ["email"], constraint: null, waking: null, signoff: "Best,\nDan" };
+  const signoffB = { applies_to: ["emails"], constraint: null, waking: null, signoff: "Cheers,\nDan" };
+
+  it("same single-valued constraint on an overlapping activity conflicts; additive kinds, other activities and other weekdays don't", () => {
+    expect(constraintsConflict(gym8, workout9)).toBe(true);
+    expect(constraintsConflict(signoffA, signoffB)).toBe(true);
+    expect(constraintsConflict(gym8, study11)).toBe(false);
+    expect(constraintsConflict(gymSundays, gymSundays2)).toBe(false);
+    expect(constraintsConflict(gym8, gymFri10)).toBe(false);
+    expect(constraintsConflict(gym8, gymSundays)).toBe(false);
+    expect(constraintsConflict(gym8, null)).toBe(false);
+    expect(constraintsConflict({ applies_to: ["gym"] }, gym8)).toBe(false); // unparseable → no conflict
+  });
+
+  it("prefers the same key, then a conflicting constraint, then an identical statement", () => {
+    const a = pref(1, { key: "gym.latest_time", statement: "no gym after 8pm", constraintJson: gym8 });
+    const b = pref(2, { key: "gym.no_sundays", statement: "no gym on sundays", constraintJson: gymSundays });
+    const c = pref(3, { key: "email.signoff", category: "email", statement: "sign emails Best, Dan", constraintJson: signoffA });
+    const d = pref(4, { key: "briefing.tone", category: "briefing", statement: "keep briefings short", constraintJson: null });
+    const active = [d, c, b, a];
+    expect(findReplacedPreference(active, { key: "gym.no_sundays", statement: "x", constraintJson: workout9 })?.id).toBe(b.id);
+    expect(findReplacedPreference(active, { key: "workout.latest_time", statement: "no workouts after 9pm", constraintJson: workout9 })?.id).toBe(a.id);
+    expect(findReplacedPreference(active, { key: "email.sign_off", statement: "sign emails Cheers", constraintJson: signoffB })?.id).toBe(c.id);
+    expect(findReplacedPreference(active, { key: "briefing.length", statement: "Keep  briefings SHORT", constraintJson: null })?.id).toBe(d.id);
+    expect(findReplacedPreference(active, { key: "gym.no_saturdays", statement: "no gym on saturdays", constraintJson: gymSundays2 })).toBeNull();
+    expect(findReplacedPreference(active, { key: "study.latest_time", statement: "no studying after 11pm", constraintJson: study11 })).toBeNull();
+    expect(findReplacedPreference([pref(5, { status: "superseded", key: "gym.latest_time" })], { key: "gym.latest_time", statement: "x", constraintJson: null })).toBeNull();
   });
 });

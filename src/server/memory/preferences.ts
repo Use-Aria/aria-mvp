@@ -9,6 +9,7 @@ import "server-only";
  */
 import { db, type Tables } from "@/server/db";
 import type { Json } from "@/server/db/types";
+import { findReplacedPreference } from "@/server/memory/preference-policy";
 
 /** Preference as the rest of the app sees it (master plan §1.7). */
 export interface PreferenceRow {
@@ -200,8 +201,43 @@ export async function saveExplicitPreference(a: {
 }
 
 /**
+ * Before a confirm: if the proposal replaces an active rule saved under a DIFFERENT key (same
+ * single-valued constraint, or the same statement — `findReplacedPreference`), move the proposal
+ * onto that key so `decide_preference` supersedes the old row instead of leaving two active rules.
+ * Covers every confirm path (chat tool, web, explicit save, extraction proposals). Best effort:
+ * the open row's key is the only thing changed; the supersede itself stays atomic in SQL.
+ * @param userId owner
+ * @param prefId the open proposal
+ */
+async function alignWithReplacedRule(userId: string, prefId: string): Promise<void> {
+  const { data: row, error } = await db()
+    .from("user_preferences")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("id", prefId)
+    .in("status", ["proposed", "queued"])
+    .maybeSingle();
+  if (error) fail("decidePreference", error.message);
+  if (!row) return; // not open: the rpc reports it
+  const replaced = findReplacedPreference(await listActivePreferences(userId), {
+    key: row.key,
+    statement: row.statement,
+    constraintJson: row.constraint_json ?? null,
+  });
+  if (!replaced || replaced.key === row.key) return;
+  const upd = await db()
+    .from("user_preferences")
+    .update({ key: replaced.key })
+    .eq("user_id", userId)
+    .eq("id", prefId)
+    .in("status", ["proposed", "queued"]);
+  if (upd.error) fail("decidePreference", upd.error.message);
+}
+
+/**
  * Confirm or reject a proposal atomically (rpc `decide_preference`; confirm supersedes the
- * active row with the same key).
+ * active row with the same key — after `alignWithReplacedRule` moved a proposal that replaces a
+ * rule saved under another key onto that key).
  * @param userId owner
  * @param prefId preference id (must be `proposed` or `queued`)
  * @param d decision
@@ -209,6 +245,7 @@ export async function saveExplicitPreference(a: {
  * @throws PreferenceNotOpenError when the row isn't open or isn't this user's
  */
 export async function decidePreference(userId: string, prefId: string, d: "confirm" | "reject"): Promise<PreferenceRow> {
+  if (d === "confirm") await alignWithReplacedRule(userId, prefId);
   const { data, error } = await db().rpc("decide_preference", { p_user: userId, p_pref: prefId, p_decision: d });
   if (error) {
     if (error.code === "P0002" || error.message.includes("preference_not_open")) throw new PreferenceNotOpenError();

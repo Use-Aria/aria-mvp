@@ -40,7 +40,11 @@ export interface RouteConfig {
 
 /** The route table (master plan §1.6). */
 export const ROUTES: Readonly<Record<Route, RouteConfig>> = {
-  chat: { model: "claude-haiku-5-5", maxTokens: 2048, effort: "low", thinking: "adaptive", timeoutMs: 25_000, staticTtl: "1h" },
+  // effort "medium" (was "low", Wave 5 / 5.3): at "low" Haiku skipped the tool on plain action
+  // requests ~1/3 of the time and claimed it anyway ("on it, I'll ping you in 1 min" with no
+  // create_reminder; "nice, one down" with no mark_done). A/B on the same contexts, 24 turns each:
+  // low 16/24 tool calls, medium 24/24; ≈ +24% cost, ≈ +0.5s median latency.
+  chat: { model: "claude-haiku-5-5", maxTokens: 2048, effort: "medium", thinking: "adaptive", timeoutMs: 25_000, staticTtl: "1h" },
   escalate: { model: "claude-sonnet-5-5", maxTokens: 2048, effort: "low", thinking: "adaptive", timeoutMs: 25_000, staticTtl: "5m" },
   classify: { model: "claude-haiku-5-5", maxTokens: 4096, effort: "low", thinking: "disabled", timeoutMs: 30_000, staticTtl: "5m" },
   memory: { model: "claude-haiku-5-5", maxTokens: 2048, effort: "medium", thinking: "adaptive", timeoutMs: 30_000, staticTtl: "5m" },

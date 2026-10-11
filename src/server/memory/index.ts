@@ -21,8 +21,8 @@ export {
   PreferenceNotOpenError,
 } from "@/server/memory/preferences";
 export type { PreferenceRow, OpenQuestionRow } from "@/server/memory/preferences";
-export { decideProposal, renderPreferences, sortPreferences } from "@/server/memory/preference-policy";
-export type { ProposalDecision, ProposalState } from "@/server/memory/preference-policy";
+export { decideProposal, renderPreferences, sortPreferences, findReplacedPreference, constraintsConflict } from "@/server/memory/preference-policy";
+export type { ProposalDecision, ProposalState, PreferenceCandidate } from "@/server/memory/preference-policy";
 export { conversationStartedAt, askedInCurrentConversation } from "@/server/memory/conversation";
 export { recallFacts, listRecentFacts, insertFact, updateFact, deleteFacts } from "@/server/memory/facts";
 export type { RecalledFact, FactRow, FactCategory, FactSource } from "@/server/memory/facts";

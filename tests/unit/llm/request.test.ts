@@ -33,7 +33,8 @@ function breakpoints(body: Anthropic.MessageCreateParamsNonStreaming): Anthropic
 
 describe("ROUTES (§1.6)", () => {
   it("matches the route table", () => {
-    expect(ROUTES.chat).toEqual({ model: "claude-haiku-5-5", maxTokens: 2048, effort: "low", thinking: "adaptive", timeoutMs: 25_000, staticTtl: "1h" });
+    // "medium" since Wave 5 (5.3): "low" skipped tools on action requests and claimed them anyway.
+    expect(ROUTES.chat).toEqual({ model: "claude-haiku-5-5", maxTokens: 2048, effort: "medium", thinking: "adaptive", timeoutMs: 25_000, staticTtl: "1h" });
     expect(ROUTES.escalate).toMatchObject({ model: "claude-sonnet-5-5", effort: "low", thinking: "adaptive", maxTokens: 2048, staticTtl: "5m" });
     expect(ROUTES.classify).toMatchObject({ model: "claude-haiku-5-5", effort: "low", thinking: "disabled", maxTokens: 4096 });
     expect(ROUTES.memory).toMatchObject({ model: "claude-haiku-5-5", effort: "medium", maxTokens: 2048 });
@@ -117,7 +118,7 @@ describe("buildAnthropicRequest", () => {
     const tools: Anthropic.Tool[] = [{ name: "t", description: "d", input_schema: { type: "object" } }];
     const chat = buildAnthropicRequest(req({ outputFormat: fmt, tools, toolChoice: { type: "none" } }), ROUTES.chat, "claude-haiku-5-5");
     expect(chat.thinking).toEqual({ type: "adaptive", display: "omitted" });
-    expect(chat.output_config).toEqual({ effort: "low", format: fmt });
+    expect(chat.output_config).toEqual({ effort: "medium", format: fmt });
     expect(chat.max_tokens).toBe(2048);
     expect(chat.tools).toBe(tools);
     expect(chat.tool_choice).toEqual({ type: "none" });
@@ -126,7 +127,7 @@ describe("buildAnthropicRequest", () => {
     const plain = buildAnthropicRequest(req(), ROUTES.chat, "claude-haiku-5-5");
     expect(plain).not.toHaveProperty("tool_choice");
     expect(plain).not.toHaveProperty("tools");
-    expect(plain.output_config).toEqual({ effort: "low" });
+    expect(plain.output_config).toEqual({ effort: "medium" });
 
     const classify = buildAnthropicRequest(req({ route: "classify" }), ROUTES.classify, "claude-haiku-5-5");
     expect(classify.thinking).toEqual({ type: "disabled" });

@@ -490,6 +490,18 @@ export async function getTimelineItem(
 }
 
 /**
+ * One live item as the stored model (source, external id, timing key, raw), owner-scoped. For
+ * integrations that need more than the view (V2-07: Aria calendar blocks look up their event id);
+ * everyone else uses `getTimelineItem`.
+ * @param userId owner
+ * @param itemId timeline_items.id (non-uuid → null)
+ * @returns the item, or null when missing, removed or not the user's
+ */
+export async function getTimelineItemRow(userId: string, itemId: string): Promise<TimelineItem | null> {
+  return getItem(userId, itemId);
+}
+
+/**
  * Resolve a `t_` ref or UUID (non-agent callers only; agent tools use `ctx.aliases`).
  * @param userId owner
  * @param ref "t_xxxxxxxx" or uuid

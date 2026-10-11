@@ -149,7 +149,7 @@ describe("send_interim", () => {
         },
       },
     });
-    expect(await runSendInterim(c, { text: "  give me a sec 👀 " })).toEqual({ ok: true, data: "ok: sent" });
+    expect(await runSendInterim(c, { text: "  give me a sec 👀 " })).toMatchObject({ ok: true, data: expect.stringMatching(/^ok: sent\. .*don't call send_interim again/) });
     expect(await runSendInterim(c, { text: "again" })).toMatchObject({ ok: true, data: expect.stringMatching(/^already_sent/) });
     expect(sent).toEqual(["give me a sec 👀"]);
   });

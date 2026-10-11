@@ -118,6 +118,52 @@ describe("preferences", () => {
     expect(old.valid_to).not.toBeNull();
   });
 
+  it("a confirmed change saved under ANOTHER key still supersedes the active rule (5.F1 CR-3); additive rules stay", async () => {
+    const c = (time: string, applies = ["gym"]) => ({ applies_to: applies, constraint: { type: "not_after", time }, waking: null, signoff: null });
+    const old = must(
+      await sb
+        .from("user_preferences")
+        .insert({ user_id: userId, key: "gym.cutoff", category: "schedule", statement: "no gym after 8pm", status: "active", source: "confirmed", constraint_json: c("20:00") })
+        .select("id")
+        .single(),
+      "seed",
+    );
+    const sundays = must(
+      await sb
+        .from("user_preferences")
+        .insert({
+          user_id: userId,
+          key: "gym.no_sundays",
+          category: "schedule",
+          statement: "no gym on sundays",
+          status: "active",
+          source: "confirmed",
+          constraint_json: { applies_to: ["gym"], constraint: { type: "avoid_days", days: ["SU"] }, waking: null, signoff: null },
+        })
+        .select("id")
+        .single(),
+      "seed 2",
+    );
+    // the model picked a different key for the same rule
+    const p = await insertProposal({ userId, key: "workout.latest_time", category: "schedule", statement: "no workouts after 9pm", status: "proposed", runId, evidenceMessageId: null, constraintJson: c("21:00", ["workout", "gym"]) });
+    const decided = await decidePreference(userId, p.id, "confirm");
+    expect(decided).toMatchObject({ status: "active", key: "gym.cutoff", statement: "no workouts after 9pm" });
+    const rows = must(await sb.from("user_preferences").select("id, status, superseded_by").in("id", [old.id, sundays.id, p.id]), "rows");
+    const by = Object.fromEntries(rows.map((r) => [r.id, r]));
+    expect(by[old.id]).toMatchObject({ status: "superseded", superseded_by: p.id });
+    expect(by[sundays.id].status).toBe("active");
+    const activeIds = (await listActivePreferences(userId)).map((r) => r.id);
+    expect(activeIds).toEqual(expect.arrayContaining([p.id, sundays.id]));
+    expect(activeIds).not.toContain(old.id);
+
+    // explicit saves take the same path (one sign-off at a time)
+    await saveExplicitPreference({ userId, key: "email.signoff", category: "email", statement: "sign emails Best, Dan", runId, evidenceMessageId: null, constraintJson: { applies_to: ["email"], constraint: null, waking: null, signoff: "Best,\nDan" } });
+    const s2 = await saveExplicitPreference({ userId, key: "email.sign_off", category: "email", statement: "sign emails Cheers, Dan", runId, evidenceMessageId: null, constraintJson: { applies_to: ["email"], constraint: null, waking: null, signoff: "Cheers,\nDan" } });
+    expect(s2.key).toBe("email.signoff");
+    expect((await listActivePreferences(userId)).filter((r) => r.category === "email").map((r) => r.statement)).toEqual(["sign emails Cheers, Dan"]);
+    expect(await retirePreferences(userId, [p.id, sundays.id, s2.id])).toBe(3);
+  });
+
   it("reject, queue, re-queue an older open question, explicit save, retire, expire", async () => {
     const q = await insertProposal({ userId, key: "study.time", category: "study", statement: "study mornings", status: "proposed", runId, evidenceMessageId: null });
     // a second "proposed" re-queues the first instead of violating the index
