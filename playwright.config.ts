@@ -32,6 +32,9 @@ function phone(name: string, width: number, height: number, deviceScaleFactor: n
 export default defineConfig({
   outputDir: "test-results",
   fullyParallel: true,
+  // One worker by default: under `next dev`, overlapping server-action responses never finish
+  // streaming (Wave 5 / 5.4). Raise with E2E_WORKERS against a production build.
+  workers: Number(process.env.E2E_WORKERS) || 1,
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: [["list"]],

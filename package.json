@@ -17,9 +17,10 @@
     "dev:chat": "tsx --conditions=react-server --env-file=.env.local scripts/dev-chat.ts",
     "dev:tick": "tsx scripts/dev-tick.ts",
     "parser:test": "cd services/parser && pytest",
-    "e2e": "playwright test",
+    "e2e": "playwright test --project=iphone-15 --project=desktop --project=iphone-se --project=pro-max",
     "qa:shots": "playwright test --project=shots",
-    "assets": "playwright test scripts/assets/render.spec.ts --project=assets"
+    "assets": "playwright test scripts/assets/render.spec.ts --project=assets",
+    "e2e:chat": "jest -c jest.smoke.config.mjs --runInBand --testMatch \"<rootDir>/tests/e2e-chat/**/*.smoke.test.ts\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
