@@ -63,7 +63,12 @@ function StatusBanner({ draft }: { draft: DraftView }) {
         </Banner>
       );
     case "sending":
-      return <Banner tone="warn">{SENDING_COPY}</Banner>;
+      // Gmail didn't confirm the send (`send_unconfirmed`): "check your Sent folder", not "sending now".
+      return draft.failureCode ? (
+        <DraftErrorBanner code={draft.failureCode} />
+      ) : (
+        <Banner tone="warn">{SENDING_COPY}</Banner>
+      );
     case "cancelled":
       return <Banner tone="warn">{EMAIL_COPY.cancelled}</Banner>;
     case "expired":

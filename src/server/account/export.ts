@@ -8,7 +8,8 @@ import "server-only";
  * cap), and `shapeExport` (pure) keeps only an allow-list of columns per table. Secrets never leave:
  * no `enc_*` column, token, hash, feed URL, session, magic link, job, agent run, LLM log, runtime row
  * or conversation summary is selected, and `shapeExport` drops any key matching
- * `/^enc_|token|hash/i` again as a second line of defense.
+ * `FORBIDDEN_EXPORT_KEY` again as a second line of defense. Signups are the user's own (matched to
+ * them) only, without the IP or user agent.
  */
 import { db } from "@/server/db";
 import type { JsonValue } from "@/server/timeline/types";
@@ -54,7 +55,9 @@ export const EXPORT_COLUMNS = {
     "created_at",
   ],
   consents: ["scope", "granted", "copy_version", "source", "captured_at"],
-  signups: ["name", "phone_e164", "timezone", "consent_version", "ip", "user_agent", "created_at"],
+  // Only signups matched to this user, and never `ip`/`user_agent`: an unmatched signup for the same
+  // phone may be someone else's form submission (5.5 #8).
+  signups: ["name", "phone_e164", "timezone", "consent_version", "created_at"],
   user_profile: ["school", "courses", "class_times", "updated_at"],
   user_preferences: ["key", "category", "statement", "status", "source", "constraint_json", "valid_from", "valid_to", "decided_at"],
   memory_facts: ["content", "category", "source", "expires_at", "created_at", "updated_at"],
@@ -86,8 +89,11 @@ export type ExportTable = keyof typeof EXPORT_COLUMNS;
 /** Raw rows as read from the DB, before shaping. Missing tables export as `[]`. */
 export type RawExport = Partial<Record<ExportTable, ReadonlyArray<Record<string, unknown>>>>;
 
-/** Keys that must never appear in an export, whatever the allow-list says. */
-export const FORBIDDEN_EXPORT_KEY = /^enc_|token|hash/i;
+/**
+ * Keys that must never appear in an export, whatever the allow-list says: secrets, plus the
+ * signup form's network metadata (`ip`, `user_agent`).
+ */
+export const FORBIDDEN_EXPORT_KEY = /^enc_|token|hash|^ip$|user_agent/i;
 
 /**
  * Coerce a DB value to JSON (PostgREST already returns JSON; `inet` etc. become strings).
@@ -156,17 +162,6 @@ function cols(table: ExportTable): string {
 }
 
 /**
- * Phone handles of a user's channels (to find their own signups).
- * @param channels channel rows (with `handle` + `handle_kind`)
- * @returns E.164 phones
- */
-function phonesOf(channels: ReadonlyArray<Record<string, unknown>>): string[] {
-  return channels
-    .filter((c) => c.handle_kind === "phone" && typeof c.handle === "string")
-    .map((c) => c.handle as string);
-}
-
-/**
  * Collect a user's exportable rows (paged by 1,000).
  * @param userId owner
  * @returns the export document
@@ -191,16 +186,13 @@ export async function collectAccountExport(userId: string): Promise<AccountExpor
   if (user.error) throw new Error(`collectAccountExport(users): ${user.error.message}`);
   if (profile.error) throw new Error(`collectAccountExport(user_profile): ${profile.error.message}`);
 
-  const phones = phonesOf(channels);
-  const signupFilter = [`matched_user_id.eq.${userId}`, ...(phones.length ? [`phone_e164.in.(${phones.map((p) => `"${p}"`).join(",")})`] : [])].join(",");
-
   const [consents, signups, prefs, facts, timeline, reminders, messages, emails, syllabi, pending, integrations] = await Promise.all([
     byUser("consents", "captured_at"),
     readAll("signups", (from, to) =>
       db()
         .from("signups")
         .select(`id, ${cols("signups")}`)
-        .or(signupFilter)
+        .eq("matched_user_id", userId)
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })
         .range(from, to) as unknown as PromiseLike<PageResult>,

@@ -33,7 +33,7 @@ import { setProfileSchool } from "@/server/memory/web";
 import { rateLimit } from "@/server/ratelimit";
 import { deleteTimelineItems, summarizeUpcoming } from "@/server/timeline";
 import { CANVAS_ERROR_COPY, formatConnectSummary, type ConnectSummaryShape } from "@/shared/canvas-guide";
-import { feedUrlHint, normalizeCanvasFeedUrl, type FeedUrlError } from "@/shared/canvas-url";
+import { feedUrlHint, normalizeCanvasFeedUrl, precheckErrorFor, type FeedUrlError } from "@/shared/canvas-url";
 import { OTHER_UNIVERSITY } from "@/shared/universities";
 
 export type CanvasConnectError =
@@ -71,23 +71,15 @@ export interface CanvasConnectDeps extends CanvasSyncDeps {
 // ── pure mappings (unit-tested) ─────────────────────────────────────────────
 
 /**
- * Maps a URL-normalization failure to a connect error.
+ * Maps a URL-normalization failure to a connect error. Delegates to the shared client pre-check
+ * mapping (`precheckErrorFor`) so the web form and the server always pick the same code; the only
+ * difference is that the client-only `empty` becomes `not_a_url` here.
  * @param e `normalizeCanvasFeedUrl` error
  * @returns the user-facing error code
  */
 export function connectErrorForUrl(e: FeedUrlError): CanvasConnectError {
-  switch (e) {
-    case "empty":
-    case "not_a_url":
-    case "bad_scheme":
-      return "not_a_url";
-    case "ip_literal":
-      return "private_address";
-    case "course_feed":
-      return "course_feed";
-    default:
-      return "not_ical";
-  }
+  const code = precheckErrorFor(e);
+  return code === "empty" ? "not_a_url" : code;
 }
 
 /**

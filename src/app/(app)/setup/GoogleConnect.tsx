@@ -13,6 +13,8 @@
  *   `missing_scopes` is ambiguous (partial grant vs. nothing granted), so the current status
  *   decides which message shows. The param is then stripped from the address bar.
  * - Disconnect is a server action (`disconnectGoogle`, no API route) behind a confirm dialog.
+ * - Next to the buttons: "Texting as ••• ••• 1234" (5.5 #13), so someone who opened a forwarded
+ *   setup link sees it isn't their account before connecting their Google to it.
  */
 import { FreshLinkNotice } from "@/app/_components/FreshLinkNotice";
 import { Banner } from "@/app/_components/ui/Banner";
@@ -20,6 +22,7 @@ import { Button } from "@/app/_components/ui/Button";
 import { ConfirmDialog } from "@/app/_components/ui/ConfirmDialog";
 import { Section } from "@/app/_components/ui/Section";
 import type { GoogleConnectStatus, GoogleStatusView } from "@/server/integrations/google";
+import type { TextingAsView } from "@/server/web/setup-data";
 import { GOOGLE_STATUS_COPY, SETUP_COPY, type BannerTone } from "@/shared/copy";
 import { cleanText } from "@/shared/safe-url";
 import { StripSearchParam } from "./CanvasConnect";
@@ -143,17 +146,41 @@ function Capabilities({ status }: { status: Extract<GoogleStatusView, { connecte
 }
 
 /**
- * @param props Google status, whether this session may connect, and the `?google=` callback code
+ * "Texting as ••• ••• 1234" plus the "not you?" hint. The masked text is hidden from screen
+ * readers, which hear "the number ending in 1234" instead of a row of bullets.
+ * @param props the masked handle
+ * @returns the account line
+ */
+export function TextingAs({ who }: { who: TextingAsView }) {
+  const copy = SETUP_COPY.google.textingAs;
+  const masked = who.kind === "phone" ? copy.phoneMasked(who.last4) : copy.emailMasked(who.domain);
+  const spoken = who.kind === "phone" ? copy.phoneSpoken(who.last4) : copy.emailSpoken(who.domain);
+  return (
+    <div className="flex flex-col gap-1 text-base leading-relaxed" data-testid="texting-as">
+      <p className="font-semibold">
+        {copy.label} <span aria-hidden="true" className="whitespace-nowrap">{masked}</span>
+        <span className="sr-only">{spoken}</span>
+      </p>
+      <p className="text-ink-soft">{copy.notYou}</p>
+    </div>
+  );
+}
+
+/**
+ * @param props Google status, whether this session may connect, the `?google=` callback code, and
+ *   the account's masked handle (`textingAs`, shown next to the buttons when known)
  * @returns the Google section (`#google`)
  */
 export function GoogleConnect({
   status,
   canChange,
   banner,
+  textingAs = null,
 }: {
   status: GoogleStatusView;
   canChange: boolean;
   banner: GoogleConnectStatus | null;
+  textingAs?: TextingAsView | null;
 }) {
   const copy = SETUP_COPY.google;
   const bannerCopy = googleBanner(banner, status);
@@ -201,6 +228,7 @@ export function GoogleConnect({
 
       {canChange ? (
         <div className="flex flex-col gap-3">
+          {textingAs && <TextingAs who={textingAs} />}
           <div className="flex flex-wrap gap-3">
             {(!status.connected || missing.length > 0) && (
               <Button as="a" href={GOOGLE_OAUTH_START}>

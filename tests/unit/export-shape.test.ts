@@ -40,7 +40,18 @@ describe("shapeExport", () => {
       },
       { provider: "canvas_ical", status: "active", enc_ical_url: "v1:feed", ical_host: "canvas.yale.edu" },
     ],
-    signups: [{ id: "s1", name: "Dan", phone_e164: "+15551234567", ip: "1.2.3.4", created_at: new Date("2026-10-02T00:00:00Z"), timezone: Number.NaN, matched_user_id: "u1" }],
+    signups: [
+      {
+        id: "s1",
+        name: "Dan",
+        phone_e164: "+15551234567",
+        ip: "1.2.3.4",
+        user_agent: "Mozilla/5.0 (iPhone)",
+        created_at: new Date("2026-10-02T00:00:00Z"),
+        timezone: Number.NaN,
+        matched_user_id: "u1",
+      },
+    ],
     messages: [{ id: "m1", direction: "in", body: "hi", created_at: "2026-10-09T00:00:00Z", idempotency_key: "k", media: null }],
   };
   const out = shapeExport(raw, now);
@@ -69,6 +80,15 @@ describe("shapeExport", () => {
     expect(out.tables.messages[0]).toEqual({ direction: "in", body: "hi", created_at: "2026-10-09T00:00:00Z", media: null });
   });
 
+  it("never exports a signup's IP address or user agent (5.5 #8)", () => {
+    expect(EXPORT_COLUMNS.signups).not.toContain("ip");
+    expect(EXPORT_COLUMNS.signups).not.toContain("user_agent");
+    expect(FORBIDDEN_EXPORT_KEY.test("ip")).toBe(true);
+    expect(FORBIDDEN_EXPORT_KEY.test("user_agent")).toBe(true);
+    expect(FORBIDDEN_EXPORT_KEY.test("timezone_source")).toBe(false);
+    expect(JSON.stringify(out)).not.toMatch(/1\.2\.3\.4|Mozilla/);
+  });
+
   it("drops internal ids and foreign keys", () => {
     const keys = allKeys(out.tables);
     expect(keys).not.toContain("id");
@@ -85,7 +105,6 @@ describe("shapeExport", () => {
     expect(out.tables.signups[0]).toEqual({
       name: "Dan",
       phone_e164: "+15551234567",
-      ip: "1.2.3.4",
       created_at: "2026-10-02T00:00:00.000Z",
       timezone: null,
     });

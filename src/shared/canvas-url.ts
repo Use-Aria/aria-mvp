@@ -129,9 +129,9 @@ export function normalizeCanvasFeedUrl(input: string): NormalizeResult {
 export type PrecheckErrorCode = "empty" | "not_a_url" | "not_ical" | "course_feed" | "private_address";
 
 /**
- * Maps a normalization failure to the user-facing code. Mirrors the server's
- * `connectErrorForUrl` (`integrations/canvas/connect.ts`) except that `empty` stays `empty`, so the
- * pre-check and the server always show the same copy (a unit test checks every code).
+ * Maps a normalization failure to the user-facing code. The server's `connectErrorForUrl`
+ * (`integrations/canvas/connect.ts`) calls this too (turning the client-only `empty` into
+ * `not_a_url`), so the pre-check and the server always show the same copy.
  * @param e `normalizeCanvasFeedUrl` error
  * @returns user-facing code
  */

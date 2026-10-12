@@ -145,6 +145,8 @@ export const ACTION_ERROR_COPY: Record<ActionErrorCode, string> = {
   executor_failed: "Gmail didn't accept the email, so it wasn't sent. Try again, or text Aria \"help\".",
   google_disconnected:
     "Aria can't send this because Google isn't connected. Connect it in Setup, then try again.",
+  send_unconfirmed:
+    "Gmail hasn't confirmed this one yet. It may already be sent — check your Sent folder before trying again.",
 };
 
 /**
@@ -271,6 +273,16 @@ export const SETUP_COPY = {
     },
     needsReconnect:
       "Google stopped working for Aria. This happens if you removed access in your Google account. Tap Connect Google to fix it.",
+    /** Whose Aria this link opens (5.5 #13: a forwarded setup link signs you in as the sender). */
+    textingAs: {
+      label: "Texting as",
+      phoneMasked: (last4: string) => `••• ••• ${last4}`,
+      phoneSpoken: (last4: string) => `the number ending in ${last4}`,
+      emailMasked: (domain: string) => `•••@${domain}`,
+      emailSpoken: (domain: string) => `an Apple ID at ${domain}`,
+      notYou:
+        "Not you? Don't connect anything here. This link signs in whoever texted Aria for it. Text Aria \"setup\" from your own phone instead.",
+    },
   },
   syllabus: {
     title: "Syllabi",

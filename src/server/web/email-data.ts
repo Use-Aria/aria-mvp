@@ -9,7 +9,7 @@ import "server-only";
  * page never parses it as HTML. The body textarea keeps the raw text.
  */
 import { z } from "zod";
-import { GOOGLE_DISCONNECTED, getPendingAction } from "@/server/agent/pending/actions";
+import { GOOGLE_DISCONNECTED, getPendingAction, isOutcomeUnknown } from "@/server/agent/pending/actions";
 import type { PendingActionView } from "@/server/agent/pending/types";
 import { isRecent } from "@/server/web/guard";
 import type { Viewer } from "@/server/viewer";
@@ -23,9 +23,10 @@ export type DraftStatus = "pending" | "sending" | "sent" | "cancelled" | "expire
 /**
  * Why a `failed` draft didn't go out, as a known send code only (never the stored error text):
  * `google_disconnected` gets the "connect Google in Setup" copy + link, anything else the generic
- * "Gmail didn't accept the email" copy.
+ * "Gmail didn't accept the email" copy. A `sending` draft whose send Gmail didn't confirm (row left
+ * `executing` with a `send_unconfirmed` error) carries `send_unconfirmed` ("check your Sent folder").
  */
-export type DraftFailureCode = Extract<SendErrorCode, "google_disconnected" | "executor_failed">;
+export type DraftFailureCode = Extract<SendErrorCode, "google_disconnected" | "executor_failed" | "send_unconfirmed">;
 
 /** The draft as /email/[id] renders it. */
 export interface DraftView {
@@ -46,7 +47,10 @@ export interface DraftView {
   decidedAtLabel: string | null;
   /** When the email went out (executor result `sent_at`, else the decision time); null unless sent. */
   sentAtLabel: string | null;
-  /** Set only when `status` is `failed` (mapped from `pending_actions.error`); null otherwise. */
+  /**
+   * Mapped from `pending_actions.error`: set when `status` is `failed`, or `send_unconfirmed` when
+   * `status` is `sending` and Gmail didn't confirm the send; null otherwise.
+   */
   failureCode: DraftFailureCode | null;
   /** Gmail search link for the email being replied to, when known. */
   originalPermalink: string | null;
@@ -146,7 +150,12 @@ export function toDraftView(v: PendingActionView, opts: { timezone: string; rece
     expiresAtLabel: formatDraftTime(v.expiresAt, opts.timezone),
     decidedAtLabel: v.decidedAt ? formatDraftTime(v.decidedAt, opts.timezone) : null,
     sentAtLabel: sent ? formatDraftTime(sent, opts.timezone) : null,
-    failureCode: status === "failed" ? failureCodeOf(v.error) : null,
+    failureCode:
+      status === "failed"
+        ? failureCodeOf(v.error)
+        : status === "sending" && v.error !== null && isOutcomeUnknown(v.error)
+          ? "send_unconfirmed"
+          : null,
     originalPermalink: rfc822 ? gmailPermalink(rfc822) : null,
     canSend: opts.recent,
   };

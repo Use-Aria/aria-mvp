@@ -44,7 +44,7 @@ export default async function SetupPage({ searchParams }: { searchParams: Search
         canChange={view.canChange}
         freshNotice={<FreshLinkNotice keyword="setup" reason="view_only" />}
       />
-      <GoogleConnect status={view.google} canChange={view.canChange} banner={banner} />
+      <GoogleConnect status={view.google} canChange={view.canChange} banner={banner} textingAs={view.textingAs} />
       <SyllabusUpload />
       <ScheduleForm schedule={view.schedule} />
       <ToneForm tone={view.tone} />

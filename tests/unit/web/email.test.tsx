@@ -130,6 +130,15 @@ describe("toDraftView", () => {
     expect(raw).not.toContain("SecretishError");
   });
 
+  it("a sending draft whose send Gmail didn't confirm carries send_unconfirmed; a running one carries nothing", () => {
+    const view = (over: Partial<PendingActionView>) => toDraftView(action(over), { timezone: TZ, recent: true });
+    expect(view({ status: "executing", error: "send_unconfirmed:timeout" })).toMatchObject({ status: "sending", failureCode: "send_unconfirmed" });
+    expect(view({ status: "executing", error: "send_unconfirmed" })?.failureCode).toBe("send_unconfirmed");
+    expect(view({ status: "executing", error: null })).toMatchObject({ status: "sending", failureCode: null });
+    expect(view({ status: "executing", error: "send_unconfirmedX" })?.failureCode).toBeNull();
+    expect(view({ status: "pending", error: "send_unconfirmed:503" })?.failureCode).toBeNull();
+  });
+
   it("refuses non-email actions and unparseable payloads", () => {
     expect(toDraftView(action({ kind: "delete_account", payload: {} }), { timezone: TZ, recent: true })).toBeNull();
     expect(toDraftView(action({ payload: { v: 1 } }), { timezone: TZ, recent: true })).toBeNull();
@@ -173,6 +182,14 @@ describe("draftErrorCopy", () => {
     expect(draftErrorCopy("needs_recent_link").text).toBe(SHARED_COPY.recentLinkNeeded("draft link"));
     expect(draftErrorCopy("version_conflict").tone).toBe("warn");
     expect(draftErrorCopy("google_disconnected").text).toMatch(/Google isn't connected/);
+  });
+
+  it("send_unconfirmed is a warning that says to check the Sent folder (never 'already sent or canceled')", () => {
+    expect(draftErrorCopy("send_unconfirmed")).toEqual({
+      tone: "warn",
+      text: "Gmail hasn't confirmed this one yet. It may already be sent — check your Sent folder before trying again.",
+    });
+    expect(draftErrorCopy("send_unconfirmed").text).not.toBe(draftErrorCopy("not_pending").text);
   });
 });
 

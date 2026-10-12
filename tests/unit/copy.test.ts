@@ -3,6 +3,7 @@
  * callback code has non-empty, specific copy. Compile-time checks keep the shared code lists
  * in sync with the server contracts they mirror.
  */
+import type { ConfirmCode } from "@/server/agent/pending/actions";
 import type { CanvasConnectError } from "@/server/integrations/canvas";
 import type { GoogleConnectStatus } from "@/server/integrations/google";
 import {
@@ -10,6 +11,7 @@ import {
   CANVAS_CONNECT_ERROR_CODES,
   isSkewError,
   type CanvasConnectErrorCode,
+  type SendErrorCode,
 } from "@/shared/action-result";
 import {
   ACTION_ERROR_COPY,
@@ -29,6 +31,7 @@ import {
 type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 const canvasInSync: Equals<CanvasConnectError, CanvasConnectErrorCode> = true;
 const googleInSync: Equals<GoogleConnectStatus, GoogleConnectCode> = true;
+const confirmInSync: Equals<ConfirmCode, SendErrorCode> = true;
 
 const VAGUE = /error occurred|invalid input|something went wrong|unknown error/i;
 
@@ -41,7 +44,7 @@ function strings(value: unknown): string[] {
 
 describe("copy coverage", () => {
   it("server and shared code lists match", () => {
-    expect(canvasInSync && googleInSync).toBe(true);
+    expect(canvasInSync && googleInSync && confirmInSync).toBe(true);
   });
 
   it("every ActionErrorCode has specific copy", () => {

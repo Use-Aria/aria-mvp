@@ -38,6 +38,7 @@ export const SEND_ERROR_CODES = [
   "same_run",
   "executor_failed",
   "google_disconnected",
+  "send_unconfirmed",
 ] as const;
 export type SendErrorCode = (typeof SEND_ERROR_CODES)[number];
 

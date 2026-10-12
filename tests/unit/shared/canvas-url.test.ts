@@ -13,6 +13,7 @@ import {
   precheckIcalUrl,
   redactCanvasFeedUrls,
   type FeedUrlError,
+  type PrecheckErrorCode,
 } from "@/shared/canvas-url";
 
 const ID = "Ab3dE5gH7jK9mN1pQ3sT5vW7yZ9bC1dE3fG5hJ7k"; // 40 alphanumerics, like SecureRandom.alphanumeric(40)
@@ -156,25 +157,27 @@ describe("precheckIcalUrl", () => {
     expect(precheckIcalUrl(`https://[::1]${PATH}`)).toEqual({ ok: false, code: "private_address" });
   });
 
-  it("agrees with the server's connectErrorForUrl for every code (except client-only empty)", () => {
-    const all: Record<FeedUrlError, true> = {
-      empty: true,
-      not_a_url: true,
-      bad_scheme: true,
-      has_credentials: true,
-      bad_port: true,
-      ip_literal: true,
-      bad_host: true,
-      has_query: true,
-      course_feed: true,
-      not_feed_path: true,
-      parser_mismatch: true,
+  it("pins the code for every normalization error; the server's connectErrorForUrl reuses it", () => {
+    // The full table, so a change to the shared mapping is a deliberate test edit.
+    const expected: Record<FeedUrlError, PrecheckErrorCode> = {
+      empty: "empty",
+      not_a_url: "not_a_url",
+      bad_scheme: "not_a_url",
+      has_credentials: "not_ical",
+      bad_port: "not_ical",
+      ip_literal: "private_address",
+      bad_host: "not_ical",
+      has_query: "not_ical",
+      course_feed: "course_feed",
+      not_feed_path: "not_ical",
+      parser_mismatch: "not_ical",
     };
-    for (const e of Object.keys(all) as FeedUrlError[]) {
+    for (const e of Object.keys(expected) as FeedUrlError[]) {
       const code = precheckErrorFor(e);
+      expect(code).toBe(expected[e]);
       expect(CANVAS_ERROR_COPY[code]).toBeTruthy();
-      if (e === "empty") expect(code).toBe("empty");
-      else expect(code).toBe(connectErrorForUrl(e));
+      // Server: same code, except the client-only `empty` (the server says "not a URL").
+      expect(connectErrorForUrl(e)).toBe(e === "empty" ? "not_a_url" : code);
     }
   });
 });

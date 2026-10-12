@@ -6,7 +6,9 @@
  * Save, Send (disabled while there are unsaved edits or while pending), Cancel (confirm dialog).
  * Recipients are not editable here (the page shows them read-only). Hidden `id` + `version`
  * fields carry the version the user reviewed; when the server copy changes (a save, or Aria
- * revising the draft in chat), the fields reset to the latest version.
+ * revising the draft in chat), the fields reset to the latest version. A send Gmail didn't confirm
+ * (`send_unconfirmed`) locks the editor (read-only, no Save/Send/Cancel) under a warning: it may
+ * already be out, so nothing here may resend or change it.
  */
 import { useActionState, useState } from "react";
 import { Banner } from "@/app/_components/ui/Banner";
@@ -35,6 +37,7 @@ export function draftErrorCopy(code: ActionErrorCode): { tone: BannerTone; text:
     case "expired":
     case "rate_limited":
     case "same_run":
+    case "send_unconfirmed":
       return { tone: "warn", text: actionErrorCopy(code) };
     default:
       return { tone: "error", text: actionErrorCopy(code) };
@@ -88,7 +91,9 @@ export function DraftEditor({ draft }: { draft: DraftView }) {
     setBody(draft.body);
   }
 
-  const editable = draft.canSend;
+  // Gmail didn't confirm the send: it may be out already, so nothing more happens from this page.
+  const unconfirmed = sendState?.ok === false && sendState.code === "send_unconfirmed";
+  const editable = draft.canSend && !unconfirmed;
   const dirty = subject !== draft.subject || body !== draft.body;
   const rows = Math.min(24, Math.max(8, body.split("\n").length + 1));
 
@@ -146,22 +151,25 @@ export function DraftEditor({ draft }: { draft: DraftView }) {
           {sendState && !sendState.ok && <DraftErrorBanner code={sendState.code} />}
         </form>
       )}
+      {unconfirmed && <DraftErrorBanner code="send_unconfirmed" />}
 
-      <div className="flex flex-col gap-3">
-        <div>
-          <ConfirmDialog
-            trigger={EMAIL_COPY.cancel.button}
-            title={EMAIL_COPY.cancel.title}
-            confirmLabel={EMAIL_COPY.cancel.confirm}
-            cancelLabel={EMAIL_COPY.cancel.keep}
-            formAction={cancelAction}
-            hidden={{ id: draft.id }}
-          >
-            {EMAIL_COPY.cancel.body}
-          </ConfirmDialog>
+      {!unconfirmed && (
+        <div className="flex flex-col gap-3">
+          <div>
+            <ConfirmDialog
+              trigger={EMAIL_COPY.cancel.button}
+              title={EMAIL_COPY.cancel.title}
+              confirmLabel={EMAIL_COPY.cancel.confirm}
+              cancelLabel={EMAIL_COPY.cancel.keep}
+              formAction={cancelAction}
+              hidden={{ id: draft.id }}
+            >
+              {EMAIL_COPY.cancel.body}
+            </ConfirmDialog>
+          </div>
+          {cancelState && !cancelState.ok && <DraftErrorBanner code={cancelState.code} />}
         </div>
-        {cancelState && !cancelState.ok && <DraftErrorBanner code={cancelState.code} />}
-      </div>
+      )}
     </div>
   );
 }

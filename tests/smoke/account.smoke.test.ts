@@ -2,8 +2,9 @@
  * Account export + deletion smoke (task 4.6; web plan §10 `account.smoke`), against the LOCAL
  * Supabase stack by default (`SMOKE_TARGET=env` for the env project).
  *
- *  1. `collectAccountExport`: every included table, paging past 1,000 rows (1,050 messages), own
- *     signups (matched + same phone), deleted facts excluded, no secret keys or ciphertext.
+ *  1. `collectAccountExport`: every included table, paging past 1,000 rows (1,050 messages), only
+ *     the signup matched to the user (not another same-phone signup), no IP / user agent, deleted
+ *     facts excluded, no secret keys or ciphertext.
  *  2. `POST /api/me/export`: fresh setup session → JSON attachment + no-store; view session → 303
  *     `/settings?export=needs_fresh_link`; foreign Origin → 403; no session → `signed_out`.
  *  3. `deleteAccount({via:"web"})`: real `disconnectGoogle` (Google HTTP faked: the revoke fails →
@@ -115,7 +116,7 @@ interface Seeded {
   signupIds: string[];
 }
 
-/** A user with a channel, two signups (matched + same phone), memory, timeline, Google + Canvas rows. */
+/** A user with a channel, two signups (matched + someone else's for the same phone), memory, timeline, Google + Canvas rows. */
 async function seedUser(name: string, opts: { messages?: number } = {}): Promise<Seeded> {
   const userId = must(await sb.from("users").insert({ name, timezone: "America/New_York" }).select("id").single(), "user").id;
   users.push(userId);
@@ -132,8 +133,9 @@ async function seedUser(name: string, opts: { messages?: number } = {}): Promise
     await sb
       .from("signups")
       .insert([
-        { name, phone_e164: phone, matched_user_id: userId, timezone: "America/New_York" },
-        { name, phone_e164: phone, timezone: "America/New_York" },
+        { name, phone_e164: phone, matched_user_id: userId, timezone: "America/New_York", ip: "203.0.113.7", user_agent: "SmokeOwnUA/1.0" },
+        // Someone else's form submission for the same phone (never matched): not in the export.
+        { name: `${name} Impostor`, phone_e164: phone, timezone: "America/Chicago", ip: "198.51.100.9", user_agent: "SmokeOtherUA/1.0" },
       ])
       .select("id"),
     "signups",
@@ -231,7 +233,10 @@ describe("1. collectAccountExport", () => {
     expect(t.messages[1049]).toEqual(expect.objectContaining({ body: "msg 1049" }));
     expect(t.users).toEqual([expect.objectContaining({ name: "Avery", timezone: "America/New_York" })]);
     expect(t.channels).toEqual([expect.objectContaining({ handle: a.phone, kind: "imessage" })]);
-    expect(t.signups).toHaveLength(2);
+    // Only the signup matched to this user, without IP / user agent (5.5 #8).
+    expect(t.signups).toEqual([
+      { name: "Avery", phone_e164: a.phone, timezone: "America/New_York", consent_version: null, created_at: expect.any(String) },
+    ]);
     expect(t.user_profile).toEqual([expect.objectContaining({ school: "Yale University", courses: ["CPSC 323"] })]);
     expect(t.user_preferences).toEqual([expect.objectContaining({ statement: "No gym after 8pm", status: "active" })]);
     expect(t.memory_facts.map((f) => f.content)).toEqual(["Has a Stripe interview Oct 23"]);
@@ -246,6 +251,9 @@ describe("1. collectAccountExport", () => {
     expect(json).not.toContain("ya29");
     expect(json).not.toContain("deadbeef");
     expect(json).not.toContain(a.userId);
+    for (const leak of ["Impostor", "198.51.100.9", "203.0.113.7", "SmokeOtherUA", "SmokeOwnUA", '"ip"', '"user_agent"']) {
+      expect(json).not.toContain(leak);
+    }
   });
 });
 

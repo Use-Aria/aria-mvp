@@ -73,7 +73,9 @@ export async function saveDraftAction(
  * @param _prev previous result (`useActionState`)
  * @param form `id`, `version`
  * @returns the send time label, or why not (`version_conflict` / `expired` / `not_pending`
- *   refresh the page so the latest state shows; `google_disconnected` → the page offers Setup)
+ *   refresh the page so the latest state shows; `google_disconnected` → the page offers Setup;
+ *   `send_unconfirmed` (Gmail didn't confirm it) keeps the editor on screen, locked, with its warning
+ *   — a refresh would swap it for the generic "sending" banner)
  */
 export async function sendDraftAction(
   _prev: ActionResult<{ sentAtLabel: string }> | null,
@@ -88,7 +90,7 @@ export async function sendDraftAction(
     if (!(await rateLimit(`email_send:${userId}`, SEND_LIMIT, SEND_WINDOW_SEC))) return actionFail("rate_limited");
     const r = await confirmPendingAction(userId, ref.id, { via: "web", expectedVersion: ref.version });
     if (!r.ok) {
-      if (r.code !== "not_found") refresh();
+      if (r.code !== "not_found" && r.code !== "send_unconfirmed") refresh();
       return actionFail(r.code);
     }
     refresh();
