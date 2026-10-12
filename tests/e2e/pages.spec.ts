@@ -6,6 +6,7 @@
  * and reduced motion honoured on the landing hero.
  */
 import { audit, focusAudit } from "./support/audit";
+import type { Page } from "@playwright/test";
 import { expect, expectNoHorizontalScroll, test } from "./support/fixtures";
 import { PAGE_CASES, PAGE_TZ, openCase } from "./support/pages";
 
@@ -14,11 +15,24 @@ test.use({ timezoneId: PAGE_TZ });
 
 const APP_PAGES = /^(week|setup|settings|email)(?!-signed-out)/;
 
+/**
+ * Waits until the streamed page content has replaced the `(app)/loading.tsx` skeleton: every
+ * audited page renders exactly one visible h1 inside `<main>`. Under `next dev` the "load" event
+ * can fire before the RSC stream swaps the content in, so auditing straight away races it.
+ * @param page the page
+ * @returns once the content is in
+ */
+async function contentReady(page: Page): Promise<void> {
+  await expect(page.locator("main h1")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("status", { name: "Loading" })).toHaveCount(0, { timeout: 30_000 });
+}
+
 for (const pc of PAGE_CASES) {
   test(`${pc.name}: no horizontal scroll, a11y audit (light + dark), focus`, async ({ page, world, context }) => {
     const path = await openCase(pc, world, context, PAGE_TZ);
     await page.emulateMedia({ colorScheme: "light" });
     await page.goto(path, { waitUntil: "load" });
+    await contentReady(page);
     await page.waitForFunction(() => document.fonts.status === "loaded", null, { timeout: 15_000 }).catch(() => undefined);
     await expectNoHorizontalScroll(page);
     const light = await audit(page);
