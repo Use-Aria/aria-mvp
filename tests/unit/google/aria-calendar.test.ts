@@ -3,10 +3,20 @@
  * lazy one-time calendar creation, `aria_key` retry idempotency, recreate-on-404 with a note,
  * live conflict re-check (busy only: transparent / all-day never conflict), `no_permission`,
  * `move_block` refusing non-Aria rows and excluding itself from the conflict check,
- * `delete_block` treating 404 as success.
+ * `delete_block` treating 404 as success. Ambiguous writes (review 5.5 #1): an `events.insert` /
+ * `calendars.insert` whose outcome is unknown is never re-sent; the `aria_key` lookup / the
+ * calendar-list lookup decides instead.
  */
 import { randomBytes } from "node:crypto";
-import { createBlock, deleteBlock, moveBlock, ensureAriaCalendar, type AriaCalendarDeps } from "@/server/integrations/google/calendar/aria-calendar";
+import {
+  createBlock,
+  deleteBlock,
+  moveBlock,
+  ensureAriaCalendar,
+  resetAmbiguousCalendarMemo,
+  type AriaCalendarDeps,
+} from "@/server/integrations/google/calendar/aria-calendar";
+import { GoogleWriteUnknownError } from "@/server/integrations/google/http";
 import type { GoogleIntegration } from "@/server/integrations/google/store";
 import type { TimelineItem, TimelineItemInput } from "@/server/timeline/types";
 import { googleRow, json, MemoryStore } from "./fakes";
@@ -34,9 +44,22 @@ interface FakeEvent {
   htmlLink?: string;
 }
 
-/** Minimal Calendar API: calendars, events list/insert/patch/delete, privateExtendedProperty filter. */
+/** How a scripted write fails: the HTTP outcome, and whether Google applied it anyway. */
+interface WriteFailure {
+  kind: "timeout" | "network" | 500 | 503 | 429;
+  applied: boolean;
+}
+
+/** Minimal Calendar API: calendars, events list/insert/patch/delete, privateExtendedProperty filter, calendarList. */
 class FakeGoogle {
   calendars = new Map<string, FakeEvent[]>();
+  /** summary/description of calendars created through `calendars.insert` (listed by calendarList) */
+  calMeta = new Map<string, { summary?: string; description?: string }>();
+  /** next `POST /calendars` / `POST …/events` fails this way (one-shot) */
+  failCalendarInsert: WriteFailure | null = null;
+  failEventInsert: WriteFailure | null = null;
+  /** calendarList answers with this status instead (e.g. 403 without the calendar-list scope) */
+  calendarListStatus: number | null = null;
   calls: { method: string; path: string; query: URLSearchParams; body: Record<string, unknown> | null }[] = [];
   seq = 0;
   /** paths that 404 once */
@@ -57,9 +80,20 @@ class FakeGoogle {
       this.goneOnce.delete(gone);
       return json(404, { error: { code: 404, message: "Not Found", errors: [{ reason: "notFound" }] } });
     }
+    if (path === "/users/me/calendarList" && method === "GET") {
+      if (this.calendarListStatus) return json(this.calendarListStatus, { error: { code: this.calendarListStatus, errors: [{ reason: "insufficientPermissions" }] } });
+      const items = [{ id: PRIMARY, summary: PRIMARY, accessRole: "owner", primary: true }];
+      for (const [id, m] of this.calMeta) if (this.calendars.has(id)) items.push({ id, ...m, accessRole: "owner", primary: false } as (typeof items)[number]);
+      return json(200, { items });
+    }
     if (path === "/calendars" && method === "POST") {
+      const f = this.failCalendarInsert;
+      this.failCalendarInsert = null;
+      if (f && !f.applied) return failWith(f);
       const id = `aria${++this.seq}@group.calendar.google.com`;
       this.calendars.set(id, []);
+      this.calMeta.set(id, { summary: body?.summary as string, description: body?.description as string });
+      if (f) return failWith(f);
       return json(200, { id, summary: body?.summary });
     }
     const m = /^\/calendars\/([^/]+)\/events(?:\/([^/]+))?$/.exec(path);
@@ -85,6 +119,9 @@ class FakeGoogle {
       });
     }
     if (!evId && method === "POST") {
+      const f = this.failEventInsert;
+      this.failEventInsert = null;
+      if (f && !f.applied) return failWith(f);
       const ev: FakeEvent = {
         id: `ev${String(++this.seq).padStart(24, "0")}`,
         summary: body?.summary as string,
@@ -94,6 +131,7 @@ class FakeGoogle {
         htmlLink: "https://www.google.com/calendar/event?eid=x",
       };
       list.push(ev);
+      if (f) return failWith(f);
       return json(200, ev);
     }
     const ev = list.find((e) => e.id === evId);
@@ -113,6 +151,12 @@ class FakeGoogle {
   count(method: string, re: RegExp): number {
     return this.calls.filter((c) => c.method === method && re.test(c.path)).length;
   }
+}
+
+function failWith(f: WriteFailure): Response {
+  if (f.kind === "timeout") throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+  if (f.kind === "network") throw new TypeError("fetch failed");
+  return json(f.kind, { error: { code: f.kind, errors: [{ reason: f.kind === 429 ? "rateLimitExceeded" : "backendError" }] } });
 }
 
 function setup(rowOver: Partial<GoogleIntegration> = {}) {
@@ -180,6 +224,7 @@ function timelineItem(over: Partial<TimelineItem>): TimelineItem {
 }
 
 beforeEach(() => {
+  resetAmbiguousCalendarMemo();
   jest.spyOn(console, "info").mockImplementation(() => undefined);
   jest.spyOn(console, "warn").mockImplementation(() => undefined);
 });
@@ -327,5 +372,109 @@ describe("moveBlock / deleteBlock", () => {
     // already gone in Google
     expect(await deleteBlock(USER, "blk-1", t.deps)).toEqual({ ok: true });
     expect(t.removed).toHaveLength(2);
+  });
+});
+
+describe("ambiguous writes are never re-sent (review 5.5 #1)", () => {
+  const ARIA = "aria1@group.calendar.google.com";
+  const KINDS: WriteFailure["kind"][] = ["timeout", "network", 500, 503, 429];
+
+  it.each(KINDS)("events.insert %s but the event was created → found by aria_key, one insert", async (kind) => {
+    const t = setup({ gcal_aria_calendar_id: ARIA });
+    t.g.calendars.set(ARIA, []);
+    t.g.failEventInsert = { kind, applied: true };
+    const r = await createBlock(USER, input(), t.deps);
+    expect(r).toMatchObject({ ok: true, eventId: expect.stringMatching(/^ev/) });
+    expect(t.g.count("POST", /\/events$/)).toBe(1);
+    expect(t.g.calendars.get(ARIA)).toHaveLength(1);
+    expect(t.upserts).toHaveLength(1);
+    // the lookup after the failure used the same aria_key
+    const lookups = t.g.calls.filter((c) => c.method === "GET" && c.query.get("privateExtendedProperty") === "aria_key=k1");
+    expect(lookups.length).toBeGreaterThanOrEqual(2); // step-1 lookup + the post-failure lookup
+  });
+
+  it.each(KINDS)("events.insert %s and nothing was created → GoogleWriteUnknownError, no second insert", async (kind) => {
+    const t = setup({ gcal_aria_calendar_id: ARIA });
+    t.g.calendars.set(ARIA, []);
+    t.g.failEventInsert = { kind, applied: false };
+    await expect(createBlock(USER, input(), t.deps)).rejects.toBeInstanceOf(GoogleWriteUnknownError);
+    expect(t.g.count("POST", /\/events$/)).toBe(1);
+    expect(t.g.calendars.get(ARIA)).toHaveLength(0);
+    expect(t.upserts).toHaveLength(0);
+  });
+
+  it("a same-run retry after an unknown insert that landed late reuses the event (step-1 lookup)", async () => {
+    const t = setup({ gcal_aria_calendar_id: ARIA });
+    t.g.calendars.set(ARIA, []);
+    t.g.failEventInsert = { kind: "timeout", applied: false };
+    await expect(createBlock(USER, input(), t.deps)).rejects.toBeInstanceOf(GoogleWriteUnknownError);
+    // Google finishes the write after we gave up
+    t.g.calendars.get(ARIA)?.push({
+      id: "evlate000000000000000000",
+      summary: "Gym",
+      start: { dateTime: "2026-10-15T22:30:00.000Z" },
+      end: { dateTime: "2026-10-15T23:30:00.000Z" },
+      extendedProperties: { private: { aria: "1", aria_key: "k1" } },
+    });
+    const r = await createBlock(USER, input(), t.deps);
+    expect(r).toMatchObject({ ok: true, eventId: "evlate000000000000000000" });
+    expect(t.g.count("POST", /\/events$/)).toBe(1);
+  });
+
+  it.each(KINDS)("calendars.insert %s but the calendar was created → adopted from the calendar list, one create", async (kind) => {
+    const t = setup();
+    t.g.failCalendarInsert = { kind, applied: true };
+    const r = await createBlock(USER, input(), t.deps);
+    expect(r).toMatchObject({ ok: true });
+    expect(t.g.count("POST", /^\/calendars$/)).toBe(1);
+    expect(t.row.gcal_aria_calendar_id).toBe(ARIA);
+    expect(t.updates).toEqual([{ gcal_aria_calendar_id: ARIA }]);
+    expect(t.g.calendars.get(ARIA)).toHaveLength(1);
+    const list = t.g.calls.find((c) => c.path === "/users/me/calendarList");
+    expect(list?.query.get("minAccessRole")).toBe("owner");
+  });
+
+  it("calendars.insert unknown, nothing created, list empty → error; the next try looks first, then creates once", async () => {
+    const t = setup();
+    t.g.failCalendarInsert = { kind: 503, applied: false };
+    await expect(createBlock(USER, input(), t.deps)).rejects.toBeInstanceOf(GoogleWriteUnknownError);
+    expect(t.g.count("POST", /^\/calendars$/)).toBe(1);
+    expect(t.row.gcal_aria_calendar_id).toBeNull();
+    const listsBefore = t.g.count("GET", /calendarList$/);
+    const r = await createBlock(USER, input(), t.deps);
+    expect(r.ok).toBe(true);
+    expect(t.g.count("GET", /calendarList$/)).toBe(listsBefore + 1); // looked before creating
+    expect(t.g.count("POST", /^\/calendars$/)).toBe(2);
+    expect(t.g.calMeta.size).toBe(1);
+  });
+
+  it("calendars.insert unknown and the list can't be read → refuses to create another until it can look", async () => {
+    const t = setup();
+    t.g.calendarListStatus = 403;
+    t.g.failCalendarInsert = { kind: "timeout", applied: true };
+    await expect(createBlock(USER, input(), t.deps)).rejects.toBeInstanceOf(GoogleWriteUnknownError);
+    await expect(createBlock(USER, input(), t.deps)).rejects.toMatchObject({ reason: "aria_calendar_unverified", retryable: true });
+    expect(t.g.count("POST", /^\/calendars$/)).toBe(1);
+    // once the list is readable again, the calendar the first try made is adopted
+    t.g.calendarListStatus = null;
+    const r = await createBlock(USER, input(), t.deps);
+    expect(r.ok).toBe(true);
+    expect(t.g.count("POST", /^\/calendars$/)).toBe(1);
+    expect(t.row.gcal_aria_calendar_id).toBe(ARIA);
+  });
+
+  it("a user calendar named Aria with another description is never adopted", async () => {
+    const t = setup();
+    t.g.calendars.set("mine@group.calendar.google.com", []);
+    t.g.calMeta.set("mine@group.calendar.google.com", { summary: "Aria", description: "my own stuff" });
+    t.g.failCalendarInsert = { kind: 500, applied: false };
+    await expect(createBlock(USER, input(), t.deps)).rejects.toBeInstanceOf(GoogleWriteUnknownError);
+    expect(t.row.gcal_aria_calendar_id).toBeNull();
+  });
+
+  it("the normal path never reads the calendar list", async () => {
+    const t = setup();
+    expect((await createBlock(USER, input(), t.deps)).ok).toBe(true);
+    expect(t.g.count("GET", /calendarList$/)).toBe(0);
   });
 });

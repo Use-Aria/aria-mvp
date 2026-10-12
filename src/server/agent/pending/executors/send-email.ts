@@ -8,6 +8,11 @@ import "server-only";
  * `gmail.send`, send a threaded message with Message-ID `<aria.<actionId>@<sender domain>>`.
  * `recover` (rows stuck in `executing` > 5 min) searches the sent folder for that Message-ID.
  * Failures are terminal; a disconnected Google returns `GOOGLE_DISCONNECTED`.
+ *
+ * Never resends: `messages.send` is a single no-retry request (`http.ts` `retry: "none"`). When its
+ * outcome is unknown (timeout, network, 5xx, 429), `executeSendEmail` checks the Sent folder and
+ * reports "sent" if the message is there, else fails with `send_unconfirmed:*` (non-retryable).
+ * Neither `execute` nor `recover` ever calls `messages.send` a second time for one action.
  */
 import { definePendingAction } from "@/server/agent/pending/types";
 import { executeSendEmail, recoverSendEmail } from "@/server/integrations/google/gmail/send";

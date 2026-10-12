@@ -9,9 +9,16 @@ import "server-only";
  * Event descriptions are never requested (`fields` partial responses) and never stored.
  *
  * The write helpers (`insertCalendar`, `insertEvent`, `patchEvent`, `deleteEvent`,
- * `findEventByAriaKey`, `getCalendar`) exist for task 4.2's Aria-calendar writes; the scope
- * `calendar.app.created` only lets them touch calendars Aria created.
+ * `findEventByAriaKey`, `getCalendar`, `findOwnedCalendars`) exist for task 4.2's Aria-calendar
+ * writes; the scope `calendar.app.created` only lets them touch calendars Aria created.
+ *
+ * Retry policy (`http.ts`): the two creating POSTs (`calendars.insert`, `events.insert`) are sent
+ * with `retry: "none"`. Everything else keeps the default backoff because a repeat is harmless:
+ * GETs, `events.patch` (same body → same result), `events.delete` / `channels.stop` (404 counts
+ * as done), and `events.watch` (the client-chosen channel id makes a duplicate open fail rather
+ * than create a second channel; an orphan channel expires on its own).
  */
+import { z } from "zod";
 import { GoogleApiError } from "@/server/integrations/google/errors";
 import { googleFetch, googleFetchNoContent, type GoogleFetchDeps } from "@/server/integrations/google/http";
 import {
@@ -179,18 +186,84 @@ export async function findEventByAriaKey(
 
 /**
  * `calendars.insert` (a secondary calendar owned by the user; needs `calendar.app.created`).
+ * Never retried automatically (`retry: "none"`).
  * @param userId owner
  * @param body summary, description, IANA time zone
  * @param deps HTTP seam (tests)
  * @returns the new calendar id
+ * @throws GoogleWriteUnknownError when it may or may not have been created; GoogleApiError otherwise
  */
 export async function insertCalendar(
   userId: string,
   body: { summary: string; description: string; timeZone: string },
   deps?: CalendarApiDeps,
 ): Promise<{ id: string }> {
-  const r = await googleFetch(userId, { method: "POST", url: `${CALENDAR_BASE}/calendars`, body }, GCalCalendar, deps);
+  // Never retried: a resend after a timeout/5xx could create a second "Aria" calendar.
+  const r = await googleFetch(userId, { method: "POST", url: `${CALENDAR_BASE}/calendars`, body, retry: "none" }, GCalCalendar, deps);
   return { id: r.id };
+}
+
+/** `calendarList` entry fields used to recognise a calendar Aria created. */
+const OwnedCalendarList = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        summary: z.string().optional(),
+        description: z.string().optional(),
+        accessRole: z.string().optional(),
+        primary: z.boolean().optional(),
+        deleted: z.boolean().optional(),
+      }),
+    )
+    .optional()
+    .default([]),
+  nextPageToken: z.string().optional(),
+});
+
+/**
+ * Calendars on the user's list that look like ones Aria created: exact `summary` and
+ * `description`, owned by the user, not primary, not deleted. Used after an ambiguous
+ * `calendars.insert` to adopt the calendar it may have created instead of making another.
+ * `calendarList.list` needs `calendar.calendarlist.readonly` (requested, but optional at consent).
+ * @param userId owner
+ * @param match exact summary + description Aria sets on its calendar
+ * @param deps HTTP seam (tests)
+ * @returns matching calendar ids, sorted (deterministic choice when there are several)
+ * @throws GoogleApiError (403 without the calendar-list scope), GoogleAuthRevokedError, GoogleNotConnectedError
+ */
+export async function findOwnedCalendars(
+  userId: string,
+  match: { summary: string; description: string },
+  deps?: CalendarApiDeps,
+): Promise<string[]> {
+  const out: string[] = [];
+  let pageToken: string | undefined;
+  for (let page = 0; page < MAX_CALENDAR_LIST_PAGES; page++) {
+    const r = await googleFetch(
+      userId,
+      {
+        url: `${CALENDAR_BASE}/users/me/calendarList`,
+        query: {
+          maxResults: 250,
+          minAccessRole: "owner",
+          showHidden: true,
+          pageToken,
+          fields: "nextPageToken,items(id,summary,description,accessRole,primary,deleted)",
+        },
+      },
+      OwnedCalendarList,
+      deps,
+    );
+    for (const c of r.items) {
+      if (c.summary === match.summary && c.description === match.description && c.accessRole === "owner" && !c.primary && !c.deleted) {
+        out.push(c.id);
+      }
+    }
+    pageToken = r.nextPageToken;
+    if (!pageToken) break;
+  }
+  return out.sort();
 }
 
 /**
@@ -235,17 +308,20 @@ function eventBody(ev: Partial<NewEvent>): Record<string, unknown> {
 }
 
 /**
- * `events.insert`.
+ * `events.insert`. Never retried automatically (`retry: "none"`).
  * @param userId owner
  * @param calendarId target (the Aria calendar)
  * @param ev event
  * @param deps HTTP seam (tests)
  * @returns the created event
+ * @throws GoogleWriteUnknownError when it may or may not have been created; GoogleApiError otherwise
  */
 export async function insertEvent(userId: string, calendarId: string, ev: NewEvent, deps?: CalendarApiDeps): Promise<GCalEventT> {
   return googleFetch(
     userId,
-    { method: "POST", url: `${cal(calendarId)}/events`, query: { fields: EVENT_FIELDS }, body: eventBody(ev) },
+    // Never retried: a resend after a timeout/5xx could duplicate the event (`aria-calendar.ts`
+    // then looks the event up by its `aria_key` instead).
+    { method: "POST", url: `${cal(calendarId)}/events`, query: { fields: EVENT_FIELDS }, body: eventBody(ev), retry: "none" },
     GCalEvent,
     deps,
   );

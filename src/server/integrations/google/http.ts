@@ -8,6 +8,12 @@ import "server-only";
  * - 401 → force one refresh (passing the rejected token), then retry once.
  * - 429, 5xx, 403 `rateLimitExceeded`/`userRateLimitExceeded`, and network errors → backoff
  *   (0.5s, 2s, each scaled by up to 1.3x jitter; `Retry-After` honoured up to 10s), 3 tries in total.
+ * - `retry: "none"` (non-idempotent writes: Gmail `messages.send`, Calendar `events.insert` and
+ *   `calendars.insert`): never retried automatically. A failure that may have reached Google
+ *   (timeout, network error, 5xx, 429, 403 rate limit, or a 2xx whose body can't be read) throws
+ *   `GoogleWriteUnknownError` so the caller checks whether the write happened (Sent folder,
+ *   `aria_key`, calendar list) instead of resending. A definite rejection (other 4xx) is a plain
+ *   `GoogleApiError`. The 401 → refresh → resend-once stays: a 401 means Google didn't act.
  * - JSON responses are validated with the caller's zod schema; a mismatch throws
  *   (`GoogleApiError` reason `invalid_response`), never silently passes.
  *
@@ -18,11 +24,44 @@ import type { z } from "zod";
 import { GoogleApiError } from "@/server/integrations/google/errors";
 import { getGoogleAccess, type GoogleTokenDeps } from "@/server/integrations/google/tokens";
 
+/** Retry policy: `"default"` (backoff on transient failures) or `"none"` (non-idempotent writes). */
+export type GoogleRetryPolicy = "default" | "none";
+
 export interface GoogleRequest {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   url: string;
   query?: Record<string, string | string[] | number | boolean | undefined>;
   body?: unknown;
+  /**
+   * `"none"` disables every automatic retry (timeouts and network errors included) and turns an
+   * ambiguous failure into `GoogleWriteUnknownError`. Required for any non-idempotent POST
+   * (a resend could duplicate an email, event or calendar). Default `"default"`.
+   */
+  retry?: GoogleRetryPolicy;
+}
+
+/**
+ * A no-retry write failed in a way that leaves its outcome unknown: Google may or may not have
+ * carried it out (timeout, network error, 5xx, 429/rate limit, or an unreadable 2xx body).
+ * Callers must check whether the write happened before doing anything else, and must never
+ * resend blindly. `retryable` is always false.
+ */
+export class GoogleWriteUnknownError extends GoogleApiError {
+  readonly outcome = "unknown" as const;
+
+  constructor(message: string, o: { status: number; reason?: string }) {
+    super(message, { status: o.status, reason: o.reason, retryable: false });
+    this.name = "GoogleWriteUnknownError";
+  }
+}
+
+/**
+ * Type guard for `GoogleWriteUnknownError`.
+ * @param e anything thrown
+ * @returns true when a no-retry write's outcome is unknown
+ */
+export function isWriteOutcomeUnknown(e: unknown): e is GoogleWriteUnknownError {
+  return e instanceof GoogleWriteUnknownError;
 }
 
 /** Injectable dependencies. `fetch` is used for both the API call and any token refresh. */
@@ -102,6 +141,7 @@ async function send(userId: string, req: GoogleRequest, deps: GoogleFetchDeps | 
   const method = req.method ?? "GET";
   const url = buildGoogleUrl(req);
   const hasBody = req.body !== undefined;
+  const noRetry = req.retry === "none";
 
   let { accessToken } = await getGoogleAccess(userId, { deps: tokenDeps });
   let refreshed = false;
@@ -140,13 +180,21 @@ async function send(userId: string, req: GoogleRequest, deps: GoogleFetchDeps | 
       };
     } catch (err) {
       if (!isNetworkError(err)) throw err;
-      const name = err instanceof Error ? err.name : "unknown";
+      const name = errName(err);
       failure = {
         err: new GoogleApiError(`${label(method, url)} network error (${name})`, { status: 0, reason: "network", retryable: true }),
         wait: null,
       };
     }
 
+    if (noRetry) {
+      // Never resend a non-idempotent write: a transient failure may already have taken effect.
+      if (!failure.err.retryable) throw failure.err;
+      throw new GoogleWriteUnknownError(`${failure.err.message}; outcome unknown, not retried`, {
+        status: failure.err.status,
+        reason: failure.err.reason,
+      });
+    }
     if (!failure.err.retryable || tryNo >= MAX_TRIES) throw failure.err;
     const base = BACKOFF_MS[Math.min(tryNo - 1, BACKOFF_MS.length - 1)] ?? 2000;
     const backoff = Math.round(base * (1 + 0.3 * random()));
@@ -154,20 +202,32 @@ async function send(userId: string, req: GoogleRequest, deps: GoogleFetchDeps | 
   }
 }
 
-/** Errors thrown by `fetch` itself (DNS, reset, timeout) — not our own typed errors from the refresh path. */
+/**
+ * Errors thrown by `fetch` itself (DNS, reset, timeout) — not our own typed errors from the refresh
+ * path. Checked by `name`, not `instanceof Error`: the timeout is a `DOMException`, which may come
+ * from another realm (e.g. under Jest's VM context).
+ */
 function isNetworkError(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
-  return err.name === "TypeError" || err.name === "AbortError" || err.name === "TimeoutError";
+  const name = errName(err);
+  return name === "TypeError" || name === "AbortError" || name === "TimeoutError";
+}
+
+function errName(err: unknown): string {
+  if (typeof err !== "object" || err === null || !("name" in err)) return "unknown";
+  return typeof err.name === "string" ? err.name : "unknown";
 }
 
 /**
  * Authenticated call with 401→refresh-once, 429/5xx backoff (3 tries, jitter), zod-validated JSON.
+ * With `req.retry: "none"` nothing is retried and an ambiguous failure (including a 2xx whose body
+ * can't be read or validated) throws `GoogleWriteUnknownError`.
  * @param userId owner of the Google token
- * @param req method, googleapis.com URL, query, JSON body
+ * @param req method, googleapis.com URL, query, JSON body, retry policy
  * @param schema zod schema for the response JSON (an empty body parses as `{}`)
  * @param deps injectable fetch / sleep / jitter / token-layer overrides (tests)
  * @returns the validated response
- * @throws GoogleApiError (`retryable` set), GoogleAuthRevokedError, GoogleNotConnectedError
+ * @throws GoogleApiError (`retryable` set), GoogleWriteUnknownError (no-retry writes only),
+ *   GoogleAuthRevokedError, GoogleNotConnectedError
  */
 export async function googleFetch<T>(
   userId: string,
@@ -177,16 +237,25 @@ export async function googleFetch<T>(
 ): Promise<T> {
   const res = await send(userId, req, deps);
   const url = buildGoogleUrl(req);
-  const text = await res.text();
+  const lbl = label(req.method ?? "GET", url);
+  // A no-retry write got a 2xx: it happened. If its body can't be read, the caller still has to
+  // find the result some other way (never resend), so the error says "outcome unknown".
+  const bad = (message: string): GoogleApiError =>
+    req.retry === "none"
+      ? new GoogleWriteUnknownError(`${message}; outcome unknown, not retried`, { status: res.status, reason: "invalid_response" })
+      : new GoogleApiError(message, { status: res.status, reason: "invalid_response", retryable: false });
+  let text: string;
+  try {
+    text = await res.text();
+  } catch (err) {
+    if (req.retry !== "none") throw err;
+    throw bad(`${lbl} response body unreadable (${errName(err)})`);
+  }
   let json: unknown;
   try {
     json = text.trim() === "" ? {} : JSON.parse(text);
   } catch {
-    throw new GoogleApiError(`${label(req.method ?? "GET", url)} returned non-JSON`, {
-      status: res.status,
-      reason: "invalid_response",
-      retryable: false,
-    });
+    throw bad(`${lbl} returned non-JSON`);
   }
   const parsed = schema.safeParse(json);
   if (!parsed.success) {
@@ -194,11 +263,7 @@ export async function googleFetch<T>(
       .slice(0, 3)
       .map((i) => i.path.join(".") || "(root)")
       .join(", ");
-    throw new GoogleApiError(`${label(req.method ?? "GET", url)} response failed validation at ${paths}`, {
-      status: res.status,
-      reason: "invalid_response",
-      retryable: false,
-    });
+    throw bad(`${lbl} response failed validation at ${paths}`);
   }
   return parsed.data;
 }

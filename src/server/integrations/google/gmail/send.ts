@@ -13,8 +13,11 @@ import "server-only";
  *  2. Build the RFC 5322 message (`buildRawMessage`: CR/LF in any header throws) with a
  *     deterministic `Message-ID: <aria.<actionId>@<sender domain>>`, plus `In-Reply-To` /
  *     `References` and the Gmail `threadId` for replies.
- *  3. `messages.send`. A transient failure first checks the sent folder for our Message-ID (the
- *     send may have gone through) before reporting failure — never a blind resend.
+ *  3. `messages.send`, sent once: `sendRaw` uses `retry: "none"`, so `http.ts` never resends it.
+ *     A failure whose outcome is unknown (timeout, network error, 5xx, 429, unreadable 2xx) checks
+ *     the Sent folder for our Message-ID (immediately, then once more after a short wait for
+ *     Gmail's search index) and reports "sent" when it's there. Not there → `send_unconfirmed:*`,
+ *     non-retryable: the row fails and nothing is ever resent automatically.
  *
  * `recoverSendEmail` answers "did it go out?" for rows stuck in `executing` (sent-folder lookup by
  * `rfc822msgid:`). Disconnected Google → `{ok:false, error: GOOGLE_DISCONNECTED}`.
@@ -23,6 +26,7 @@ import { GOOGLE_DISCONNECTED } from "@/server/agent/pending/actions";
 import type { ExecResult } from "@/server/agent/pending/types";
 import { featuresFor } from "@/server/integrations/google/config";
 import { GoogleApiError, GoogleAuthRevokedError, GoogleNotConnectedError } from "@/server/integrations/google/errors";
+import { isWriteOutcomeUnknown } from "@/server/integrations/google/http";
 import { getGoogleIntegration } from "@/server/integrations/google/store";
 import { GMAIL_ID_RE, listMessageIds, sendRaw, type GmailApiDeps } from "@/server/integrations/google/gmail/api";
 import { buildRawMessage, isValidEmail, type OutgoingEmail } from "@/server/integrations/google/gmail/mime";
@@ -30,6 +34,13 @@ import { SendEmailPayload, type SendEmailPayloadT } from "@/shared/email-draft";
 
 /** HTTP seam (tests / smoke inject a fake Gmail). */
 export type SendDeps = GmailApiDeps;
+
+/** Error prefix when the send's outcome is unknown and the Sent folder didn't show it (never resent). */
+export const SEND_UNCONFIRMED = "send_unconfirmed";
+/** Waits before each Sent-folder lookup after an ambiguous send (Gmail search can lag a moment). */
+export const SENT_CHECK_DELAYS_MS: readonly number[] = [0, 2000];
+
+const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 const MSG_ID_TOKEN = /^<[^<>\s]+>$/;
 const REFS = /^(<[^<>\s]+>)( <[^<>\s]+>)*$/;
@@ -98,17 +109,43 @@ function isAuthGone(e: unknown): boolean {
 }
 
 async function foundInSent(userId: string, messageId: string, deps?: SendDeps): Promise<boolean> {
+  return (await sentMessageId(userId, messageId, deps)) !== null;
+}
+
+async function sentMessageId(userId: string, messageId: string, deps?: SendDeps): Promise<string | null> {
   const ids = await listMessageIds(userId, sentFolderQuery(messageId), { max: 1 }, deps);
-  return ids.length > 0;
+  return ids[0] ?? null;
+}
+
+/**
+ * After a send whose outcome is unknown: look for it in the Sent folder (a few tries, lookup
+ * errors swallowed). Read-only; never sends.
+ */
+async function confirmInSent(userId: string, messageId: string, deps?: SendDeps): Promise<{ found: true; id: string } | { found: false }> {
+  const sleep = deps?.sleep ?? realSleep;
+  for (const wait of SENT_CHECK_DELAYS_MS) {
+    if (wait > 0) await sleep(wait);
+    try {
+      const id = await sentMessageId(userId, messageId, deps);
+      if (id) return { found: true, id };
+    } catch (e) {
+      if (isAuthGone(e)) break;
+      console.warn(`[gmail] sent-folder check failed (${e instanceof Error ? e.name : "error"})`);
+    }
+  }
+  return { found: false };
 }
 
 /**
  * Send a confirmed `send_email` action (executor body). At-most-once is enforced by the pending
- * framework (atomic pending→executing); this function never retries a send on its own.
+ * framework (atomic pending→executing) plus a single, never-retried `messages.send`; this function
+ * never resends. An ambiguous failure is resolved by a Sent-folder lookup, not by sending again.
  * @param a owner, action id, payload (re-validated here)
  * @param deps HTTP seam (tests / smoke)
- * @returns executor result: `{ok:true, summary, result:{gmail_message_id, thread_id, rfc822_message_id, sent_at}}`,
- *   or `{ok:false, error}` (`GOOGLE_DISCONNECTED` when Google is disconnected/revoked or lacks `gmail.send`)
+ * @returns executor result: `{ok:true, summary, result:{gmail_message_id, thread_id, rfc822_message_id, sent_at}}`
+ *   (`recovered: true` when an ambiguous send was found in the Sent folder), or `{ok:false, error, retryable:false}`:
+ *   `GOOGLE_DISCONNECTED` when Google is disconnected/revoked or lacks `gmail.send`, `send_unconfirmed:<status>`
+ *   when the outcome is unknown and the Sent folder doesn't show it, `send_rejected:<status>` on a definite rejection
  */
 export async function executeSendEmail(
   a: { userId: string; actionId: string; payload: unknown },
@@ -146,18 +183,22 @@ export async function executeSendEmail(
       result: { gmail_message_id: sent.id, thread_id: sent.threadId, rfc822_message_id: messageId, sent_at: new Date().toISOString() },
     };
   } catch (e) {
-    if (isAuthGone(e)) return { ok: false, error: GOOGLE_DISCONNECTED, retryable: false };
-    if (e instanceof GoogleApiError && (e.retryable || e.status === 0)) {
-      // The request may have reached Gmail: look before declaring failure (never resend here).
-      try {
-        if (await foundInSent(a.userId, messageId, deps)) {
-          return { ok: true, summary: sentSummary(p), result: { rfc822_message_id: messageId, recovered: true, sent_at: new Date().toISOString() } };
-        }
-      } catch {
-        /* fall through to the failure */
+    // The request may have reached Gmail (timeout, network, 5xx, 429, unreadable 2xx): look in the
+    // Sent folder before declaring failure. Never resend here; `sendRaw` itself never retries.
+    if (isWriteOutcomeUnknown(e) || (e instanceof GoogleApiError && (e.retryable || e.status === 0))) {
+      const status = (e as GoogleApiError).status;
+      console.warn(`[gmail] send outcome unknown (${status}); checking the sent folder`);
+      const check = await confirmInSent(a.userId, messageId, deps);
+      if (check.found) {
+        return {
+          ok: true,
+          summary: sentSummary(p),
+          result: { gmail_message_id: check.id, rfc822_message_id: messageId, recovered: true, sent_at: new Date().toISOString() },
+        };
       }
-      return { ok: false, error: `send_failed:${e.status}`, retryable: true };
+      return { ok: false, error: `${SEND_UNCONFIRMED}:${status}`, retryable: false };
     }
+    if (isAuthGone(e)) return { ok: false, error: GOOGLE_DISCONNECTED, retryable: false };
     if (e instanceof GoogleApiError) return { ok: false, error: `send_rejected:${e.status}`, retryable: false };
     throw e;
   }

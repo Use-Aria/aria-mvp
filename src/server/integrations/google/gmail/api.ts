@@ -12,6 +12,10 @@ import "server-only";
  * Enforced by `tests/unit/google/mime.test.ts` ("sendRaw import guard"), which scans `src/` and
  * fails on any other importer; the equivalent ESLint rule is in the 2.5 hand-off.
  *
+ * Retry policy (`http.ts`): only `messages.send` is sent with `retry: "none"` (a resend could
+ * deliver the email twice). `watch` (re-watching replaces the watch), `stop` and every GET keep
+ * the default backoff.
+ *
  * Quota (F13): `messages.get` 20 units, `messages.list` 5, `history.list` 2, `messages.send` 100,
  * `watch` 100, `getProfile` 1; 6,000 units/min/user.
  */
@@ -243,11 +247,14 @@ export async function getMessageFull(userId: string, id: string, deps?: GmailApi
 
 /**
  * `users.messages.send`. ⚠ Import ONLY from `gmail/send.ts` (see the module header).
+ * Sent with `retry: "none"`: it is never retried automatically. A failure that may have reached
+ * Gmail throws `GoogleWriteUnknownError` (`http.ts`); the caller then checks the Sent folder.
  * @param userId owner
  * @param raw base64url RFC 5322 message (`buildRawMessage`)
  * @param threadId Gmail thread to reply into (threading also needs In-Reply-To/References + Re: subject)
  * @param deps HTTP seam (tests)
  * @returns the sent message id and thread id
+ * @throws GoogleWriteUnknownError (outcome unknown), GoogleApiError (rejected), GoogleAuthRevokedError, GoogleNotConnectedError
  */
 export async function sendRaw(
   userId: string,
@@ -259,7 +266,8 @@ export async function sendRaw(
   if (threadId !== undefined && !GMAIL_ID_RE.test(threadId)) throw new Error("gmail send: invalid thread id");
   const r = await googleFetch(
     userId,
-    { method: "POST", url: `${GMAIL_BASE}/messages/send`, body: threadId ? { raw, threadId } : { raw } },
+    // Never retried: a resend after a timeout/5xx could deliver the email twice (see `send.ts`).
+    { method: "POST", url: `${GMAIL_BASE}/messages/send`, body: threadId ? { raw, threadId } : { raw }, retry: "none" },
     SendResponse,
     fetchDeps(deps),
   );

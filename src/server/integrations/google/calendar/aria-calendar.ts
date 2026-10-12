@@ -15,20 +15,36 @@ import "server-only";
  *   the result carries a `note` for the model.
  * - `moveBlock` / `deleteBlock`: only timeline rows of source `aria` whose `raw.calendar_id` is the
  *   current Aria calendar. A 404/410 on delete counts as deleted.
+ *
+ * Ambiguous writes (V2 review 5.5 #1): `events.insert` and `calendars.insert` are sent once and
+ * never retried by `http.ts` (`retry: "none"`). When the outcome is unknown
+ * (`GoogleWriteUnknownError`: timeout, network, 5xx, 429):
+ * - `events.insert` → look the event up by its `aria_key` (now, then once more after a short
+ *   wait). Found → use it. Not found → rethrow; nothing is inserted a second time. A retry of the
+ *   same call in the same run reuses the key, so its step-1 lookup still catches a late insert.
+ * - `calendars.insert` → look for a calendar Aria created (`findOwnedCalendars`: exact name +
+ *   description, owner, needs `calendar.calendarlist.readonly`). Found → adopt and store its id.
+ *   Not found / lookup impossible → rethrow, and remember the ambiguity in memory for
+ *   `AMBIGUOUS_CALENDAR_MEMO_MS`: a later create in this process looks first and refuses to create
+ *   while it can't look. Across processes the memo is gone, so the worst case is one extra empty
+ *   "Aria" calendar (cosmetic; no duplicate events), never a duplicate write of user data.
  */
 import type { TimelineItem, TimelineItemInput } from "@/server/timeline/types";
 import { safeTimeZone } from "@/shared/time/tz";
 import { featuresFor } from "@/server/integrations/google/config";
 import { GoogleApiError, GoogleNotConnectedError } from "@/server/integrations/google/errors";
+import { isWriteOutcomeUnknown } from "@/server/integrations/google/http";
 import { getGoogleIntegration, updateGoogleIntegration, type GoogleIntegration } from "@/server/integrations/google/store";
 import {
   ARIA_KEY_PROPERTY,
   deleteEvent,
   findEventByAriaKey,
+  findOwnedCalendars,
   insertCalendar,
   insertEvent,
   patchEvent,
   type CalendarApiDeps,
+  type NewEvent,
 } from "@/server/integrations/google/calendar/api";
 import { collectBusy, type BusyDeps, type Interval } from "@/server/integrations/google/calendar/busy";
 import { externalIdOf, normalizeEvent } from "@/server/integrations/google/calendar/normalize";
@@ -42,6 +58,14 @@ export const ARIA_CALENDAR_DESCRIPTION = "Blocks Aria scheduled for you. Hide or
 export const ARIA_EVENT_DESCRIPTION = "Added by Aria";
 /** Note returned when the Aria calendar had to be recreated. */
 export const RECREATED_NOTE = "recreated the Aria calendar (the old one was deleted)";
+/** Waits before each lookup after an ambiguous insert (Google's lists can lag a moment). */
+export const AMBIGUOUS_CHECK_DELAYS_MS: readonly number[] = [0, 1500];
+/** How long an ambiguous `calendars.insert` makes later creates in this process look first. */
+export const AMBIGUOUS_CALENDAR_MEMO_MS = 10 * 60_000;
+
+/** userId → when a `calendars.insert` with an unknown outcome happened (this process only). */
+const ambiguousCalendarAt = new Map<string, number>();
+const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /** Injectable seams (tests); production uses the defaults. */
 export interface AriaCalendarDeps {
@@ -134,16 +158,107 @@ function writable(row: GoogleIntegration | null): row is GoogleIntegration {
   return row !== null && row.status === "active" && featuresFor(row.scopes ?? []).has("calendar_write");
 }
 
-async function createCalendar(userId: string, row: GoogleIntegration, tz: string, d: Resolved): Promise<string> {
-  const { id } = await insertCalendar(
-    userId,
-    { summary: ARIA_CALENDAR_SUMMARY, description: ARIA_CALENDAR_DESCRIPTION, timeZone: tz },
-    d.api,
-  );
+/**
+ * After a write with an unknown outcome: run a read-only lookup now and after each delay.
+ * Lookup errors are swallowed (logged by name); returns null when nothing was found.
+ */
+async function lookupAfterUnknown<T>(d: Resolved, what: string, lookup: () => Promise<T | null>): Promise<T | null> {
+  const sleep = d.api?.sleep ?? realSleep;
+  for (const wait of AMBIGUOUS_CHECK_DELAYS_MS) {
+    if (wait > 0) await sleep(wait);
+    try {
+      const found = await lookup();
+      if (found !== null) return found;
+    } catch (e) {
+      console.warn(`[gcal] ${what} lookup failed (${e instanceof Error ? e.name : "error"})`);
+    }
+  }
+  return null;
+}
+
+/** An Aria-created calendar on the user's list (other than `excludeId`), or null. Throws on lookup failure. */
+async function findAdoptableCalendar(userId: string, d: Resolved, excludeId: string | null): Promise<string | null> {
+  const ids = await findOwnedCalendars(userId, { summary: ARIA_CALENDAR_SUMMARY, description: ARIA_CALENDAR_DESCRIPTION }, d.api);
+  return ids.find((id) => id !== excludeId) ?? null;
+}
+
+async function storeCalendarId(userId: string, row: GoogleIntegration, id: string, d: Resolved, how: "created" | "adopted"): Promise<string> {
   await d.update(row.id, { gcal_aria_calendar_id: id });
   row.gcal_aria_calendar_id = id;
-  console.info(`[gcal] aria calendar created user=${userId}`);
+  console.info(`[gcal] aria calendar ${how} user=${userId}`);
   return id;
+}
+
+/**
+ * Create the Aria calendar (or adopt the one an earlier ambiguous create made). `calendars.insert`
+ * is sent at most once per call and never retried (see the module header).
+ * @param excludeId a calendar id known to be gone (never adopted)
+ */
+async function createCalendar(userId: string, row: GoogleIntegration, tz: string, d: Resolved, excludeId: string | null = null): Promise<string> {
+  const at = ambiguousCalendarAt.get(userId);
+  if (at !== undefined && Date.now() - at < AMBIGUOUS_CALENDAR_MEMO_MS) {
+    // An earlier create in this process may have worked: look before making another. If we
+    // can't look, refuse (the error reads as "couldn't reach Google") rather than risk a duplicate.
+    let existing: string | null;
+    try {
+      existing = await findAdoptableCalendar(userId, d, excludeId);
+    } catch (e) {
+      console.warn(`[gcal] aria calendar lookup failed after an unknown create (${e instanceof Error ? e.name : "error"}) user=${userId}`);
+      throw new GoogleApiError("aria calendar: an earlier create may have worked and the calendar list can't be read", {
+        status: 0,
+        reason: "aria_calendar_unverified",
+        retryable: true,
+      });
+    }
+    ambiguousCalendarAt.delete(userId);
+    if (existing) return storeCalendarId(userId, row, existing, d, "adopted");
+  }
+  let id: string;
+  try {
+    ({ id } = await insertCalendar(
+      userId,
+      { summary: ARIA_CALENDAR_SUMMARY, description: ARIA_CALENDAR_DESCRIPTION, timeZone: tz },
+      d.api,
+    ));
+  } catch (e) {
+    if (!isWriteOutcomeUnknown(e)) throw e;
+    const found = await lookupAfterUnknown(d, "aria calendar", () => findAdoptableCalendar(userId, d, excludeId));
+    if (!found) {
+      ambiguousCalendarAt.set(userId, Date.now());
+      console.warn(`[gcal] aria calendar create outcome unknown, not found user=${userId}`);
+      throw e;
+    }
+    return storeCalendarId(userId, row, found, d, "adopted");
+  }
+  ambiguousCalendarAt.delete(userId);
+  return storeCalendarId(userId, row, id, d, "created");
+}
+
+/**
+ * `events.insert` once (never retried). Unknown outcome → find the event by its `aria_key`
+ * instead of inserting again; still not found → rethrow.
+ */
+async function insertBlockEvent(userId: string, calendarId: string, event: NewEvent, ariaKey: string, d: Resolved): Promise<GCalEventT> {
+  try {
+    return await insertEvent(userId, calendarId, event, d.api);
+  } catch (e) {
+    if (!isWriteOutcomeUnknown(e)) throw e;
+    const found = await lookupAfterUnknown(d, "aria_key", () => findEventByAriaKey(userId, calendarId, ariaKey, d.api));
+    if (found) {
+      console.info(`[gcal] aria block insert outcome unknown, found by aria_key user=${userId}`);
+      return found;
+    }
+    console.warn(`[gcal] aria block insert outcome unknown, not found user=${userId}`);
+    throw e;
+  }
+}
+
+/**
+ * Test hook: forget the in-memory "ambiguous calendar create" marks.
+ * @returns nothing
+ */
+export function resetAmbiguousCalendarMemo(): void {
+  ambiguousCalendarAt.clear();
 }
 
 /**
@@ -186,6 +301,7 @@ export async function createBlock(userId: string, input: CreateBlockInput, deps?
   if (!writable(row)) return { ok: false, reason: "no_permission" };
   const tz = await d.timezone(userId);
   let calendarId = row.gcal_aria_calendar_id;
+  let goneId: string | null = null;
   let note: string | undefined;
 
   // 1. Retry idempotency: the event this key already created (no conflict check against itself).
@@ -198,6 +314,7 @@ export async function createBlock(userId: string, input: CreateBlockInput, deps?
       }
     } catch (e) {
       if (!isGone(e)) throw e;
+      goneId = calendarId;
       calendarId = null; // the user deleted the Aria calendar: recreate below
       note = RECREATED_NOTE;
     }
@@ -223,17 +340,20 @@ export async function createBlock(userId: string, input: CreateBlockInput, deps?
     privateProperties: { aria: "1", [ARIA_KEY_PROPERTY]: input.ariaKey },
   };
   if (!calendarId) {
-    calendarId = await createCalendar(userId, row, tz, d);
+    calendarId = await createCalendar(userId, row, tz, d, goneId);
   }
   let created: GCalEventT;
   try {
-    created = await insertEvent(userId, calendarId, event, d.api);
+    created = await insertBlockEvent(userId, calendarId, event, input.ariaKey, d);
   } catch (e) {
+    // Only a definite 404/410 (calendar gone) recreates; an unknown outcome was already
+    // resolved by the aria_key lookup inside `insertBlockEvent` and is rethrown as is.
     if (!isGone(e) || note) throw e;
+    const gone = calendarId;
     await d.update(row.id, { gcal_aria_calendar_id: null });
-    calendarId = await createCalendar(userId, row, tz, d);
+    calendarId = await createCalendar(userId, row, tz, d, gone);
     note = RECREATED_NOTE;
-    created = await insertEvent(userId, calendarId, event, d.api);
+    created = await insertBlockEvent(userId, calendarId, event, input.ariaKey, d);
   }
   const { id } = await d.upsertItem(userId, "aria", toTimelineInput(created, calendarId, tz));
   console.info(`[gcal] aria block created user=${userId}${note ? " recreated=1" : ""}`);
