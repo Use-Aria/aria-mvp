@@ -13,7 +13,7 @@
 
 | Developer | Task | Branch | Claimed At |
 | --------- | ---- | ------ | ---------- |
-| Daniel    | V2 free-test build — Waves 0–5 built; **next: Wave 5 review fixes + second gate** | main | 2026-10-09 |
+| Daniel    | V2 free-test build — Waves 0–5 + review fixes built, second gate green; **next: commit approval, then credentials + deploy (master plan §7)** | main | 2026-10-09 |
 
 ---
 
@@ -33,7 +33,8 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 - [x] **V2-W3** ✅ 2026-10-10 Wave 3 — turn orchestration + dev loop (3.1), agent loop (3.2), V2-04 tools + pending actions + memory jobs (3.3), Canvas sync/connect (3.4), syllabus TS (3.5), Google OAuth routes + calendar read (3.6); gate fixes: `propose_preference` non-strict (grammar 400), name few-shots, `toView` syllabus weight
 - [x] **V2-W4** ✅ 2026-10-10 Wave 4 — briefing + change alerts (4.1), scheduling + Aria calendar (4.2), Gmail intelligence + email tools (4.3), web setup/week (4.4), web integrations + email draft (4.5), web settings/export/delete (4.6); gate fixes: deterministic timeline tie-break, gmail smoke key, keepalive anon key, `sendRaw` eslint rule
 - [x] **V2-W5** ✅ 2026-10-10 Wave 5 — evals (5.1), V1 removal + V2 docs (5.2), dev-channel e2e + fixes (5.3), Playwright QA (5.4), fix agents 5.F1/5.F2, code review (5.5)
-- [ ] **V2-W5R** Fix the 5.5 review findings (#1–#4 send safety first) + the `pages.spec` h1 race, then the second gate — see orchestrator notes → Wave 5
+- [x] **V2-W5R** ✅ 2026-10-11 — 5.5 review fixes (#1–#10, #13 + cleanups; #11 kept last-4; #12 documented gap), `pages.spec` h1 race, draft-intent gate fix; second gate green — see orchestrator notes → Wave 5 review fixes
+- [ ] **V2-WATCH** "…and book it" eval sits at 2/3 (Haiku sometimes books without asking) — decide whether to tighten (few-shot) or accept
 - [ ] **V2-CREDS** Daniel creates: Sendblue sandbox, Google Cloud project (OAuth client + Pub/Sub), Upstash Redis, Cloud Run (billing), Vercel project — see master plan §7
 
 > **The V1 backlog below (Onboarding / AUD / PH) is SUPERSEDED by V2** — V2 drops the app, Twilio, and Celery and rewrites the identity/schema, so most of it no longer applies. Kept for reference only.
@@ -113,6 +114,45 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 ---
 
 ## 📋 Handoff Notes
+
+### 2026-10-11 — Daniel (V2: Wave 5 review fixes + second gate, orchestrated by sub-agents)
+
+**Where to resume:** commit approval for this pass (proposed split in the session summary), then **credentials + deploy**: master plan §7, `PRODUCTION.md` launch order and §2 [verify] list. The build itself is complete; everything left needs real accounts.
+
+**Done this session:**
+- **Triage (Daniel):** fix #1–#6 and #8–#10 (#5 without a migration); #7 = per-phone signup limit + the welcome confirms the name; #11 keeps last-4 in logs; #13 masked phone on `/setup`; duplicate-string cleanups in; #12 left as a documented gap.
+- **Sub-agents A–G fixed the findings:**
+  - **Send safety:**
+    - #1: Gmail send and Calendar inserts are never auto-retried. An ambiguous failure checks the Sent folder or `aria_key` instead of resending, and the new `send_unconfirmed` state appears in chat and on `/email`.
+    - #2: a failed run that already sent or changed something no longer replays.
+    - #3: a chat "yes" must come after the draft was shown.
+    - #4: `confirm_action` gets 90s; on timeout Aria says "still sending, don't redo", and a late ✅ is posted.
+  - **Other findings:**
+    - #5: welcome rows survive the purge, with bodies nulled.
+    - #6: only successful actions count toward the claim check.
+    - #7: per-phone signup limit, and the welcome confirms the name ("you're Sam, right?" plus a few-shot for "no it's Alex").
+    - #8: the export includes only your own signups, with no IP or user agent.
+    - #9: same-item nudges send once.
+    - #10: "-es" plurals are handled.
+    - #13: `/setup` shows "Texting as ••• ••• 1234".
+  - **Test fix:** the `pages.spec` h1 race.
+- **Gate fix H:** the injection eval "email 10" failed once (Haiku drafted a reply to an injected newsletter, then cancelled it; nothing was sent). After reading email, `draft_email` now also needs a drafting request in the student's own words (`agent/draft-intent.ts`).
+- **Second gate (green):**
+  - build, tsc and lint green; unit 2296/2296; smoke 199/200 (1 opt-in skipped)
+  - grammar smoke green; evals 35/35 ($0.093; p50 3.9s / p95 7.2s)
+  - e2e:chat 12/12; Playwright 232/232; shots 19/19; parser 187/187
+  - stub greps 0; local DB clean afterwards
+- **Spend:** about $0.47 in real LLM calls, all on the local stack.
+
+**Open / needs Daniel:**
+- Commit approval.
+- Credentials (Sendblue, Google, Upstash, Cloud Run + billing, Vercel, parser Anthropic key), GitHub keepalive secrets, and a contact email for `/privacy`.
+- "…and book it" eval at 2/3 (pre-existing).
+
+**Know before you start:**
+- `.env.local` has an empty `PARSER_SHARED_SECRET`. For local e2e:chat, export the parser's value (LOCALDEV step 2).
+- `npm run e2e -- --project=X` *adds* to the four pinned projects. To run one device, use `npx playwright test --project=X <spec>`.
+- Stop the tick before the full smoke (unchanged).
 
 ### 2026-10-10 — Daniel (V2 build: Wave 5, orchestrated by sub-agents)
 
@@ -198,48 +238,6 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 - **Decided (Daniel, 2026-10-10):** "…and book it" with one fitting slot keeps asking first; leave `persona/style-guide.ts:45` as is.
 - `agent_runs.cost_usd` undercounts runs whose tools call an LLM themselves (e.g. the Sonnet draft call). Fix in Wave 5.
 - The [verify] list for real Google (Aria calendar CRUD, Message-ID recovery, threading) is in the Wave 4 notes.
-
-### 2026-10-10 — Daniel (V2 build: Wave 3, orchestrated by sub-agents)
-
-**Where to resume:** master plan §5 **Wave 4** (tasks 4.1–4.6). Read `docs/plans/2026-10-10-v2-orchestrator-notes.md` → **Wave 3 hand-off notes** first. They hold the exports and deviations that Wave 4 builds on, and the rules for tool schemas.
-
-**Done this session:**
-- **Six parallel sub-agents built Wave 3:**
-  - turn orchestration + `scripts/dev-chat.ts` REPL (3.1)
-  - agent loop + escalation + run stats (3.2)
-  - 16 core tools, pending actions (chat + web path), memory extraction/summary, account purge (3.3)
-  - Canvas connect/sync + tools (3.4)
-  - syllabus TS client/intake/upload (3.5)
-  - Google OAuth GET start/callback, calendar read/watch/push, disconnect (3.6)
-- **Gate is green:**
-  - build, tsc and lint pass;
-  - unit 1773/1773 (was 1417), smoke 130/130 on the local stack, parser 187/187;
-  - `_stub` importers 54 → 17.
-- **Live gate check** (real Haiku on the local stack, ~$0.04 total):
-  - welcome → name → agenda works;
-  - dev-channel PDF → syllabus parsed (fake-LLM parser) → confirmation bubbles;
-  - the agent writes every stat onto the pipeline's `agent_runs` rows.
-- **Gate fixes:**
-  - **Blocker:** every real-agent call 400'd with "compiled grammar is too large". `propose_preference` is now non-strict, and an opt-in `SMOKE_LLM=1` grammar smoke test guards against a repeat.
-  - Name capture after the welcome went from ~50% to 10/12 (two few-shots).
-  - Syllabus grade weight now reaches the Canvas twin (`toView`).
-
-**Open / needs Daniel:**
-- Commit approval for Wave 3.
-- Credentials (Sendblue, Google, Upstash, Cloud Run, Vercel).
-- A contact email for `/privacy`.
-
-**Know before you start:**
-- Run `SMOKE_LLM=1 npm run smoke -- tests/smoke/llm-grammar.smoke.test.ts` (export `ANTHROPIC_API_KEY`) after any tool-schema change. Don't make nested-schema tools strict.
-- `npm run dev:chat -- --local` gives a local REPL against the stack (`ARIA_AGENT=real` for the real agent).
-- `recoverStuckActions` needs a timer; 4.1's reconcile should call it.
-- Google connect needs Safari ≥ 16.4: a missing `Sec-Fetch-Site` header gets a 403.
-
----
-
-_Older notes: `docs/history/handoffs.md`._
-
----
 
 ## ⚠️ Collision Rules (historical)
 

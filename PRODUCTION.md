@@ -38,8 +38,8 @@
 | 16 | Separate dev Supabase project (`aria-dev`) | 🔧 | D11. Dev and prod share one project today, so once Vault is set the prod tick can claim local-dev jobs (they dead-letter harmlessly). The local stack (`supabase start`) covers most dev work. |
 | 17 | Sentry (`SENTRY_DSN`) | 🔧 | Not wired yet. `llm_calls` + `agent_runs` are the only telemetry. |
 | 18 | OpenAI fallback model (`OPENAI_API_KEY`) | 🔧 | Deferred (V2-04 T9). |
-| 19 | **Wave 5 code-review fixes (send safety)** | ❌ | Fix 5.5 findings #1–#4 before any friend connects Gmail: no HTTP retry on `messages.send` or calendar inserts, no turn replay after side effects, a chat confirm must postdate the draft, a long timeout for `confirm_action`. Full list: orchestrator notes → Wave 5 hand-off. |
-| 20 | Wave 5 code-review fixes (other) | ❌ | 5.5 #5–#13: re-welcome after the 180-day purge, the claim check on failed calls, signup name pre-fill, the export including others' signups, duplicate nudges, plural keys, phone last-4 in logs (decide), action-lock gaps, forwarded magic link. Daniel triages. |
+| 19 | **Wave 5 code-review fixes (send safety)** | ✅ | Fix 5.5 findings #1–#4 before any friend connects Gmail: no HTTP retry on `messages.send` or calendar inserts, no turn replay after side effects, a chat confirm must postdate the draft, a long timeout for `confirm_action`. Full list: orchestrator notes → Wave 5 hand-off. |
+| 20 | Wave 5 code-review fixes (other) | ✅ | Fixed 2026-10-11: #5, #6, #7 (per-phone limit + name confirm), #8, #9, #10, #13. #11: logs keep last-4 (spec §3.22, Daniel). #12: action-lock gaps stay a documented design gap. |
 
 ---
 
@@ -146,6 +146,14 @@ Details for each item are in the branch plans' §12.
 - ❌ Whether Gmail `messages.send` dedupes a resent message with the same client Message-ID (fix 5.5 #1 regardless)
 - ❌ Whether Sendblue's single retry on 503 can double-send (`sendblue.ts:309`)
 
+**Wave 5 review fixes [verify]** (2026-10-11)
+- ❌ `calendarList.list` with `minAccessRole=owner` works under `calendar.app.created` alone (used to adopt an "Aria" calendar after an ambiguous create)
+- ❌ A duplicate `events.watch` channel id is rejected (not a second channel)
+- ❌ Gmail `rfc822msgid:` search finds a just-sent message within the 2s second look
+- ❌ `after(promise)` registered from `confirm_action` inside the dispatch's own `after()` keeps the Vercel invocation alive (≤300s)
+- ❌ Sendblue `sent_at` vs DB clock skew doesn't misjudge a "yes" sent right as a draft appears (confirm-ordering check)
+- ❌ A `send_unconfirmed` row settles via recovery (page read or daily reconcile) — no chat note is posted
+
 ---
 
 ## 3. Before a public launch (beyond the free test)
@@ -186,7 +194,7 @@ The V1 checklist covered Twilio toll-free verification, the Apple Developer Prog
 ## Launch order (free test)
 
 ```
-0. Before any deploy: fix the Wave 5 review findings (§1 #19, triage #20)
+0. Wave 5 review findings fixed (§1 #19, #20) ✅ 2026-10-11
 1. Supabase prod project ready (done) → Upstash → Cloud Run parser + $5 budget + parser key
 2. Vercel deploy (gives APP_BASE_URL) → set every env var → redeploy
 3. Vault + tick (configure-jobs-tick.sql) → verify crons + keepalive secrets

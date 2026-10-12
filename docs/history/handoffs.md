@@ -2,6 +2,48 @@
 
 > Older handoff notes rotated out of `WORK.md`. Newest first. Claude prepends here during "wrap up".
 
+### 2026-10-10 — Daniel (V2 build: Wave 3, orchestrated by sub-agents)
+
+**Where to resume:** master plan §5 **Wave 4** (tasks 4.1–4.6). Read `docs/plans/2026-10-10-v2-orchestrator-notes.md` → **Wave 3 hand-off notes** first. They hold the exports and deviations that Wave 4 builds on, and the rules for tool schemas.
+
+**Done this session:**
+- **Six parallel sub-agents built Wave 3:**
+  - turn orchestration + `scripts/dev-chat.ts` REPL (3.1)
+  - agent loop + escalation + run stats (3.2)
+  - 16 core tools, pending actions (chat + web path), memory extraction/summary, account purge (3.3)
+  - Canvas connect/sync + tools (3.4)
+  - syllabus TS client/intake/upload (3.5)
+  - Google OAuth GET start/callback, calendar read/watch/push, disconnect (3.6)
+- **Gate is green:**
+  - build, tsc and lint pass;
+  - unit 1773/1773 (was 1417), smoke 130/130 on the local stack, parser 187/187;
+  - `_stub` importers 54 → 17.
+- **Live gate check** (real Haiku on the local stack, ~$0.04 total):
+  - welcome → name → agenda works;
+  - dev-channel PDF → syllabus parsed (fake-LLM parser) → confirmation bubbles;
+  - the agent writes every stat onto the pipeline's `agent_runs` rows.
+- **Gate fixes:**
+  - **Blocker:** every real-agent call 400'd with "compiled grammar is too large". `propose_preference` is now non-strict, and an opt-in `SMOKE_LLM=1` grammar smoke test guards against a repeat.
+  - Name capture after the welcome went from ~50% to 10/12 (two few-shots).
+  - Syllabus grade weight now reaches the Canvas twin (`toView`).
+
+**Open / needs Daniel:**
+- Commit approval for Wave 3.
+- Credentials (Sendblue, Google, Upstash, Cloud Run, Vercel).
+- A contact email for `/privacy`.
+
+**Know before you start:**
+- Run `SMOKE_LLM=1 npm run smoke -- tests/smoke/llm-grammar.smoke.test.ts` (export `ANTHROPIC_API_KEY`) after any tool-schema change. Don't make nested-schema tools strict.
+- `npm run dev:chat -- --local` gives a local REPL against the stack (`ARIA_AGENT=real` for the real agent).
+- `recoverStuckActions` needs a timer; 4.1's reconcile should call it.
+- Google connect needs Safari ≥ 16.4: a missing `Sec-Fetch-Site` header gets a 403.
+
+---
+
+_Older notes: `docs/history/handoffs.md`._
+
+---
+
 ### 2026-10-10 — Daniel (V2 build: plan + Waves 0–2, orchestrated by sub-agents)
 
 **Where to resume:** `docs/plans/2026-10-10-v2-master-plan.md` §5 **Wave 3** (tasks 3.1–3.6). Read the master plan (it overrides the branch plans), then `docs/plans/2026-10-10-v2-orchestrator-notes.md` (binding hand-off notes per wave), then the cited branch-plan sections. Every task is one sub-agent with exclusive file ownership; the orchestrator runs the wave gate (build, tsc, lint, `npm test`, `npm run smoke`, parser pytest) and checks `grep -rln '@/server/_stub' src | wc -l` (54 now; 0 required after Wave 4).

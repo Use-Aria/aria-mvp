@@ -191,14 +191,17 @@ Never commit `.env.local` or `services/parser/.env.local`.
 | V2: full smoke vs dev tick | Stop `npm run dev:tick` before `env -u ANTHROPIC_API_KEY npm run smoke`. Otherwise the dev server claims smoke jobs with the real agent (`turn.smoke` fails, and real `llm_calls` rows leak) |
 | V2: Playwright vs `next dev` | Overlapping server-action responses never finish streaming under `next dev`, so e2e runs with one worker (`playwright.config.ts` default; `E2E_WORKERS` overrides). `npm run e2e` runs only the four device projects. Never run bare `playwright test`: the `assets` project rewrites the icons in `public/` |
 | V2: load-sensitive suites | `npm run e2e:chat`, Playwright and the unit suite share the machine. Under heavy load (build, evals, parallel agents), turns take 100s+ and Jest hooks hit their 5s timeout. Run them one at a time before calling a failure real |
-| V2: action lock + claim check | Once a run reads email or `syllabus_info` text, every mutating tool except `draft_email` returns `ACTION_LOCKED` (`agent/loop.ts`). Timeline/calendar titles don't lock (Daniel, 2026-10-10). A final answer that claims an action with no mutating call gets one `<aria_note>` re-prompt (`agent/claim-check.ts`). Keep both when changing the loop; evals cover them |
+| V2: Google writes never auto-retry | Non-idempotent Google POSTs (`messages.send`, `events.insert`, `calendars.insert`) use `googleFetch({retry:"none"})`. An ambiguous failure (`isWriteOutcomeUnknown`) is resolved by looking (Sent folder `rfc822msgid:`, `findEventByAriaKey`, owned-calendar list), never by resending. Any new Google write must pick a retry policy explicitly |
+| V2: turn replay | A failed or aborted turn is replayed only if `replaySafe` (`pipeline/turn.ts`): no outbound rows and no successful or timed-out mutating call. Otherwise it stays consumed and sends a fallback. New mutating tools must leave evidence (`tool_calls`, a `run_id` column) |
+| V2: `npm run e2e -- --project=X` | Adds to the four pinned device projects instead of narrowing them. For one device: `npx playwright test --project=X <spec>` (never bare, never `assets`) |
+| V2: action lock + claim check | Once a run reads email or `syllabus_info` text, every mutating tool except `draft_email` returns `ACTION_LOCKED` (`agent/loop.ts`), and `draft_email` then also needs a drafting request in the student's own text (`agent/draft-intent.ts`). Timeline/calendar titles don't lock (Daniel, 2026-10-10). A final answer that claims an action with no mutating call gets one `<aria_note>` re-prompt (`agent/claim-check.ts`). Keep both when changing the loop; evals cover them |
 
 ---
 
 ## Privacy and safety
 
 - OAuth tokens and the Canvas feed URL are encrypted at rest with AES-256-GCM (`APP_ENCRYPTION_KEY`, backed up in the password manager. Losing the key makes them unrecoverable).
-- Handles are masked in logs. Message bodies, email content and syllabus text are never logged.
-- Message history is kept for 180 days (`retention_purge`). Account deletion (chat or `/settings`) runs `deleteAccount` right away, and an `account_purge` job acts as the safety net. `llm_calls` rows survive with `user_id` nulled; they hold cost accounting only, no content.
+- Handles are masked in logs (`maskHandle`: last 4 digits of a phone, the domain of an Apple ID; spec §3.22, Daniel confirmed 2026-10-11). Message bodies, email content and syllabus text are never logged.
+- Message history is kept for 180 days (`retention_purge`). The welcome rows are the only exception: they are kept so returning users aren't re-welcomed, and their bodies are nulled. Account deletion (chat or `/settings`) runs `deleteAccount` right away, and an `account_purge` job acts as the safety net. `llm_calls` rows survive with `user_id` nulled; they hold cost accounting only, no content.
 - Canvas is accessed through the iCal feed only. Never use grades, submissions or enrollment records.
 - Crisis rule (D9): the persona answers self-harm cues with care and the 988 line.

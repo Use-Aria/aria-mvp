@@ -4,7 +4,7 @@
 
 ## Aria V2 — free private test (🔄 In Progress)
 
-> Build status per `docs/plans/2026-10-10-v2-master-plan.md`. Waves 0–5 built 2026-10-10. Next: fix the Wave 5 code-review findings, then the second gate, then credentials + deploy.
+> Build status per `docs/plans/2026-10-10-v2-master-plan.md`. Waves 0–5 built 2026-10-10; review fixes + second gate green 2026-10-11. Next: credentials + deploy (master plan §7).
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -36,7 +36,9 @@
 | End-to-end dev-channel conversation (`npm run e2e:chat`) | ✅ Done | 12 scripted steps, real Haiku; fixes: run cost includes tool LLM calls, one interim per run, action lock after untrusted reads, chat effort `medium` |
 | Agent reliability: claim check + preference supersede | ✅ Done | Re-prompts once when Aria claims an action it didn't take; a changed rule replaces the old one |
 | Web Playwright e2e + screenshots + a11y checklist | ✅ Done | 4 device projects, 228 screenshots, `tests/e2e/A11Y.md`; runs with 1 worker under `next dev` |
-| Code review (Wave 5.5) | 🔄 In Progress | 13 findings to fix. 4 are send safety (HTTP retry on send, replay after side effects, confirm ordering, confirm timeout); see the orchestrator notes |
+| Code review (Wave 5.5) + fixes | ✅ Done | Send safety: no auto-retry on Gmail send/Calendar inserts (Sent-folder / `aria_key` check instead), no replay after side effects, chat confirm must postdate the draft, 90s confirm timeout. Plus re-welcome, claim check, signup per-phone limit + name confirm, export scope, duplicate nudges, plurals, masked phone on `/setup`. #12 left as a documented gap |
+| Draft intent gate (after reading email) | ✅ Done | `draft_email` on an action-locked run needs a drafting request in the student's own words (injection eval fix) |
+| Welcome name confirm | ✅ Done | A signup-provided name is confirmed ("you're Sam, right?"), never assumed |
 
 ---
 
