@@ -10,8 +10,11 @@ import "server-only";
  * 3. late-fire policy (outage backlog): fire, fire with "(from earlier)", expire, or skip ahead.
  * 4. deliver (§1.1 flags): user reminders `priority:"requested"` (bypass quiet hours + cap),
  *    auto nudges `priority:"urgent"` with `expiresAt = deadline − 15 min`; auto nudges due within
- *    the next 30 min are coalesced into one message. `dedupeKey = reminder:<id>:<dueAtIso>`, so a
- *    retry after a crash never double-sends.
+ *    the next 30 min are coalesced into one message, and other auto nudges on the *same* item in
+ *    that window are settled with it without a second line (5.5 #9). User reminders use
+ *    `dedupeKey = reminder:<id>:<dueAtIso>`; auto nudges use `nudge:<itemId>:<dueAtIso>`, so a retry
+ *    after a crash never double-sends and two same-item nudges at one instant (two offsets placed
+ *    on the same slot, fired concurrently) send once.
  * 5. bookkeeping with a conditional update (`status='scheduled' AND due_at=<expected>`); recurring
  *    reminders are re-armed at their next occurrence.
  */
@@ -30,7 +33,15 @@ import { formatLocalDate, localDateOf } from "@/shared/time/tz";
 /** What one fire attempt did (for logs and the smoke test). */
 export type FireResult =
   | { outcome: "stale" | "rescheduled" | "cancelled" | "expired" | "skipped" }
-  | { outcome: "delivered"; delivery: DeliverResult["status"]; coalesced: number; next: Date | null };
+  | {
+      outcome: "delivered";
+      delivery: DeliverResult["status"];
+      /** other items' nudges folded into this message */
+      coalesced: number;
+      /** further nudges on an already-listed item settled without a line of their own */
+      covered: number;
+      next: Date | null;
+    };
 
 const MIN_MS = 60_000;
 const HOUR_MS = 60 * MIN_MS;
@@ -119,6 +130,55 @@ function liveAnchor(item: Item | undefined): item is Item & { anchor_at: string 
 }
 
 /**
+ * `deliver` dedupe key of one nudge/reminder occurrence. Auto nudges key on the anchor item, so
+ * sibling nudges for the same item at the same instant share one key (a concurrent second fire is
+ * `suppressed:"duplicate"`); user reminders key on their own row, so they are never folded into a
+ * nudge. Both are stable across retries of the same row.
+ * @param row reminder id, origin and anchor item
+ * @param dueAt the occurrence's due instant
+ * @returns the proactive dedupe key
+ */
+export function fireDedupeKey(
+  row: { id: string; origin: string; anchor_item_id: string | null },
+  dueAt: Date,
+): string {
+  if (row.origin === "auto" && row.anchor_item_id) return `nudge:${row.anchor_item_id}:${dueAt.toISOString()}`;
+  return `${reminderJobKey(row.id)}:${dueAt.toISOString()}`;
+}
+
+/**
+ * Split the scheduled auto nudges inside the coalesce window around a firing auto nudge.
+ * `coalesce`: one per other live item (each adds a line to the message). `covered`: further
+ * nudges on an item the message already lists (the firing row's own item, or a duplicate of a
+ * coalesced one) — settled with it, no second line. Dead anchors are left to their own job.
+ * Pure; callers pass only `origin='auto'` rows.
+ * @param anchorId the firing row's anchor item id
+ * @param candidates other scheduled auto nudges due within the window
+ * @param isLive whether an item id is a live (upcoming, not removed, dated) anchor
+ * @returns rows to coalesce and rows already covered
+ */
+export function partitionNudgeSiblings<T extends { anchor_item_id: string | null }>(
+  anchorId: string,
+  candidates: T[],
+  isLive: (itemId: string) => boolean,
+): { coalesce: T[]; covered: T[] } {
+  const seen = new Set<string>([anchorId]);
+  const coalesce: T[] = [];
+  const covered: T[] = [];
+  for (const c of candidates) {
+    const id = c.anchor_item_id;
+    if (!id || !isLive(id)) continue;
+    if (seen.has(id)) {
+      covered.push(c);
+      continue;
+    }
+    seen.add(id);
+    coalesce.push(c);
+  }
+  return { coalesce, covered };
+}
+
+/**
  * Fire one reminder occurrence (the `reminder_fire` job body). Idempotent and safe against stale,
  * duplicate or early jobs.
  * @param payload job payload: reminder id + the due instant the job was armed for
@@ -196,10 +256,11 @@ export async function fireReminder(payload: { reminderId: string; dueAt: string 
   }
 
   // ── build the message ──────────────────────────────────────────────────
-  const dedupeKey = `${reminderJobKey(row.id)}:${dueAt.toISOString()}`;
+  const dedupeKey = fireDedupeKey(row, dueAt);
   let texts: string[];
   let opts: DeliverOptions;
   const siblings: Row[] = [];
+  const covered: Row[] = [];
   if (origin === "user") {
     const lateMinutes = Math.max(0, Math.floor((now.getTime() - dueAt.getTime()) / MIN_MS));
     texts = [renderUserReminder(row.body, { lateMinutes })];
@@ -228,13 +289,11 @@ export async function fireReminder(payload: { reminderId: string; dueAt: string 
       row.user_id,
       candidates.map((c) => c.anchor_item_id).filter((x): x is string => x !== null),
     );
-    const seen = new Set<string>(anchor ? [anchor.id] : []);
-    for (const c of candidates) {
-      const it = c.anchor_item_id ? items.get(c.anchor_item_id) : undefined;
-      if (!liveAnchor(it) || seen.has(it.id)) continue; // dead anchors are handled by their own job
-      seen.add(it.id);
-      siblings.push(c);
-    }
+    // Same-item nudges in the window ride along without a second line (5.5 #9); dead anchors are
+    // handled by their own job.
+    const split = partitionNudgeSiblings(anchor?.id ?? "", candidates, (id) => liveAnchor(items.get(id)));
+    siblings.push(...split.coalesce);
+    covered.push(...split.covered);
     const list: NudgeItem[] = [];
     let earliestDue = Number.POSITIVE_INFINITY;
     for (const it of [anchor, ...siblings.map((c) => (c.anchor_item_id ? items.get(c.anchor_item_id) : undefined))]) {
@@ -263,9 +322,9 @@ export async function fireReminder(payload: { reminderId: string; dueAt: string 
     result.status === "deferred" ||
     (result.status === "suppressed" && result.reason === "duplicate");
 
-  // Siblings ride along with this message (or expire with it).
-  if (siblings.length > 0) {
-    const ids = siblings.map((c) => c.id);
+  // Siblings (and same-item duplicates) ride along with this message (or expire with it).
+  if (siblings.length + covered.length > 0) {
+    const ids = [...siblings, ...covered].map((c) => c.id);
     await Promise.all(ids.map((id) => cancelJobs({ dedupeKey: reminderJobKey(id) })));
     const up = await db()
       .from("reminders")
@@ -293,5 +352,5 @@ export async function fireReminder(payload: { reminderId: string; dueAt: string 
       );
     }
   }
-  return { outcome: "delivered", delivery: result.status, coalesced: siblings.length, next };
+  return { outcome: "delivered", delivery: result.status, coalesced: siblings.length, covered: covered.length, next };
 }

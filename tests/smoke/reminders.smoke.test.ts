@@ -361,6 +361,81 @@ describe("T5: fireReminder paths", () => {
     for (const r of after) expect(r.status === "sent" || r.status === "expired").toBe(true);
     expect(new Set(after.map((r) => r.status)).size).toBe(1);
   });
+
+  // 5.5 #9: two auto nudges on one item at one instant (e.g. two offsets placed on the same slot).
+  /** Distinct proactive sends (bubble key prefixes) of one trigger whose deliver key mentions `id`. */
+  async function sends(trigger: string, id: string): Promise<string[]> {
+    const rows = must(
+      await sb
+        .from("messages")
+        .select("idempotency_key")
+        .eq("user_id", userId)
+        .eq("direction", "out")
+        .eq("trigger", trigger)
+        .like("idempotency_key", `%:${id}:%`),
+      "messages",
+    );
+    return [...new Set(rows.map((r) => (r.idempotency_key ?? "").replace(/:\d+$/, "")))];
+  }
+
+  async function sameItemNudges(itemId: string, due: Date): Promise<string[]> {
+    const rows = [180, 150].map((offset) => ({
+      user_id: userId, body: "x", kind: "anchored", origin: "auto", status: "scheduled",
+      anchor_item_id: itemId, offset_minutes: offset, due_at: due.toISOString(),
+    }));
+    return must(await sb.from("reminders").insert(rows).select("id"), "same-item autos").map((r) => r.id);
+  }
+
+  it("same-item nudges at one instant send once; a retry is a no-op; a same-time user reminder still fires", async () => {
+    // Quiet hours off so `urgent` sends inline whatever the clock says (start == end → no window).
+    must(await sb.from("users").update({ quiet_start: "00:00", quiet_end: "00:00" }).eq("id", userId).select("id"), "quiet off");
+    const now = new Date();
+    const item = await addItem(new Date(now.getTime() + 3 * H), "lab writeup");
+    const [n1, n2] = await sameItemNudges(item, now);
+    const user = must(
+      await sb
+        .from("reminders")
+        .insert({
+          user_id: userId, body: "smoke: print the lab rubric", kind: "anchored", origin: "user", status: "scheduled",
+          anchor_item_id: item, offset_minutes: 180, due_at: now.toISOString(),
+        })
+        .select("id")
+        .single(),
+      "user reminder",
+    ).id;
+
+    const fired = await fireReminder({ reminderId: n1, dueAt: now.toISOString() }, now);
+    expect(fired).toMatchObject({ outcome: "delivered", delivery: "sent", coalesced: 0, covered: 1 });
+    expect((await reminder(n1)).status).toBe("sent");
+    expect(await reminder(n2)).toMatchObject({ status: "sent" });
+    expect((await reminder(user)).status).toBe("scheduled"); // never swallowed by a nudge
+    expect(await pendingJobs(`reminder:${n2}`)).toHaveLength(0);
+
+    // The sibling's own job and a retry of the fired one are no-ops.
+    expect(await fireReminder({ reminderId: n2, dueAt: now.toISOString() }, now)).toEqual({ outcome: "stale" });
+    expect(await fireReminder({ reminderId: n1, dueAt: now.toISOString() }, now)).toEqual({ outcome: "stale" });
+    // Even re-armed for the same instant, deliver's dedupe blocks a second send.
+    must(await sb.from("reminders").update({ status: "scheduled" }).eq("id", n2).select("id"), "rearm n2");
+    expect(await fireReminder({ reminderId: n2, dueAt: now.toISOString() }, now)).toMatchObject({ delivery: "suppressed" });
+    expect((await reminder(n2)).status).toBe("sent");
+
+    // The user's own reminder for the same item and instant still goes out.
+    expect(await fireReminder({ reminderId: user, dueAt: now.toISOString() }, now)).toMatchObject({ outcome: "delivered", delivery: "sent" });
+    expect(await sends("deadline_nudge", item)).toHaveLength(1);
+    expect(await sends("reminder", user)).toHaveLength(1);
+  });
+
+  it("same-item nudges at one instant fired concurrently send once", async () => {
+    const now = new Date();
+    const item = await addItem(new Date(now.getTime() + 3 * H + 10 * MIN), "reading response");
+    const ids2 = await sameItemNudges(item, now);
+    const results = await Promise.all(ids2.map((id) => fireReminder({ reminderId: id, dueAt: now.toISOString() }, now)));
+    const sent = results.filter((r) => r.outcome === "delivered" && r.delivery === "sent");
+    expect(sent).toHaveLength(1);
+    expect(await sends("deadline_nudge", item)).toHaveLength(1);
+    const after = must(await sb.from("reminders").select("status").in("id", ids2), "after");
+    expect(after.map((r) => r.status)).toEqual(["sent", "sent"]);
+  });
 });
 
 describe("briefing notes", () => {
