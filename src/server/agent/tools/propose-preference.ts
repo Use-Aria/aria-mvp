@@ -23,6 +23,7 @@ import {
   saveExplicitPreference,
   type ProposalDecision,
 } from "@/server/memory";
+import { normStatement } from "@/server/memory/preference-policy";
 import { ConstraintPrefSchema } from "@/shared/scheduling-constraints";
 
 const input = z.strictObject({
@@ -35,10 +36,6 @@ const input = z.strictObject({
 });
 
 const RECENT_MESSAGES_MS = 12 * 3_600_000;
-
-function norm(s: string): string {
-  return s.toLowerCase().replace(/\s+/g, " ").trim();
-}
 
 /** Whether the open question (if any) was asked in the conversation happening now. */
 async function questionAskedThisConversation(ctx: ToolCtx): Promise<boolean> {
@@ -79,7 +76,7 @@ export async function runProposePreference(ctx: ToolCtx, i: z.output<typeof inpu
       statement,
       constraintJson: i.constraint,
     });
-    if (active && norm(active.statement) === norm(statement)) return { ok: true, data: "ok: already active" };
+    if (active && normStatement(active.statement) === normStatement(statement)) return { ok: true, data: "ok: already active" };
     const decision: ProposalDecision = decideProposal({
       openQuestionInConversation: i.explicit && !ctx.taint.tainted ? false : await questionAskedThisConversation(ctx),
       explicit: i.explicit,

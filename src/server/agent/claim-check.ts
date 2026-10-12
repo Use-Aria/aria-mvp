@@ -10,7 +10,8 @@ import "server-only";
  * Deliberately conservative (a false positive costs one extra model call and nothing else: the
  * note tells the model to keep its reply when no action was asked):
  *  - only inbound runs with user evidence, never action-locked runs, never after a forced answer;
- *  - a run that called ANY mutating tool is never checked (it acted; its wording is its own);
+ *  - a run in which ANY mutating tool succeeded is never checked (it acted; its wording is its
+ *    own). Failed, invalid or refused mutators don't count: they changed nothing;
  *  - questions and offers ("want me to set it?", "if you tell me I'll add it") never count;
  *  - weak acks ("got it", "will do", "noted") count only when the student's batch asks for an
  *    action; strong claims ("paused", "I set…", "it's saved", "on it") count on their own;
@@ -121,7 +122,7 @@ export interface ClaimCheckState {
   forced: boolean;
   /** tool calls in the run (send_interim excluded) */
   toolCalls: number;
-  /** mutating tool calls in the run (attempted, any outcome) */
+  /** mutating tool calls in the run that succeeded (not is_error, not refused by the action lock) */
   mutatingCalls: number;
   /** a preference question is open (`<aria_now>` shows it) */
   openQuestion: boolean;
@@ -133,7 +134,7 @@ export interface ClaimCheckState {
 
 /**
  * Decide whether to re-prompt once before accepting a final answer.
- * - `claimed_action`: no mutating tool ran, yet the bubbles claim an action — or the run called no
+ * - `claimed_action`: no mutating tool succeeded, yet the bubbles claim an action — or the run called no
  *   tool at all and answered an action request with a bare tapback;
  * - `unrecorded_answer`: a preference question is open, the student's batch is a bare yes/no and
  *   the run called no tool at all (e.g. a ❤️ tapback instead of `confirm_preference`).

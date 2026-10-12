@@ -7,6 +7,7 @@ import { buildStaticSystemPrompt, staticPrefix } from "@/server/agent/context/st
 import { parseModelPlan } from "@/server/agent/plan";
 import { FEW_SHOTS } from "@/server/agent/persona/few-shots";
 import { TOOLS } from "@/server/agent/tools";
+import { welcomePlan } from "@/server/pipeline/welcome";
 
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -97,6 +98,15 @@ describe("few-shots match the registry", () => {
       }
     }
     expect([...called].sort()).toEqual([...f.requiresTools].sort());
+  });
+
+  it("welcome_name_confirm answers the welcome's signup-name check (welcome.ts) with update_profile", () => {
+    const f = FEW_SHOTS.find((x) => x.id === "welcome_name_confirm");
+    const ask = welcomePlan({ name: "Sam" }).bubbles[1]?.text ?? "";
+    expect(ask).toBe("you're Sam, right?");
+    expect(f?.transcript).toContain(`"${ask}"`);
+    expect(f?.transcript).toContain('→ update_profile {"field":"name","value":"Alex","evidence":"m_c5d6e701"}');
+    expect(f?.requiresTools).toEqual(["update_profile"]);
   });
 
   it("uses the §1.4 names (update_profile has no briefing_time; pause is the pause tool)", () => {

@@ -11,7 +11,9 @@ import "server-only";
  * At-most-once: only the caller whose UPDATE returns the row runs the executor; a crash leaves the
  * row `executing` and it is never re-run (`recoverStuckActions` asks the executor's `recover`
  * whether the side effect happened). The chat path passes `runId`: an action created in the same
- * run is refused (`same_run`), so the model can never create and approve in one turn.
+ * run is refused (`same_run`), so the model can never create and approve in one turn. It also
+ * passes the `evidence` it cites: a "yes" received before the action was shown to the student (sent
+ * while the draft was still being written) is refused with `same_run` too (5.5 review #3).
  * A web confirm also posts a confirmation bubble into the chat thread.
  */
 import type { ToolCtx } from "@/server/agent/types";
@@ -49,12 +51,35 @@ export type ConfirmCode =
   | "version_conflict"
   | "same_run"
   | "executor_failed"
-  | "google_disconnected";
+  | "google_disconnected"
+  /** the executor's outcome is unknown (Gmail didn't confirm the send); the row stays `executing` */
+  | "send_unconfirmed";
 
 /** Result of `confirmPendingAction`. */
 export type ConfirmResult =
   | { ok: true; summary: string; result?: Record<string, JsonValue> }
   | { ok: false; code: ConfirmCode };
+
+/**
+ * The user-authored item a chat confirm cites as `evidence`: an inbound message (`m` alias) or a
+ * tapback (`x` alias), as resolved by the alias table.
+ */
+export interface ConfirmEvidence {
+  kind: "m" | "x";
+  /** messages.id (`m`) or reactions.id (`x`) */
+  id: string;
+}
+
+/** Options of `confirmPendingAction`. */
+export interface ConfirmOptions {
+  via: "chat" | "web";
+  /** web: the version the user reviewed */
+  expectedVersion?: number;
+  /** chat: the confirming run (an action created in that same run is refused with `same_run`) */
+  runId?: string;
+  /** chat: the cited evidence; it must have been received after the action was shown (else `same_run`) */
+  evidence?: ConfirmEvidence;
+}
 
 /** Result of `revisePendingAction`. */
 export type ReviseResult = { ok: true; version: number } | { ok: false; code: "not_found" | "not_pending" | "expired" | "version_conflict" };
@@ -70,6 +95,25 @@ export const WEB_REVISABLE_FIELDS: Readonly<Record<PendingKind, readonly string[
 
 /** Executor error string that maps to the `google_disconnected` confirm code (4.3's send_email). */
 export const GOOGLE_DISCONNECTED = "google_disconnected";
+
+/**
+ * Executor error prefix for a send whose outcome is unknown (Gmail didn't confirm it and the Sent
+ * folder didn't show it yet). Mirrors `SEND_UNCONFIRMED` in `integrations/google/gmail/send.ts`
+ * (a unit test pins the two; not imported, to keep the executors import cycle one-way).
+ */
+export const SEND_UNCONFIRMED_PREFIX = "send_unconfirmed";
+
+/**
+ * Whether an executor error means "the side effect may have happened": the row then stays
+ * `executing` (with the error recorded) and `recoverStuckActions` settles it after
+ * `STUCK_EXECUTING_MS` via the executor's `recover` (Sent-folder lookup) — never "failed" now,
+ * so a send that landed late doesn't read as failed and isn't redone.
+ * @param error executor error string
+ * @returns true for `send_unconfirmed[:<status>]`
+ */
+export function isOutcomeUnknown(error: string): boolean {
+  return error === SEND_UNCONFIRMED_PREFIX || error.startsWith(`${SEND_UNCONFIRMED_PREFIX}:`);
+}
 
 /** A row stuck in `executing` longer than this is handed to the executor's `recover`. */
 export const STUCK_EXECUTING_MS = 5 * 60_000;
@@ -175,6 +219,18 @@ async function finish(
     : { status: "failed", updated_at: now, error: oneLine(out.error, MAX_ERROR) };
   const { error } = await db().from("pending_actions").update(patch).eq("id", id).eq("user_id", userId).eq("status", "executing");
   if (error) fail("finish", error.message);
+}
+
+/** Outcome unknown: stay `executing`, record the error, restart the stuck clock (recover settles it). */
+async function markOutcomeUnknown(userId: string, id: string, err: string): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await db()
+    .from("pending_actions")
+    .update({ updated_at: now, error: oneLine(err, MAX_ERROR) })
+    .eq("id", id)
+    .eq("user_id", userId)
+    .eq("status", "executing");
+  if (error) fail("markOutcomeUnknown", error.message);
 }
 
 /** Why a guarded UPDATE matched no row (re-read and classify). */
@@ -358,22 +414,24 @@ async function runExecutor(exec: PendingActionExecutor, ctx: ExecContext, payloa
 /**
  * Atomic pending→executing (version + expiry + same-run guards), run the executor, then
  * →done|failed. At-most-once: of N concurrent confirms exactly one executes; the rest get
- * `not_pending` (or `version_conflict` if the payload changed under them). A web confirm posts
+ * `not_pending` (or `version_conflict` if the payload changed under them). An executor whose
+ * outcome is unknown (`isOutcomeUnknown`: `send_unconfirmed:*`) leaves the row `executing` for
+ * `recoverStuckActions` and returns `send_unconfirmed`; so does a later confirm of that row while
+ * it waits (chat tells the student to check their Sent folder, /email warns the same). A web confirm posts
  * the result into the chat (`deliver(…, {proactive:false, reason:"action_confirmed_web", dedupeKey:"act:<id>"})`).
  * @param userId owner
  * @param id action id
  * @param o surface; `expectedVersion` (web: the version the user reviewed); `runId` (chat: the
- *   confirming run — an action created in that same run is refused with `same_run`)
+ *   confirming run — an action created in that same run is refused with `same_run`); `evidence`
+ *   (chat: the cited message/tapback — one received before the action was shown is refused with
+ *   `same_run`, so a "yes" sent while the draft was being written can't approve it)
  * @returns executor summary/result, or why not
  */
-export async function confirmPendingAction(
-  userId: string,
-  id: string,
-  o: { via: "chat" | "web"; expectedVersion?: number; runId?: string },
-): Promise<ConfirmResult> {
+export async function confirmPendingAction(userId: string, id: string, o: ConfirmOptions): Promise<ConfirmResult> {
   const r = await readRow(userId, id);
   if (!r) return { ok: false, code: "not_found" };
   if (o.runId !== undefined && r.run_id !== null && r.run_id === o.runId) return { ok: false, code: "same_run" };
+  if (r.status === "executing" && r.error !== null && isOutcomeUnknown(r.error)) return { ok: false, code: "send_unconfirmed" };
   if (r.status !== "pending") return { ok: false, code: r.status === "expired" ? "expired" : "not_pending" };
   const now = new Date();
   if (isExpired(r, now)) {
@@ -383,6 +441,13 @@ export async function confirmPendingAction(
   if (o.expectedVersion !== undefined && r.version !== o.expectedVersion) return { ok: false, code: "version_conflict" };
   const exec = getExecutor(r.kind);
   if (!exec || !isKind(r.kind)) return { ok: false, code: "not_pending" };
+  if (o.evidence) {
+    const [evidenceAt, shown] = await Promise.all([evidenceReceivedAt(userId, o.evidence), actionShownAt(userId, r)]);
+    if (!evidencePostdatesAction(evidenceAt, new Date(r.created_at), shown)) {
+      console.warn(`[pending] chat confirm refused: evidence predates the action (${r.kind})`);
+      return { ok: false, code: "same_run" };
+    }
+  }
 
   const nowIso = now.toISOString();
   const { data, error } = await db()
@@ -403,6 +468,13 @@ export async function confirmPendingAction(
     ? await runExecutor(exec, { userId, actionId: id, via: o.via, now }, parsed.data)
     : { ok: false, error: "invalid_payload", retryable: false };
 
+  if (!out.ok && isOutcomeUnknown(out.error)) {
+    // Maybe sent: never "failed" (the student would redo it). The row reads as `executing`
+    // ("sending" on /email) until `recoverStuckActions` asks the executor's `recover`.
+    await markOutcomeUnknown(userId, id, out.error);
+    console.warn(`[pending] ${r.kind} outcome unknown (${o.via}); left executing for recovery`);
+    return { ok: false, code: "send_unconfirmed" };
+  }
   if (!out.ok) {
     await finish(userId, id, { ok: false, error: out.error });
     console.warn(`[pending] ${r.kind} failed (${o.via})`);
@@ -410,18 +482,92 @@ export async function confirmPendingAction(
   }
   await finish(userId, id, { ok: true, result: out.result ?? null });
 
-  if (o.via === "web") {
-    try {
-      await deliver(userId, textPlan([`${out.summary} ✅`]), {
-        proactive: false,
-        reason: "action_confirmed_web",
-        dedupeKey: `act:${id}`,
-      });
-    } catch (e) {
-      console.warn("[pending] web-confirm chat post failed", e instanceof Error ? e.name : "error");
-    }
-  }
+  if (o.via === "web") await postConfirmOutcome(userId, id, { ok: true, summary: out.summary }, "action_confirmed_web");
   return out.result ? { ok: true, summary: out.summary, result: out.result } : { ok: true, summary: out.summary };
+}
+
+/** Chat line posted when a confirm that nobody is waiting on any more failed. */
+export const LATE_CONFIRM_FAILED_TEXT = "Heads up: that one didn't go through. Ask me again if you still want it.";
+
+/**
+ * Post a confirm's outcome into the chat thread, outside any agent reply: `"<summary> ✅"` on
+ * success (web confirms, and chat confirms that finished after the agent stopped waiting), or
+ * `LATE_CONFIRM_FAILED_TEXT` on failure. Deduped per action (`act:<id>`). Never throws.
+ * @param userId owner
+ * @param id action id (dedupe key)
+ * @param r the confirm result
+ * @param reason deliver reason (≤64 chars), e.g. "action_confirmed_web" | "action_confirmed_late"
+ */
+export async function postConfirmOutcome(userId: string, id: string, r: ConfirmResult, reason: string): Promise<void> {
+  if (!r.ok && r.code !== "executor_failed" && r.code !== "google_disconnected") return; // nothing ran
+  try {
+    await deliver(userId, textPlan([r.ok ? `${r.summary} ✅` : LATE_CONFIRM_FAILED_TEXT]), {
+      proactive: false,
+      reason,
+      dedupeKey: `act:${id}`,
+    });
+  } catch (e) {
+    console.warn("[pending] confirm chat post failed", e instanceof Error ? e.name : "error");
+  }
+}
+
+/**
+ * Whether a chat confirm's evidence came after the action was shown to the student (pure).
+ * The evidence must be newer than the row, and — once the creating run delivered a reply after the
+ * row existed — no older than that reply's first bubble.
+ * @param evidenceAt when the cited message/tapback was received (null: not found → refuse)
+ * @param createdAt pending_actions.created_at
+ * @param shownAt first reply bubble of the creating run at/after `createdAt` (null: none recorded)
+ * @returns true when the confirm may proceed
+ */
+export function evidencePostdatesAction(evidenceAt: Date | null, createdAt: Date, shownAt: Date | null): boolean {
+  if (!evidenceAt) return false;
+  if (evidenceAt.getTime() <= createdAt.getTime()) return false;
+  return shownAt === null || evidenceAt.getTime() >= shownAt.getTime();
+}
+
+/** When the cited user-authored message / tapback was received (owner-scoped), or null. */
+async function evidenceReceivedAt(userId: string, ev: ConfirmEvidence): Promise<Date | null> {
+  if (!isUuid(ev.id) || !isUuid(userId)) return null;
+  if (ev.kind === "m") {
+    const { data, error } = await db()
+      .from("messages")
+      .select("created_at")
+      .eq("id", ev.id)
+      .eq("user_id", userId)
+      .eq("direction", "in")
+      .maybeSingle();
+    if (error) fail("evidenceReceivedAt", error.message);
+    return data ? new Date(data.created_at) : null;
+  }
+  const { data, error } = await db()
+    .from("reactions")
+    .select("created_at, message_id")
+    .eq("id", ev.id)
+    .eq("actor", "user")
+    .maybeSingle();
+  if (error) fail("evidenceReceivedAt", error.message);
+  if (!data) return null;
+  const { data: target, error: tErr } = await db().from("messages").select("id").eq("id", data.message_id).eq("user_id", userId).maybeSingle();
+  if (tErr) fail("evidenceReceivedAt", tErr.message);
+  return target ? new Date(data.created_at) : null;
+}
+
+/** First reply bubble (not an interim/fallback) the creating run wrote at/after the row's creation — the bubble that showed the action — or null. */
+async function actionShownAt(userId: string, r: Row): Promise<Date | null> {
+  if (!r.run_id) return null;
+  const { data, error } = await db()
+    .from("messages")
+    .select("created_at, trigger")
+    .eq("user_id", userId)
+    .eq("run_id", r.run_id)
+    .eq("direction", "out")
+    .gte("created_at", r.created_at)
+    .order("created_at", { ascending: true })
+    .limit(10);
+  if (error) fail("actionShownAt", error.message);
+  const first = (data ?? []).find((m) => m.trigger === "reply");
+  return first ? new Date(first.created_at) : null;
 }
 
 /**

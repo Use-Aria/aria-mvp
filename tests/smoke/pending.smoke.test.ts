@@ -3,7 +3,8 @@
  * by default (`SMOKE_TARGET=env` for the env project).
  *
  *  1. create / list / get (owner-scoped), payload validation, proactive refusal
- *  2. same_run refusal (chat path passes runId)
+ *  2. same_run refusal (chat path passes runId); a chat confirm whose evidence ("yes") was received
+ *     before the action was shown is refused too (5.5 review #3)
  *  3. concurrent confirms: exactly one executes (atomic pending→executing)
  *  4. web revise with version guard, read-only recipients, web confirm posts into the chat
  *  5. expiry, cancel, executor failure codes, stuck-executing recovery
@@ -108,6 +109,7 @@ let userB = "";
 let userDel = "";
 let userMem = "";
 let channelA = "";
+let channelDel = "";
 let channelMem = "";
 let runA = "";
 let runB = "";
@@ -185,6 +187,24 @@ function evidenceOf(c: ToolCtx): string {
   return [...c.evidence][0];
 }
 
+/** A user-authored inbound message ("yes") received at `at`. */
+async function inbound(userId: string, channelId: string, at: Date, body = "yes send it"): Promise<string> {
+  return must(
+    await sb
+      .from("messages")
+      .insert({ user_id: userId, channel_id: channelId, direction: "in", provider: "dev", body, status: "received", created_at: at.toISOString() })
+      .select("id")
+      .single(),
+    "inbound",
+  ).id;
+}
+
+/** Tool context whose evidence is the real inbound message `messageId`. */
+function ctxCiting(userId: string, runId: string, messageId: string): ToolCtx & { aliases: AliasTable } {
+  const aliases = new AliasTable();
+  return ctxFor(userId, runId, { aliases, evidence: new Set([aliases.mint("m", messageId)]) });
+}
+
 async function row(id: string) {
   return must(await sb.from("pending_actions").select("*").eq("id", id).single(), "pending row");
 }
@@ -202,7 +222,7 @@ beforeAll(async () => {
   userDel = await newUser("smoke pending del");
   userMem = await newUser("smoke pending mem");
   channelA = await newChannel(userA);
-  await newChannel(userDel);
+  channelDel = await newChannel(userDel);
   channelMem = await newChannel(userMem);
   runA = await newRun(userA);
   runB = await newRun(userA);
@@ -265,6 +285,72 @@ describe("2 + 3. same_run guard and concurrent confirms", () => {
     expect(r.executed_at).not.toBeNull();
     expect((r.result as { sent_at?: string }).sent_at).toBeDefined();
     expect(await confirmPendingAction(userA, a.id, { via: "chat", runId: runB })).toEqual({ ok: false, code: "not_pending" });
+  });
+});
+
+describe("2b. chat confirm evidence must postdate the action (5.5 review #3)", () => {
+  it("refuses a 'yes' sent before the draft existed or before its bubble went out; accepts a later one", async () => {
+    const a = await createPendingAction(ctxFor(userA, runA), { kind: "send_email", payload: PAYLOAD, summary: "email" });
+    const createdAt = new Date((await row(a.id)).created_at).getTime();
+    mockState.calls = 0;
+
+    // "yes" sent while pass 1 was still drafting
+    const early = await inbound(userA, channelA, new Date(createdAt - 5_000));
+    expect(await confirmPendingAction(userA, a.id, { via: "chat", runId: runB, evidence: { kind: "m", id: early } })).toEqual({ ok: false, code: "same_run" });
+
+    // the creating run's reply (the draft) went out 2s after the row; a "yes" 1s after the row is still too early
+    must(
+      await sb
+        .from("messages")
+        .insert({ user_id: userA, channel_id: channelA, direction: "out", provider: "dev", body: "here's the draft", run_id: runA, trigger: "reply", status: "sent", created_at: new Date(createdAt + 2_000).toISOString() })
+        .select("id"),
+      "reply bubble",
+    );
+    const beforeShown = await inbound(userA, channelA, new Date(createdAt + 1_000));
+    expect(await confirmPendingAction(userA, a.id, { via: "chat", runId: runB, evidence: { kind: "m", id: beforeShown } })).toEqual({ ok: false, code: "same_run" });
+
+    // someone else's message, an unknown id, and an Aria tapback never count
+    const otherChannel = await newChannel(userB);
+    const foreign = await inbound(userB, otherChannel, new Date(createdAt + 10_000));
+    expect(await confirmPendingAction(userA, a.id, { via: "chat", runId: runB, evidence: { kind: "m", id: foreign } })).toEqual({ ok: false, code: "same_run" });
+    expect(await confirmPendingAction(userA, a.id, { via: "chat", runId: runB, evidence: { kind: "m", id: randomUUID() } })).toEqual({ ok: false, code: "same_run" });
+    expect(mockState.calls).toBe(0);
+    expect((await row(a.id)).status).toBe("pending");
+
+    // through the tool: the alias resolves to the early message → refused with the "ask again" copy
+    const c = ctxCiting(userA, runB, early);
+    const refused = await runConfirmAction(c, { action: c.aliases.mint("a", a.id), evidence: evidenceOf(c) });
+    expect(refused).toMatchObject({ ok: false, error: expect.stringMatching(/^same_run/) });
+
+    // a "yes" after the draft bubble confirms (exactly one send)
+    const late = await inbound(userA, channelA, new Date(createdAt + 3_000));
+    const c2 = ctxCiting(userA, runB, late);
+    const ok = await runConfirmAction(c2, { action: c2.aliases.mint("a", a.id), evidence: evidenceOf(c2) });
+    expect(ok).toEqual({ ok: true, data: "ok: sent your email" });
+    expect(mockState.calls).toBe(1);
+    expect((await row(a.id)).status).toBe("done");
+  });
+
+  it("a tapback newer than the shown draft counts as evidence; web confirms don't need any", async () => {
+    const a = await createPendingAction(ctxFor(userA, runA), { kind: "send_email", payload: PAYLOAD, summary: "email" });
+    const createdAt = new Date((await row(a.id)).created_at).getTime();
+    const bubble = must(
+      await sb
+        .from("messages")
+        .insert({ user_id: userA, channel_id: channelA, direction: "out", provider: "dev", body: "draft", run_id: runA, trigger: "reply", status: "sent", created_at: new Date(createdAt + 500).toISOString() })
+        .select("id")
+        .single(),
+      "bubble",
+    ).id;
+    const ariaTap = must(await sb.from("reactions").insert({ message_id: bubble, actor: "aria", type: "like", created_at: new Date(createdAt + 1_500).toISOString() }).select("id").single(), "aria tap").id;
+    expect(await confirmPendingAction(userA, a.id, { via: "chat", runId: runB, evidence: { kind: "x", id: ariaTap } })).toEqual({ ok: false, code: "same_run" });
+    const tap = must(await sb.from("reactions").insert({ message_id: bubble, actor: "user", type: "love", created_at: new Date(createdAt + 1_500).toISOString() }).select("id").single(), "user tap").id;
+    mockState.calls = 0;
+    expect(await confirmPendingAction(userA, a.id, { via: "chat", runId: runB, evidence: { kind: "x", id: tap } })).toMatchObject({ ok: true });
+    expect(mockState.calls).toBe(1);
+
+    const w = await createPendingAction(ctxFor(userA, runA), { kind: "send_email", payload: PAYLOAD, summary: "email" });
+    expect(await confirmPendingAction(userA, w.id, { via: "web", expectedVersion: 1 })).toMatchObject({ ok: true });
   });
 });
 
@@ -337,6 +423,34 @@ describe("5. expiry, cancel, failures, recovery", () => {
     }
   });
 
+  it("send_unconfirmed leaves the row executing (never failed) until recover settles it", async () => {
+    for (const via of ["chat", "web"] as const) {
+      const a = await createPendingAction(ctxFor(userA, runA), { kind: "send_email", payload: PAYLOAD, summary: "email" });
+      mockState.fail = "send_unconfirmed:timeout";
+      mockState.calls = 0;
+      const r = await confirmPendingAction(userA, a.id, via === "chat" ? { via, runId: runB } : { via, expectedVersion: 1 });
+      mockState.fail = null;
+      expect(r).toEqual({ ok: false, code: "send_unconfirmed" });
+      expect(mockState.calls).toBe(1);
+      expect(await row(a.id)).toMatchObject({ status: "executing", error: "send_unconfirmed:timeout", decided_via: via });
+      expect((await getPendingAction(userA, a.id))?.status).toBe("executing"); // "sending" on /email
+      // a second confirm (chat or web) never re-runs it and still reads as unconfirmed
+      expect(await confirmPendingAction(userA, a.id, { via: "chat", runId: runB })).toEqual({ ok: false, code: "send_unconfirmed" });
+      expect(await confirmPendingAction(userA, a.id, { via: "web", expectedVersion: 1 })).toEqual({ ok: false, code: "send_unconfirmed" });
+      expect(mockState.calls).toBe(1);
+      // no "✅" was posted for it
+      const posted = must(await sb.from("messages").select("id").eq("user_id", userA).like("idempotency_key", `d:${userA}:act:${a.id}:%`), "posted");
+      expect(posted).toHaveLength(0);
+      // after the stuck window, recover (Sent-folder lookup) settles it
+      must(await sb.from("pending_actions").update({ updated_at: new Date(Date.now() - 10 * 60_000).toISOString() }).eq("id", a.id).select("id"), "age");
+      mockState.recover = "done";
+      expect(await recoverStuckActions(userA)).toEqual({ done: 1, failed: 0 });
+      mockState.recover = "not_done";
+      expect(await row(a.id)).toMatchObject({ status: "done", error: null });
+      expect(mockState.calls).toBe(1);
+    }
+  });
+
   it("rows stuck in executing are resolved by the executor's recover, never re-executed", async () => {
     const old = new Date(Date.now() - 10 * 60_000).toISOString();
     const ids: string[] = [];
@@ -370,7 +484,8 @@ describe("6 + 7. chat account deletion (tools) and account_purge", () => {
     const same = await runConfirmAction(c1, { action: alias, evidence: evidenceOf(c1) });
     expect(same).toMatchObject({ ok: false, error: expect.stringMatching(/^same_run/) });
 
-    const c2 = ctxFor(userDel, await newRun(userDel));
+    // the student's "yes delete" arrives after the request was shown (5.5 review #3: a real message)
+    const c2 = ctxCiting(userDel, await newRun(userDel), await inbound(userDel, channelDel, new Date(Date.now() + 1_000), "yes delete"));
     const id = c1.aliases.resolve(alias, "a") ?? "";
     expect(c2.aliases.mint("a", id)).toBe(alias); // shown in the later run's context
     const t0 = Date.now();

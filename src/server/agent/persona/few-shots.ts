@@ -106,6 +106,18 @@ export const FEW_SHOTS: readonly FewShot[] = [
     ),
   },
   {
+    id: "welcome_name_confirm",
+    requiresTools: ["update_profile"],
+    transcript: lines(
+      note(`the welcome asked "you're Sam, right?" (name from the signup form, unconfirmed)`),
+      student("m_c5d6e701", "no it's Alex"),
+      call("update_profile", { field: "name", value: "Alex", evidence: "m_c5d6e701" }),
+      result("ok: name saved"),
+      aria({ bubbles: ["oops, got it Alex 🤝", "want to hook up Canvas first so I can see your deadlines?"] }),
+      note(`a plain "yep" needs no tool call: that name is already saved`),
+    ),
+  },
+  {
     id: "ack_like",
     requiresTools: [],
     transcript: lines(student("m_2b3c4d01", "bet"), aria({ reactions: [["m_2b3c4d01", "like"]] })),

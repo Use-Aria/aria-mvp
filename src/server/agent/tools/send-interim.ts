@@ -15,7 +15,13 @@ const input = z.strictObject({ text: z.string().min(1).max(120) });
 // Results say plainly that this was the turn's one interim: a bare "ok: sent" let the model pair
 // another send_interim with its next slow tool (a wasted call; see the loop's interim guard).
 const SENT = "ok: sent. That's the one interim for this turn; don't call send_interim again.";
-const ALREADY = "already_sent: an interim line already went out this turn. Don't call send_interim again; just continue.";
+
+/**
+ * Result when the run's one interim already went out (or was attempted). The single source of this
+ * text: the tool returns it, and the loop answers later `send_interim` calls with it directly.
+ */
+export const INTERIM_ALREADY_SENT =
+  "already_sent: the student already got an interim line this turn. Don't call send_interim again; continue with your other tools or reply.";
 
 /**
  * Tool body (exported for tests).
@@ -25,12 +31,12 @@ const ALREADY = "already_sent: an interim line already went out this turn. Don't
  */
 export async function runSendInterim(ctx: ToolCtx, i: z.output<typeof input>): Promise<ToolResult> {
   if (ctx.trigger.kind !== "inbound") return { ok: false, error: "send_interim is only for replies to the student's messages" };
-  if (ctx.interim.sent) return { ok: true, data: ALREADY };
+  if (ctx.interim.sent) return { ok: true, data: INTERIM_ALREADY_SENT };
   const text = i.text.replace(/\s+/g, " ").trim();
   if (!text) return { ok: false, error: "empty interim text" };
   try {
     const sent = await ctx.interim.send(text);
-    return { ok: true, data: sent ? SENT : ALREADY };
+    return { ok: true, data: sent ? SENT : INTERIM_ALREADY_SENT };
   } catch (e) {
     ctx.log("send_interim_failed", { error: e instanceof Error ? e.name : "error" });
     return { ok: true, data: "not sent; just continue" };

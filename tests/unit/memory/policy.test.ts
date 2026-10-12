@@ -4,7 +4,14 @@
 import { AliasTable } from "@/server/agent/context/aliases";
 import { estimateTokens } from "@/server/agent/context/budget";
 import { askedInCurrentConversation, conversationStartedAt } from "@/server/memory/conversation";
-import { constraintsConflict, decideProposal, findReplacedPreference, renderPreferences } from "@/server/memory/preference-policy";
+import {
+  activityKey,
+  constraintsConflict,
+  decideProposal,
+  findReplacedPreference,
+  normStatement,
+  renderPreferences,
+} from "@/server/memory/preference-policy";
 import type { PreferenceRow } from "@/server/memory/preferences";
 
 const T0 = new Date("2026-10-10T15:00:00Z").getTime();
@@ -143,5 +150,66 @@ describe("findReplacedPreference / constraintsConflict (5.F1 CR-3: a change supe
     expect(findReplacedPreference(active, { key: "gym.no_saturdays", statement: "no gym on saturdays", constraintJson: gymSundays2 })).toBeNull();
     expect(findReplacedPreference(active, { key: "study.latest_time", statement: "no studying after 11pm", constraintJson: study11 })).toBeNull();
     expect(findReplacedPreference([pref(5, { status: "superseded", key: "gym.latest_time" })], { key: "gym.latest_time", statement: "x", constraintJson: null })).toBeNull();
+  });
+});
+
+describe("activityKey plurals (5.5 review #10)", () => {
+  it.each([
+    // "-es" plurals of sibilant stems
+    ["classes", "class"],
+    ["boxes", "box"],
+    ["quizzes", "quiz"],
+    ["matches", "match"],
+    ["wishes", "wish"],
+    ["glasses", "glass"],
+    // plain "-s" plurals (stem ends in e) keep their e
+    ["notes", "note"],
+    ["exercises", "exercise"],
+    ["games", "game"],
+    ["lectures", "lecture"],
+    ["workouts", "workout"],
+    // singular / short / -ss -us -is words stay as they are
+    ["class", "class"],
+    ["gas", "gas"],
+    ["bus", "bus"],
+    ["campus", "campus"],
+    ["tennis", "tennis"],
+    ["gym", "gym"],
+    ["box", "box"],
+    // multi-word: the last word is singularized; case and spaces normalized
+    ["  Chem   Classes ", "chem class"],
+    ["office hours", "office hour"],
+  ])("%s → %s", (input, expected) => {
+    expect(activityKey(input)).toBe(expected);
+  });
+
+  it("singular and plural forms produce the same key", () => {
+    for (const [one, many] of [
+      ["class", "classes"],
+      ["quiz", "quizzes"],
+      ["match", "matches"],
+      ["note", "notes"],
+      ["exercise", "exercises"],
+    ]) {
+      expect(activityKey(many)).toBe(activityKey(one));
+    }
+  });
+
+  it("a not_after on 'classes' conflicts with one on 'class'", () => {
+    const pref = (activity: string, time: string) => ({
+      applies_to: [activity],
+      constraint: { type: "not_after", time },
+      signoff: null,
+      waking: null,
+    });
+    expect(constraintsConflict(pref("classes", "20:00"), pref("class", "21:00"))).toBe(true);
+    expect(constraintsConflict(pref("quizzes", "20:00"), pref("quiz", "21:00"))).toBe(true);
+    expect(constraintsConflict(pref("classes", "20:00"), pref("gym", "21:00"))).toBe(false);
+  });
+});
+
+describe("normStatement", () => {
+  it("lowercases, collapses whitespace and trims", () => {
+    expect(normStatement("  No GYM\tafter   8pm ")).toBe("no gym after 8pm");
   });
 });

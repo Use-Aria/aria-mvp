@@ -22,6 +22,7 @@ import type { ToolCtx } from "@/server/agent/types";
 import { getGoogleStatus } from "@/server/integrations/google/status";
 import { GoogleApiError, GoogleAuthRevokedError, GoogleNotConnectedError } from "@/server/integrations/google/errors";
 import { createBlock } from "@/server/integrations/google/calendar/aria-calendar";
+import { isWriteOutcomeUnknown } from "@/server/integrations/google/http";
 import { parseSlotId, type Interval } from "@/server/integrations/google/calendar/slots";
 import { formatTimeRange } from "@/shared/time/tz";
 
@@ -74,11 +75,20 @@ export async function calendarWriteGate(ctx: ToolCtx): Promise<ToolResult | null
  * @param ctx tool context
  * @param tool tool name (log event prefix)
  * @param e the thrown error
- * @returns connect hint (not connected / revoked / permission denied) or a retryable error
+ * @returns connect hint (not connected / revoked / permission denied), an "outcome unknown, check
+ *   get_agenda first" error (a no-retry write that may have landed, 5.5 #1), or a retryable error
  */
 export function blockToolError(ctx: ToolCtx, tool: string, e: unknown): ToolResult {
   ctx.log(`${tool}_failed`, { error: e instanceof Error ? e.name : "error", status: e instanceof GoogleApiError ? e.status : 0 });
   if (e instanceof GoogleNotConnectedError || e instanceof GoogleAuthRevokedError) return { ok: false, error: CONNECT_GOOGLE_ERROR };
+  if (isWriteOutcomeUnknown(e)) {
+    const verb = tool === "move_block" ? "moved" : tool === "delete_block" ? "deleted" : "booked";
+    return {
+      ok: false,
+      error: `Google Calendar didn't confirm it: the block may or may not have been ${verb}; check get_agenda before retrying`,
+      retryable: false,
+    };
+  }
   if (e instanceof GoogleApiError && e.status === 403 && e.reason !== "rateLimitExceeded" && e.reason !== "userRateLimitExceeded") {
     return { ok: false, error: CONNECT_GOOGLE_ERROR };
   }

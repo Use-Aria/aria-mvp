@@ -101,9 +101,25 @@ function parseConstraintPref(v: unknown): ConstraintPref | null {
   return r.success ? r.data : null;
 }
 
-function activityKey(a: string): string {
+/** "-es" plurals whose stem ends in a sibilant: classes, boxes, matches, wishes (quizzes below). */
+const SIBILANT_ES = /(?:ss|sh|ch|x)es$/;
+
+/**
+ * Singular-ish comparison key for a constraint's activity ("classes" and "class" match). Lowercases,
+ * collapses whitespace, then strips the plural of the last word: "-sses/-shes/-ches/-xes" → drop
+ * "es" (classes → class, wishes → wish, matches → match, boxes → box), "-zzes" → drop "zes"
+ * (quizzes → quiz), else a final "s" (notes → note, exercises → exercise). Words of ≤3 letters and
+ * words ending in "ss", "us" or "is" are left alone (gas, bus, class, campus, tennis).
+ * @param a the activity as written ("Chem classes")
+ * @returns the key ("chem class")
+ */
+export function activityKey(a: string): string {
   const t = a.toLowerCase().trim().replace(/\s+/g, " ");
-  return t.length > 3 && t.endsWith("s") ? t.slice(0, -1) : t;
+  const word = t.slice(t.lastIndexOf(" ") + 1);
+  if (word.length <= 3 || !word.endsWith("s") || /(?:ss|us|is)$/.test(word)) return t;
+  if (/zzes$/.test(word)) return t.slice(0, -3);
+  if (SIBILANT_ES.test(word)) return t.slice(0, -2);
+  return t.slice(0, -1);
 }
 
 function sameDays(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
@@ -138,7 +154,13 @@ export function constraintsConflict(a: unknown, b: unknown): boolean {
   return true;
 }
 
-function normStatement(s: string): string {
+/**
+ * Comparison form of a preference statement (lowercase, whitespace collapsed, trimmed), used to
+ * spot a proposal that repeats an active rule word for word.
+ * @param s the statement
+ * @returns the normalized statement
+ */
+export function normStatement(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ").trim();
 }
 

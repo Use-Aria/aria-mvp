@@ -24,6 +24,7 @@ import { collectBusy } from "@/server/integrations/google/calendar/busy";
 import { listActivePreferences } from "@/server/memory";
 import { getSyllabusSignals } from "@/server/integrations/syllabus";
 import { GoogleApiError, GoogleAuthRevokedError } from "@/server/integrations/google/errors";
+import { GoogleWriteUnknownError } from "@/server/integrations/google/http";
 import { CONNECT_GOOGLE_ERROR, ariaKeyFor, createBlockTool, runCreateBlock } from "@/server/agent/tools/create-block";
 import { deleteBlockTool, runDeleteBlock } from "@/server/agent/tools/delete-block";
 import { findFreeSlotsTool, resolveSlotWindow, runFindFreeSlots } from "@/server/agent/tools/find-free-slots";
@@ -184,6 +185,20 @@ describe("Google not connected / no calendar_write → connect_google is_error",
     expect(await runCreateBlock(ctx(), args)).toEqual({ ok: false, error: CONNECT_GOOGLE_ERROR });
     create.mockRejectedValueOnce(new GoogleApiError("x", { status: 503, retryable: true }));
     expect(await runCreateBlock(ctx(), args)).toMatchObject({ ok: false, retryable: true });
+  });
+
+  it("unknown write outcome → 'may or may not have been booked; check get_agenda', not retryable", async () => {
+    const args = { title: "Gym", start: "2026-10-15T22:30:00Z", end: "2026-10-15T23:30:00Z", allow_overlap: false, evidence: EV };
+    create.mockRejectedValueOnce(new GoogleWriteUnknownError("events.insert timed out", { status: 0 }));
+    const r = await runCreateBlock(ctx(), args);
+    expect(r).toMatchObject({ ok: false, retryable: false });
+    const error = (r as { error: string }).error;
+    expect(error).toContain("may or may not have been booked");
+    expect(error).toContain("check get_agenda before retrying");
+    expect(error).not.toContain("couldn't reach Google Calendar");
+    // a 429/503 unknown outcome is not mistaken for a plain transient failure
+    create.mockRejectedValueOnce(new GoogleWriteUnknownError("x", { status: 503 }));
+    expect(await runCreateBlock(ctx(), args)).toMatchObject({ ok: false, retryable: false });
   });
 });
 

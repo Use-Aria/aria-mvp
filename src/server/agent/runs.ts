@@ -19,6 +19,13 @@ export interface ToolCallRecord {
   iteration: number;
   ok: boolean;
   ms: number;
+  /**
+   * Set (only ever `true`) when the loop stopped waiting before the tool finished: its timeout ran
+   * out, or the run's signal aborted mid-call. The tool may still complete in the background, so a
+   * mutating call with this flag may have changed something whatever `ok` says (`confirm_action`'s
+   * timeout records `ok: true` + `timedOut: true`: "still in progress").
+   */
+  timedOut?: true;
 }
 
 /** Columns the agent may write (all optional; only the given ones are updated). */
@@ -49,7 +56,7 @@ export function toRunUpdate(patch: RunStatsPatch): RunUpdate {
   if (patch.iterations !== undefined) u.iterations = patch.iterations;
   if (patch.llmCallCount !== undefined) u.llm_call_count = patch.llmCallCount;
   if (patch.toolCalls !== undefined) {
-    u.tool_calls = patch.toolCalls.map((t) => ({ name: t.name, iteration: t.iteration, ok: t.ok, ms: t.ms }));
+    u.tool_calls = patch.toolCalls.map((t) => ({ name: t.name, iteration: t.iteration, ok: t.ok, ms: t.ms, ...(t.timedOut ? { timedOut: true } : {}) }));
   }
   if (patch.costUsd !== undefined) u.cost_usd = Math.round(patch.costUsd * 1e6) / 1e6;
   if (patch.latencyMs !== undefined) u.latency_ms = Math.max(0, Math.round(patch.latencyMs));
