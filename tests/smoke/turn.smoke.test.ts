@@ -16,6 +16,8 @@
  *  6. lease held → rescheduled, nothing consumed
  *  7. orphan run (nothing sent) → recovered and processed
  *  8. agent throws → un-consumed, run failed, `retry`
+ *  8b. agent throws after a mutating tool succeeded (`agent_runs.tool_calls`) or after creating a
+ *      pending action (`pending_actions.run_id`) → stays consumed, one fallback, no replay
  *  9. mid-run message → one follow-up pass; the drain claims the tail job inline
  * 10. deleted user → ignored; opted-out channel → closed without a reply
  *
@@ -62,7 +64,7 @@ import { ingestEvents, type IngestOutcome } from "@/server/pipeline/ingest";
 import { kickDelayMs, kickJob, turnDedupeKey } from "@/server/pipeline/kick";
 import { createDbLeaseStore } from "@/server/pipeline/lease";
 import { stubAgentTurn } from "@/server/pipeline/stub-agent";
-import { runConversationTurn } from "@/server/pipeline/turn";
+import { PARTIAL_FALLBACK_TEXT, runConversationTurn } from "@/server/pipeline/turn";
 import type { AgentTurnInput, RunAgentTurn } from "@/server/pipeline/types";
 
 type Sb = SupabaseClient<Database>;
@@ -314,6 +316,61 @@ describe("conversation turn (V2-03 T6/T7, master plan §1.2)", () => {
     // The real job then answers it.
     await kick(o);
     expect((await outbound(userId)).filter((x) => x.body === "(stub) this will fail")).toHaveLength(1);
+  });
+
+  it("8b: agent throws after side effects → stays consumed, one fallback, never replayed", async () => {
+    const cases: { label: string; effect: (input: AgentTurnInput) => Promise<void> }[] = [
+      {
+        // What the agent's catch writes before rethrowing (agent/index.ts → updateRunStats).
+        label: "mutating tool ok",
+        effect: async (input) => {
+          must(
+            await sb
+              .from("agent_runs")
+              .update({ tool_calls: [{ name: "get_agenda", iteration: 1, ok: true, ms: 30 }, { name: "create_reminder", iteration: 1, ok: true, ms: 40 }] })
+              .eq("id", input.runId)
+              .select("id"),
+            "tool_calls",
+          );
+        },
+      },
+      {
+        label: "pending action row",
+        effect: async (input) => {
+          must(
+            await sb
+              .from("pending_actions")
+              .insert({ user_id: input.userId, kind: "send_email", payload: {}, run_id: input.runId, summary: "smoke" })
+              .select("id"),
+            "pending action",
+          );
+        },
+      },
+    ];
+    for (const c of cases) {
+      const o = asTurn(await send(msg(handle, `side effect: ${c.label}`)));
+      const failing: RunAgentTurn = async (input) => {
+        await c.effect(input);
+        throw new Error("smoke: agent died after a tool");
+      };
+      const out = await runConversationTurn(userId, jobCtx(userId), { runAgentTurn: failing, drain: async () => undefined });
+      expect(out).toEqual({ type: "done" });
+      const run = (await runs(userId)).at(-1)!;
+      expect(run.status).toBe("failed");
+      expect(run.error).toMatch(/smoke: agent died after a tool; mutated, not replayed/);
+      const m = (await inbound(userId)).find((x) => x.id === o.messageId)!;
+      expect(m.consumed_by_run).toBe(run.id);
+      const sent = (await outbound(userId)).filter((x) => x.run_id === run.id);
+      expect(sent.map((x) => [x.trigger, x.idempotency_key, x.body])).toEqual([
+        ["fallback", `${run.id}:fallback:0`, PARTIAL_FALLBACK_TEXT],
+      ]);
+      // The real job then finds nothing to replay.
+      const runsBefore = (await runs(userId)).length;
+      await kick(o);
+      expect(await jobRow(o.jobId)).toMatchObject({ status: "done" });
+      expect((await runs(userId)).length).toBe(runsBefore);
+      expect((await outbound(userId)).filter((x) => x.body === `(stub) side effect: ${c.label}`)).toHaveLength(0);
+    }
   });
 
   it("9: mid-run message → one follow-up pass; the drain claims the tail job inline", async () => {

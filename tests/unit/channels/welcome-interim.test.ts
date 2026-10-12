@@ -35,11 +35,21 @@ describe("welcomePlan", () => {
     expect(p.bubbles[0].text).toMatch(/AI assistant/);
     expect(p.bubbles[1].text).toBe("what should I call you?");
   });
-  it("known name: one bubble greeting by first name", () => {
+  it("known name (signup match): intro + asks them to confirm the first name, never assumes it", () => {
     const p = welcomePlan({ name: "Dan Lee" });
-    expect(p.bubbles).toHaveLength(1);
-    expect(p.bubbles[0].text).toMatch(/^hey Dan! I'm Aria/);
+    expect(p.bubbles).toHaveLength(2);
+    expect(p.bubbles[0].text).toMatch(/^hey! I'm Aria/);
     expect(p.bubbles[0].text).toMatch(/AI assistant/);
+    expect(p.bubbles[0].text).not.toMatch(/Dan/);
+    expect(p.bubbles[1].text).toBe("you're Dan, right?");
+  });
+  it("known name, neutral register: capitalized confirmation, no emoji", () => {
+    const p = welcomePlan({ name: "Sam", register: "neutral" });
+    expect(p.bubbles.map((b) => b.text)).toEqual([
+      "Hi! I'm Aria, an AI assistant for your classes — deadlines, your calendar, and reminders, all over text.",
+      "Just to check: you're Sam, right?",
+    ]);
+    expect(p.bubbles.some((b) => /👋/.test(b.text))).toBe(false);
   });
   it("neutral register is capitalized and emoji-free", () => {
     const p = welcomePlan({ name: null, register: "neutral" });
@@ -52,10 +62,23 @@ describe("welcomePlan", () => {
     expect(greetingName("123")).toBeNull();
     expect(greetingName("Zoë Ann")).toBe("Zoë");
     expect(welcomePlan({ name: "  " }).bubbles).toHaveLength(2);
+    expect(welcomePlan({ name: "  " }).bubbles[1].text).toBe("what should I call you?");
+  });
+  it("greetingName echoes only a plain word (signup names are typed by anyone)", () => {
+    expect(greetingName("Sam!")).toBe("Sam");
+    expect(greetingName("O'Brien")).toBe("O'Brien");
+    expect(greetingName("Mary-Kate Olsen")).toBe("Mary-Kate");
+    expect(greetingName("José")).toBe("José");
+    expect(greetingName("Jose\u0301")).toBe("José");
+    for (const bad of ["evil.com", "https://evil.example", "<b>Sam</b>", "sam@x.edu", "J.R.", "S4m", "a".repeat(41)]) {
+      expect(greetingName(bad)).toBeNull();
+    }
+    expect(welcomePlan({ name: "evil.com" }).bubbles[1].text).toBe("what should I call you?");
   });
   it("passes validatePlan unchanged", () => {
-    const p = welcomePlan({ name: null });
-    expect(validatePlan(p, { appOrigin: "https://aria.test" })).toEqual({ plan: p, warnings: [] });
+    for (const p of [welcomePlan({ name: null }), welcomePlan({ name: "Sam" }), welcomePlan({ name: "Sam", register: "neutral" })]) {
+      expect(validatePlan(p, { appOrigin: "https://aria.test" })).toEqual({ plan: p, warnings: [] });
+    }
   });
 });
 

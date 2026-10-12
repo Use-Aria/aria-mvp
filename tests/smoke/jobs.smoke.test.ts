@@ -388,6 +388,21 @@ describe("retention_purge", () => {
       ], { defaultToNull: false })
       .select("id");
     const [oldMsg, newMsg] = idsOf(msgs, "messages");
+    // First-contact welcome rows survive the purge (turn.ts decides first contact by them); their
+    // bodies are nulled past retention. Every other old row goes, outbound included.
+    const [oldWelcome, oldReply, oldCard, oldNullTrigger, newWelcome] = idsOf(
+      await sb
+        .from("messages")
+        .insert([
+          { user_id: userId, channel_id: ch.id, direction: "out", trigger: "welcome", idempotency_key: `welcome:${ch.id}:0`, body: "hey smoke! I'm Aria", created_at: ago(400) },
+          { user_id: userId, channel_id: ch.id, direction: "out", trigger: "reply", idempotency_key: `${P}reply:0`, body: "old reply", created_at: ago(181) },
+          { user_id: userId, channel_id: ch.id, direction: "out", trigger: "contact_card", idempotency_key: `welcome:${ch.id}:card:0`, body: null, created_at: ago(400) },
+          { user_id: userId, channel_id: ch.id, direction: "out", body: "old, no trigger", created_at: ago(181) },
+          { user_id: userId, channel_id: ch.id, direction: "out", trigger: "welcome", idempotency_key: `welcome:${ch.id}:1`, body: "what should I call you?", created_at: ago(1) },
+        ], { defaultToNull: false })
+        .select("id"),
+      "messages (welcome)",
+    );
     const [oldReaction] = idsOf(
       await sb.from("reactions").insert({ message_id: oldMsg, actor: "user", type: "love" }).select("id"),
       "reactions",
@@ -461,13 +476,21 @@ describe("retention_purge", () => {
 
     const report = await purgeExpired(new Date(now), Date.now() + 60_000);
     expect(report.complete).toBe(true);
-    for (const k of ["messages", "jobs", "agentRuns", "magicLinks", "webSessions", "signups", "proactiveDedupe", "briefingPlans"] as const) {
+    for (const k of ["messages", "jobs", "agentRuns", "magicLinks", "webSessions", "signups", "proactiveDedupe", "briefingPlans", "welcomeBodies"] as const) {
       expect(report[k]).toBeGreaterThanOrEqual(1);
     }
 
     const ids = async (table: "messages" | "reactions" | "agent_runs" | "jobs", list: string[]) =>
       ((await sb.from(table).select("id").in("id", list)).data ?? []).map((r) => r.id).sort();
     expect(await ids("messages", [oldMsg, newMsg])).toEqual([newMsg]);
+    expect(await ids("messages", [oldWelcome, oldReply, oldCard, oldNullTrigger, newWelcome])).toEqual([oldWelcome, newWelcome].sort());
+    const welcomes = (await sb.from("messages").select("id, body, trigger").in("id", [oldWelcome, newWelcome])).data ?? [];
+    expect(welcomes.find((r) => r.id === oldWelcome)).toMatchObject({ trigger: "welcome", body: null });
+    expect(welcomes.find((r) => r.id === newWelcome)?.body).toBe("what should I call you?");
+    // A second purge finds the kept welcome row again and leaves it (no loop, nothing to scrub).
+    const again = await purgeExpired(new Date(now), Date.now() + 60_000);
+    expect(again.complete).toBe(true);
+    expect(await ids("messages", [oldWelcome])).toEqual([oldWelcome]);
     expect(await ids("reactions", [oldReaction])).toEqual([]);
     expect(await ids("agent_runs", [oldRun, newRun])).toEqual([newRun]);
     expect(await ids("jobs", [oldJob, newJob, oldPending])).toEqual([newJob, oldPending].sort());

@@ -14,7 +14,10 @@ import { isStubAck, stubAgentTurn } from "@/server/pipeline/stub-agent";
 import {
   BREATHER_TEXT,
   FALLBACK_TEXT,
+  mutatingToolSucceeded,
+  PARTIAL_FALLBACK_TEXT,
   parseInboundMedia,
+  replaySafe,
   runConversationTurn,
   selectReactionWindow,
   type DeliverReplyInput,
@@ -86,6 +89,8 @@ function makeWorld(opts: { welcomed?: boolean; user?: Partial<TurnUser>; channel
   };
   const channel = channelRow(opts.channel);
   const closed: string[] = [];
+  /** Runs with a successful mutating tool call (stands in for `agent_runs.tool_calls` / run rows). */
+  const mutated = new Set<string>();
   let turnsToday = 0;
 
   if (opts.welcomed !== false) msgs.insertOutbound(U, null, `welcome:${CH}:0`, "hey! I'm Aria");
@@ -142,8 +147,10 @@ function makeWorld(opts: { welcomed?: boolean; user?: Partial<TurnUser>; channel
     async countUnconsumed(userId) {
       return msgs.rows.filter((r) => r.userId === userId && r.direction === "in" && r.consumedByRun === null).length;
     },
-    async hasOutbound(runId) {
-      return msgs.outboundForRun(runId).length > 0;
+    async sideEffects(runId) {
+      // The DB store reads `messages.trigger`; here the per-channel welcome keys stand in for it.
+      const sent = msgs.outboundForRun(runId).some((r) => !r.idempotencyKey?.startsWith("welcome:"));
+      return { sent, mutated: mutated.has(runId) };
     },
     async orphanRuns(userId) {
       return runs.filter((r) => r.userId === userId && r.status === "running" && !r.isEval).map((r) => r.id);
@@ -222,6 +229,7 @@ function makeWorld(opts: { welcomed?: boolean; user?: Partial<TurnUser>; channel
     scheduled,
     drained,
     closed,
+    mutated,
     store,
     deps,
     setTurnsToday: (n: number) => {
@@ -420,6 +428,104 @@ describe("runConversationTurn", () => {
     expect(w.runs[0].status).toBe("failed");
   });
 
+  test("throw after a successful mutating tool → stays consumed, one partial fallback, no retry", async () => {
+    const w = makeWorld();
+    const m = w.msgs.addInbound(U, "remind me at 5 and block 2h for chem");
+    const { agent, calls } = recordingAgent((input) => {
+      w.mutated.add(input.runId); // create_reminder succeeded, then the model call failed
+      throw new Error("model overloaded");
+    });
+    const out = await runConversationTurn(U, job({ attempt: 1, maxAttempts: 3 }), w.deps(agent));
+    expect(out).toEqual({ type: "done" });
+    expect(calls).toHaveLength(1);
+    expect(w.runs).toHaveLength(1);
+    expect(w.msgs.rows.find((r) => r.id === m)?.consumedByRun).toBe(w.runs[0].id);
+    const fb = w.deliveries.filter((x) => x.input.trigger === "fallback");
+    expect(fb).toHaveLength(1);
+    expect(fb[0].input.plan.bubbles[0].text).toBe(PARTIAL_FALLBACK_TEXT);
+    expect(fb[0].keys).toEqual([`${w.runs[0].id}:fallback:0`]);
+    expect(w.runs[0].status).toBe("failed");
+    expect(w.runs[0].error).toContain("model overloaded");
+    expect(w.runs[0].error).toContain("mutated, not replayed");
+    expect(w.replies()).toHaveLength(0);
+    // A later job finds nothing to replay: no second run, the agent is not called again.
+    const again = recordingAgent();
+    await runConversationTurn(U, job({ attempt: 2 }), w.deps(again.agent));
+    expect(again.calls).toHaveLength(0);
+    expect(w.runs).toHaveLength(1);
+  });
+
+  test("throw after the interim went out → stays consumed, one fallback, no retry", async () => {
+    const w = makeWorld();
+    const m = w.msgs.addInbound(U, "plan my week");
+    const { agent } = recordingAgent(async (input) => {
+      expect(await input.interim("one sec 👀")).toBe(true);
+      throw new Error("tool loop blew up");
+    });
+    const out = await runConversationTurn(U, job({ attempt: 1 }), w.deps(agent));
+    expect(out).toEqual({ type: "done" });
+    expect(w.msgs.rows.find((r) => r.id === m)?.consumedByRun).toBe(w.runs[0].id);
+    expect(w.deliveries.map((x) => x.input.trigger)).toEqual(["interim", "fallback"]);
+    expect(w.deliveries[1].input.plan.bubbles[0].text).toBe(FALLBACK_TEXT);
+    expect(w.runs[0]).toMatchObject({ status: "failed" });
+    expect(w.runs[0].error).toContain("partial send, not replayed");
+  });
+
+  test("watchdog interim, then the agent throws → no retry (the interim would repeat)", async () => {
+    const w = makeWorld();
+    w.msgs.addInbound(U, "whats due");
+    const { agent } = recordingAgent(async () => {
+      await new Promise((r) => setTimeout(r, 9_000));
+      throw new Error("late failure");
+    });
+    const p = runConversationTurn(U, job({ attempt: 1 }), w.deps(agent));
+    await jest.advanceTimersByTimeAsync(10_000);
+    expect(await p).toEqual({ type: "done" });
+    expect(w.deliveries.map((x) => x.input.trigger)).toEqual(["interim", "fallback"]);
+  });
+
+  test("first contact: the welcome alone doesn't block a retry (it's keyed per channel)", async () => {
+    const w = makeWorld({ welcomed: false });
+    const m = w.msgs.addInbound(U, "hi whats due tmrw");
+    const { agent } = recordingAgent(() => {
+      throw new Error("model overloaded");
+    });
+    const out = await runConversationTurn(U, job({ attempt: 1 }), w.deps(agent));
+    expect(out).toMatchObject({ type: "retry" });
+    expect(w.msgs.rows.find((r) => r.id === m)?.consumedByRun).toBeNull();
+    expect(w.deliveries.filter((x) => x.input.trigger === "fallback")).toHaveLength(0);
+  });
+
+  test("lease lost after a mutating tool → messages stay consumed, nothing sent", async () => {
+    const w = makeWorld();
+    const m = w.msgs.addInbound(U, "remind me at 5");
+    const { agent } = recordingAgent(async (input) => {
+      w.mutated.add(input.runId);
+      await new Promise((r) => setTimeout(r, 70_000));
+      return reply({ bubbles: [{ text: "done" }] });
+    });
+    const failingLease = { ...w.lease, extend: async () => false };
+    const p = runConversationTurn(U, job(), w.deps(agent, { lease: failingLease }));
+    await jest.advanceTimersByTimeAsync(71_000);
+    expect(await p).toMatchObject({ type: "reschedule", reason: "lease_lost" });
+    expect(w.replies()).toHaveLength(0);
+    expect(w.msgs.rows.find((r) => r.id === m)?.consumedByRun).toBe(w.runs[0].id);
+    expect(w.runs[0]).toMatchObject({ status: "aborted", error: "lease lost; mutated, not replayed" });
+  });
+
+  test("orphan run that mutated (nothing sent) is not replayed", async () => {
+    const w = makeWorld();
+    const orphan = await w.store.createRun({ userId: U, channelId: CH, trigger: "inbound" });
+    const m = w.msgs.addInbound(U, "remind me at 5");
+    w.msgs.consume(U, orphan.id);
+    w.mutated.add(orphan.id);
+    const { agent, calls } = recordingAgent();
+    await runConversationTurn(U, job(), w.deps(agent));
+    expect(w.runs.find((r) => r.id === orphan.id)).toMatchObject({ status: "failed", error: "orphan: mutated, not replayed" });
+    expect(w.msgs.rows.find((r) => r.id === m)?.consumedByRun).toBe(orphan.id);
+    expect(calls).toHaveLength(0);
+  });
+
   test("orphan run with no outbound is recovered: its messages are un-consumed and processed now", async () => {
     const w = makeWorld();
     const orphan = await w.store.createRun({ userId: U, channelId: CH, trigger: "inbound" });
@@ -573,8 +679,10 @@ describe("runConversationTurn", () => {
     );
     const p = runConversationTurn(U, job({ deadline: start + 100_000 }), w.deps(agent));
     await jest.advanceTimersByTimeAsync(80_000);
-    expect(await p).toMatchObject({ type: "retry" });
+    // The 8s watchdog interim already went out, so the run is not replayed: fallback instead.
+    expect(await p).toEqual({ type: "done" });
     expect(abortedAt).toBe(70_000);
+    expect(w.deliveries.map((x) => x.input.trigger)).toEqual(["interim", "fallback"]);
   });
 
   test("daily turn cap → one breather bubble per local day, no agent", async () => {
@@ -654,6 +762,28 @@ describe("selectReactionWindow", () => {
   });
   test("no previous run → everything up to `until`", () => {
     expect(selectReactionWindow(rows, null, t(5)).map((r) => r.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("side-effect rule", () => {
+  const MUT = new Set(["create_reminder", "draft_email"]);
+  test("mutatingToolSucceeded: only an ok call of a mutating tool counts", () => {
+    expect(mutatingToolSucceeded([{ name: "create_reminder", iteration: 1, ok: true, ms: 40 }], MUT)).toBe(true);
+    expect(mutatingToolSucceeded([{ name: "create_reminder", iteration: 1, ok: false, ms: 40 }], MUT)).toBe(false);
+    expect(mutatingToolSucceeded([{ name: "get_agenda", iteration: 1, ok: true, ms: 40 }], MUT)).toBe(false);
+    expect(mutatingToolSucceeded(null, MUT)).toBe(false);
+    expect(mutatingToolSucceeded([null, "x", { ok: true }], MUT)).toBe(false);
+  });
+
+  test("mutatingToolSucceeded: a timed-out mutating call counts (it may have landed)", () => {
+    expect(mutatingToolSucceeded([{ name: "create_reminder", iteration: 1, ok: false, ms: 10000, timedOut: true }], MUT)).toBe(true);
+    expect(mutatingToolSucceeded([{ name: "get_agenda", iteration: 1, ok: false, ms: 10000, timedOut: true }], MUT)).toBe(false);
+    expect(mutatingToolSucceeded([{ name: "create_reminder", iteration: 1, ok: false, ms: 10000, timedOut: false }], MUT)).toBe(false);
+  });
+  test("replaySafe: only with nothing sent and nothing mutated", () => {
+    expect(replaySafe({ sent: false, mutated: false })).toBe(true);
+    expect(replaySafe({ sent: true, mutated: false })).toBe(false);
+    expect(replaySafe({ sent: false, mutated: true })).toBe(false);
   });
 });
 

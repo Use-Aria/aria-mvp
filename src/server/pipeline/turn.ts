@@ -9,8 +9,8 @@ import "server-only";
  * 1. Deleted / missing user → done (ignored). Lease held by another run → reschedule +3s without
  *    consuming anything (the active run's follow-up pass or drain picks the messages up).
  * 2. Orphan recovery: any `agent_runs` row of this user still `running` belongs to a crashed
- *    invocation. Nothing sent → its inbound is un-consumed; something sent → not replayed. Both
- *    are marked `failed`.
+ *    invocation. No side effects (`replaySafe`) → its inbound is un-consumed; something sent or
+ *    mutated → not replayed. Both are marked `failed`.
  * 3. Opted-out channel → unconsumed inbound is closed without a run; nothing is sent.
  * 4. Pass 1: insert the `agent_runs` row (`running`, trigger, channel, `is_eval=false`), atomically
  *    consume every unconsumed inbound message (oldest first), and collect the user's tapbacks on
@@ -23,8 +23,12 @@ import "server-only";
  * 7. Agent run with the 8s watchdog (one interim per run) and an abort signal (run deadline − 30s,
  *    lease loss). The plan is validated (interim → cap 2) and delivered with bubble keys
  *    `<runId>:<i>`. The pipeline sets `status`, `finished_at`, `error`; the agent writes the stats.
- * 8. Agent throws → un-consume + `retry`; on the last attempt one fallback bubble instead (messages
- *    stay consumed). Lease lost mid-run → un-consume + reschedule, nothing more is sent.
+ * 8. Agent throws → un-consume + `retry`, but only while the run is `replaySafe` (sent nothing a
+ *    replay would repeat, no mutating tool succeeded). On the last attempt, or after side effects,
+ *    one fallback bubble instead (messages stay consumed, no replay with a new runId). Lease lost
+ *    or invocation out of time mid-run → reschedule, nothing more is sent; the inbound is
+ *    un-consumed unless a mutating tool ran (an interim alone doesn't block it: no fallback can go
+ *    out on this path).
  * 9. Messages that arrived mid-run → exactly one follow-up pass (`isFollowUpPass`, new run row).
  * 10. Release the lease, then drain: claim the user's next due `turn:<userId>` job inline.
  */
@@ -69,6 +73,8 @@ export const DRAIN_MIN_BUDGET_MS = 45_000;
 export const DRAIN_MAX_WAIT_MS = 5_000;
 /** Last-attempt fallback when the agent keeps failing (V2-03 §2.14). */
 export const FALLBACK_TEXT = "ugh my brain glitched 😵 say that again?";
+/** Fallback after a failed run already changed something: asking to repeat it would double it. */
+export const PARTIAL_FALLBACK_TEXT = "ugh my brain glitched partway 😵 some of that may have gone through, so double-check before you resend";
 /** Sent once per local day when the daily turn cap is hit (V2-03 §2.12). */
 export const BREATHER_TEXT = "ok I need a breather 😮‍💨 back tomorrow";
 
@@ -76,6 +82,58 @@ export const BREATHER_TEXT = "ok I need a breather 😮‍💨 back tomorrow";
 export type RunTrigger = "inbound" | "welcome";
 /** `agent_runs.status` values the pipeline sets at the end. */
 export type RunStatus = "done" | "failed" | "aborted";
+
+/**
+ * What a run did that a replay (un-consume + a new run) would do again. One rule for orphan
+ * recovery and for in-process agent failures (`replaySafe`).
+ */
+export interface RunSideEffects {
+  /** It wrote an outbound row a replay would send again (interim, partial reply, fallback). The
+   *  per-channel welcome and contact card are keyed `welcome:<channelId>`, so they never repeat. */
+  sent: boolean;
+  /** A `mutates: true` tool succeeded (`agent_runs.tool_calls`), or the run created a pending
+   *  action or proposed a preference (rows carrying its id). */
+  mutated: boolean;
+}
+
+/** Outbound triggers a replay can never send twice (idempotency key per channel, not per run). */
+export const REPLAY_SAFE_TRIGGERS: ReadonlySet<string> = new Set(["welcome", "contact_card"]);
+
+/**
+ * Whether a run may be replayed (inbound un-consumed, a new run): only with no side effects.
+ * @param fx the run's side effects
+ * @returns true when nothing was sent or changed
+ */
+export function replaySafe(fx: RunSideEffects): boolean {
+  return !fx.sent && !fx.mutated;
+}
+
+/**
+ * Whether `agent_runs.tool_calls` records a mutating call that succeeded or may have: `ok: true`,
+ * or `timedOut: true` (the loop stopped waiting, so the side effect may still have landed). Pure.
+ * @param toolCalls the stored `tool_calls` JSON (`[{name, iteration, ok, ms, timedOut?}]`; anything else is ignored)
+ * @param mutating names of the `mutates: true` tools
+ * @returns true when at least one mutating call has `ok: true` or `timedOut: true`
+ */
+export function mutatingToolSucceeded(toolCalls: unknown, mutating: ReadonlySet<string>): boolean {
+  if (!Array.isArray(toolCalls)) return false;
+  return toolCalls.some(
+    (t) => isRecord(t) && (t.ok === true || t.timedOut === true) && typeof t.name === "string" && mutating.has(t.name),
+  );
+}
+
+let mutatingNames: Promise<ReadonlySet<string>> | null = null;
+
+/** Names of the registry's `mutates: true` tools (loaded lazily: stub mode never loads the agent). */
+function mutatingToolNames(): Promise<ReadonlySet<string>> {
+  mutatingNames ??= import("@/server/agent/tools")
+    .then((m): ReadonlySet<string> => new Set(m.TOOLS.filter((t) => t.spec.mutates === true).map((t) => t.spec.name)))
+    .catch((e: unknown) => {
+      mutatingNames = null;
+      throw e;
+    });
+  return mutatingNames;
+}
 
 /** The user fields a turn needs. */
 export interface TurnUser {
@@ -106,8 +164,8 @@ export interface TurnStore {
   unconsume(runId: string): Promise<number>;
   /** Unconsumed inbound messages of the user. */
   countUnconsumed(userId: string): Promise<number>;
-  /** Whether the run wrote any outbound row. */
-  hasOutbound(runId: string): Promise<boolean>;
+  /** What the run left behind that a replay would repeat (see `RunSideEffects`). */
+  sideEffects(runId: string): Promise<RunSideEffects>;
   /** Ids of this user's non-eval runs still `running`. */
   orphanRuns(userId: string): Promise<string[]>;
   /** `started_at` of the user's latest finished (`done`) inbound/welcome run. */
@@ -287,15 +345,24 @@ export function createDbTurnStore(client: Db = db()): TurnStore {
       return count ?? 0;
     },
 
-    async hasOutbound(runId) {
-      const { data, error } = await client
-        .from("messages")
-        .select("id")
-        .eq("run_id", runId)
-        .eq("direction", "out")
-        .limit(1);
-      if (error) fail("hasOutbound", error.message);
-      return (data?.length ?? 0) > 0;
+    async sideEffects(runId) {
+      const [out, run, pending, prefs] = await Promise.all([
+        client.from("messages").select("trigger").eq("run_id", runId).eq("direction", "out").limit(50),
+        client.from("agent_runs").select("tool_calls").eq("id", runId).maybeSingle(),
+        client.from("pending_actions").select("id").eq("run_id", runId).limit(1),
+        client.from("user_preferences").select("id").eq("proposed_by_run", runId).limit(1),
+      ]);
+      if (out.error) fail("sideEffects(messages)", out.error.message);
+      if (run.error) fail("sideEffects(agent_runs)", run.error.message);
+      if (pending.error) fail("sideEffects(pending_actions)", pending.error.message);
+      if (prefs.error) fail("sideEffects(user_preferences)", prefs.error.message);
+      const sent = (out.data ?? []).some((r) => !REPLAY_SAFE_TRIGGERS.has(r.trigger ?? ""));
+      let mutated = (pending.data?.length ?? 0) > 0 || (prefs.data?.length ?? 0) > 0;
+      const calls = run.data?.tool_calls;
+      if (!mutated && Array.isArray(calls) && calls.length > 0) {
+        mutated = mutatingToolSucceeded(calls, await mutatingToolNames());
+      }
+      return { sent, mutated };
     },
 
     async orphanRuns(userId) {
@@ -516,7 +583,8 @@ function deliveryNote(r: DeliverResult): string | null {
  * @param userId users.id from the job payload
  * @param job runner context (attempt, deadline, abort signal)
  * @param deps injected dependencies (tests); production defaults otherwise
- * @returns the job outcome: `done`, `retry` (agent failed; inbound un-consumed) or `reschedule`
+ * @returns the job outcome: `done`, `retry` (agent failed with no side effects; inbound
+ *   un-consumed) or `reschedule`
  *   (another run holds the lease, or the lease was lost mid-run)
  * @throws on DB errors (the runner retries; orphan recovery cleans up on the next attempt)
  */
@@ -569,12 +637,18 @@ export async function runConversationTurn(
   return outcome.result;
 }
 
+/** Why a run with side effects is not replayed (run note). */
+function sideEffectNote(fx: RunSideEffects): string {
+  return fx.sent ? "partial send, not replayed" : "mutated, not replayed";
+}
+
 /** Closes runs left `running` by a crashed invocation (V2-03 §2.2 orphan recovery). */
 async function recoverOrphans(d: TurnDeps, userId: string): Promise<void> {
   for (const id of await d.store.orphanRuns(userId)) {
-    if (await d.store.hasOutbound(id)) {
-      await d.store.finishRun(id, "failed", "orphan: partial send, not replayed");
-      console.warn(`[pipeline] orphan run ${id.slice(0, 8)} had sent; not replayed`);
+    const fx = await d.store.sideEffects(id);
+    if (!replaySafe(fx)) {
+      await d.store.finishRun(id, "failed", `orphan: ${sideEffectNote(fx)}`);
+      console.warn(`[pipeline] orphan run ${id.slice(0, 8)} had side effects (${fx.sent ? "sent" : "mutated"}); not replayed`);
     } else {
       const n = await d.store.unconsume(id);
       await d.store.finishRun(id, "failed", `orphan: recovered ${n} message(s)`);
@@ -613,6 +687,15 @@ async function runTurn(
     if (second.kind === "stop") return second.outcome;
   }
   return { result: DONE, drain: true };
+}
+
+/**
+ * The run's side effects from the DB (`TurnStore.sideEffects`), plus the in-process interim flag
+ * (set even if the outbound row write raced the failure).
+ */
+async function runSideEffects(c: TurnCtx, runId: string, interimSent: boolean): Promise<RunSideEffects> {
+  const fx = await c.d.store.sideEffects(runId);
+  return { sent: fx.sent || interimSent, mutated: fx.mutated };
 }
 
 async function runPass(c: TurnCtx, isFollowUpPass: boolean): Promise<PassResult> {
@@ -738,20 +821,37 @@ async function runPass(c: TurnCtx, isFollowUpPass: boolean): Promise<PassResult>
 
   if (c.runSignal.aborted) {
     // Lease lost (another run may own the user now) or the invocation is out of time: send nothing
-    // more; the reply was never delivered, so the inbound goes back for the next run.
-    const n = await c.d.store.unconsume(run.id);
-    await d.store.finishRun(run.id, "aborted", c.leaseLost() ? "lease lost" : "run deadline");
-    console.warn(`[pipeline] run ${run.id.slice(0, 8)} aborted (${c.leaseLost() ? "lease lost" : "deadline"}); ${n} message(s) released`);
+    // more. The reply was never delivered, so the inbound goes back for the next run, unless a
+    // mutating tool already ran (a replay would repeat it): then it stays consumed. The only
+    // bubble this path can have sent is the interim (the reply goes out after this check), and no
+    // fallback can be delivered here, so an interim alone doesn't block the replay: a second
+    // "one sec" beats a "one sec" followed by silence.
+    const why = c.leaseLost() ? "lease lost" : "run deadline";
+    const fx = await runSideEffects(c, run.id, im.sent);
+    if (!fx.mutated) {
+      const n = await c.d.store.unconsume(run.id);
+      await d.store.finishRun(run.id, "aborted", why);
+      console.warn(`[pipeline] run ${run.id.slice(0, 8)} aborted (${why}); ${n} message(s) released`);
+    } else {
+      await d.store.finishRun(run.id, "aborted", `${why}; mutated, not replayed`);
+      console.warn(`[pipeline] run ${run.id.slice(0, 8)} aborted (${why}) after side effects; not replayed`);
+    }
     return { kind: "stop", outcome: { result: reschedule(d, c.leaseLost() ? "lease_lost" : "deadline"), drain: false } };
   }
 
   if (threw || !result) {
     const err = errorText(failure);
-    if (c.job.attempt >= c.job.maxAttempts) {
-      // Last attempt: one fallback bubble, the messages stay consumed (no further retries).
-      const fb = await send({ plan: textPlan([FALLBACK_TEXT]), elapsedMs: 0, trigger: "fallback", keyPrefix: `${run.id}:fallback` });
-      await d.store.finishRun(run.id, "failed", err);
-      console.error(`[pipeline] agent failed on the last attempt (${err}); fallback ${fb.status}`);
+    const last = c.job.attempt >= c.job.maxAttempts;
+    const fx = await runSideEffects(c, run.id, im.sent);
+    if (last || !replaySafe(fx)) {
+      // Last attempt, or a replay would repeat what this run already did (an interim, a reminder,
+      // a draft, a block): one fallback bubble, the messages stay consumed (no retry, no new runId).
+      const text = fx.mutated ? PARTIAL_FALLBACK_TEXT : FALLBACK_TEXT;
+      const fb = await send({ plan: textPlan([text]), elapsedMs: 0, trigger: "fallback", keyPrefix: `${run.id}:fallback` });
+      await d.store.finishRun(run.id, "failed", replaySafe(fx) ? err : `${err}; ${sideEffectNote(fx)}`);
+      console.error(
+        `[pipeline] agent failed ${last ? "on the last attempt" : `after side effects (${fx.sent ? "sent" : "mutated"})`} (${err}); fallback ${fb.status}`,
+      );
       return { kind: "stop", outcome: { result: DONE, drain: true } };
     }
     const n = await d.store.unconsume(run.id);
