@@ -13,7 +13,7 @@
 
 | Developer | Task | Branch | Claimed At |
 | --------- | ---- | ------ | ---------- |
-| Daniel    | V2 free-test build — Waves 0–5 + review fixes built, second gate green; **next: commit approval, then credentials + deploy (master plan §7)** | main | 2026-10-09 |
+| Daniel    | V2 free-test build — Waves 0–5 + review fixes built, second gate green, committed; **next: V2-CREDS (accounts + deploy, master plan §7)** | main | 2026-10-09 |
 
 ---
 
@@ -34,8 +34,34 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 - [x] **V2-W4** ✅ 2026-10-10 Wave 4 — briefing + change alerts (4.1), scheduling + Aria calendar (4.2), Gmail intelligence + email tools (4.3), web setup/week (4.4), web integrations + email draft (4.5), web settings/export/delete (4.6); gate fixes: deterministic timeline tie-break, gmail smoke key, keepalive anon key, `sendRaw` eslint rule
 - [x] **V2-W5** ✅ 2026-10-10 Wave 5 — evals (5.1), V1 removal + V2 docs (5.2), dev-channel e2e + fixes (5.3), Playwright QA (5.4), fix agents 5.F1/5.F2, code review (5.5)
 - [x] **V2-W5R** ✅ 2026-10-11 — 5.5 review fixes (#1–#10, #13 + cleanups; #11 kept last-4; #12 documented gap), `pages.spec` h1 race, draft-intent gate fix; second gate green — see orchestrator notes → Wave 5 review fixes
-- [ ] **V2-WATCH** "…and book it" eval sits at 2/3 (Haiku sometimes books without asking) — decide whether to tighten (few-shot) or accept
-- [ ] **V2-CREDS** Daniel creates: Sendblue sandbox, Google Cloud project (OAuth client + Pub/Sub), Upstash Redis, Cloud Run (billing), Vercel project — see master plan §7
+- [ ] **V2-CREDS ← NEXT SESSION.** Everything left needs accounts only Daniel can create, all under Daniel's name. Put secrets straight into Vercel / `.env.local` (never paste them in chat); tell Claude when each step is done. Runbook: master plan §7 + `PRODUCTION.md` launch order.
+  - **Accounts, in this order:**
+    - [ ] 1. **Vercel (Hobby):** import `Use-Aria/aria-mvp`, Node 24 → deployed URL = `APP_BASE_URL` (Google needs it). Full env comes later.
+    - [ ] 2. **Google Cloud `aria-v2`:**
+      - link billing (Cloud Run needs it too)
+      - enable Gmail, Calendar and Pub/Sub
+      - try `<app>.vercel.app` as the authorized domain; buy a domain (~$11/yr) only if it's rejected (D4)
+      - consent screen **In production** (never Testing)
+      - web client with the prod + `http://localhost:3000/api/google/callback` redirect URIs
+      - Pub/Sub topic `gmail-push` + service account + push subscription (Claude walks through it)
+      - → `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GMAIL_PUBSUB_TOPIC`, `GMAIL_PUSH_SERVICE_ACCOUNT`, `GMAIL_PUSH_SUBSCRIPTION`
+    - [ ] 3. **Sendblue sandbox:** API key/secret, signing secret, from number; auto-typing + mark-read ON (D12); list of friends' numbers (≤10) for `add-contact`
+    - [ ] 4. **Upstash:** free Redis near `iad1` → REST URL + token
+    - [ ] 5. **Anthropic:** separate key in an `aria-parser` workspace (D6)
+    - [ ] 6. **Cloud Run parser:** after billing, Claude gives the exact `gcloud` commands (deploy `us-east4`, max 2 instances, secrets, $5 budget), or runs them after `! gcloud auth login` → `PARSER_SERVICE_URL`, `PARSER_SHARED_SECRET`
+  - **Small items:**
+    - [ ] contact email for `/privacy` (Google's branding form needs it)
+    - [ ] GitHub repo secrets `SUPABASE_URL` + `SUPABASE_ANON_KEY` (publishable key) for the keepalive
+    - [ ] `APP_ENCRYPTION_KEY` backed up in the password manager
+    - [ ] optional: free `aria-dev` Supabase project (D11)
+  - **Decisions for Daniel:**
+    - [ ] "…and book it": Haiku sometimes books without asking (eval 2/3, pre-existing). Tighten with a few-shot, or accept?
+    - [ ] Turn replay after a lost lease/deadline: a turn that only sent "one sec" may replay (possible second "one sec"). OK, or never replay once anything was sent?
+    - [ ] "Texting as ••• 1234": keep it in the Google section of `/setup`, or move it to the top so it also warns before a Canvas connect from a forwarded link?
+  - **Then Claude does:**
+    - set every prod env var (master plan §4; `CRON_SECRET` = `openssl rand -hex 32`) and redeploy
+    - §7.2: Vault secrets + 15s tick + `noop` check, Vercel crons + heartbeat, Sendblue webhook test text, Daniel's first Google connect, parser `/healthz` + `SYLLABUS_MEDIA_ALLOWED_HOSTS` from the first real PDF
+    - work through `PRODUCTION.md` §2 [verify] with Daniel, then invite friends
 
 > **The V1 backlog below (Onboarding / AUD / PH) is SUPERSEDED by V2** — V2 drops the app, Twilio, and Celery and rewrites the identity/schema, so most of it no longer applies. Kept for reference only.
 
@@ -117,7 +143,7 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 
 ### 2026-10-11 — Daniel (V2: Wave 5 review fixes + second gate, orchestrated by sub-agents)
 
-**Where to resume:** commit approval for this pass (proposed split in the session summary), then **credentials + deploy**: master plan §7, `PRODUCTION.md` launch order and §2 [verify] list. The build itself is complete; everything left needs real accounts.
+**Where to resume:** work through **V2-CREDS** in Up Next above (accounts → small items → 3 decisions), then deploy (master plan §7, `PRODUCTION.md` launch order and the §2 [verify] list). The build is complete and committed (`146a936`..`3d4c483`); everything left needs real accounts.
 
 **Done this session:**
 - **Triage (Daniel):** fix #1–#6 and #8–#10 (#5 without a migration); #7 = per-phone signup limit + the welcome confirms the name; #11 keeps last-4 in logs; #13 masked phone on `/setup`; duplicate-string cleanups in; #12 left as a documented gap.
@@ -145,9 +171,7 @@ Build order — see `docs/plans/2026-10-09-aria-v2-free-testing-plan.md`:
 - **Spend:** about $0.47 in real LLM calls, all on the local stack.
 
 **Open / needs Daniel:**
-- Commit approval.
-- Credentials (Sendblue, Google, Upstash, Cloud Run + billing, Vercel, parser Anthropic key), GitHub keepalive secrets, and a contact email for `/privacy`.
-- "…and book it" eval at 2/3 (pre-existing).
+- Everything in **V2-CREDS** (accounts, small items, three decisions).
 
 **Know before you start:**
 - `.env.local` has an empty `PARSER_SHARED_SECRET`. For local e2e:chat, export the parser's value (LOCALDEV step 2).
